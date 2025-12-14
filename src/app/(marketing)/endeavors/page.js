@@ -43,7 +43,7 @@ const ENDEAVORS = [
 
 export default function EndeavorsPage() {
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-[#FDFBF7] via-[#E8F3F1] to-[#E0E7FF] pt-24 pb-24 px-4 selection:bg-teal-200 selection:text-teal-900">
+    <div className="min-h-screen w-full bg-gradient-to-br from-[#FDFBF7] via-[#E8F3F1] to-[#E0E7FF] pt-24 md:pt-40 pb-24 px-4 selection:bg-teal-200 selection:text-teal-900">
       <div className="max-w-6xl mx-auto">
         {/* --- HEADER --- */}
         <header className="relative text-center mb-16 max-w-3xl mx-auto animate-fade-in z-10">
@@ -53,11 +53,8 @@ export default function EndeavorsPage() {
             </span>
           </div>
 
-          <h1 className="text-4xl md:text-6xl font-black uppercase text-slate-900 tracking-normal mb-4 drop-shadow-sm leading-tight">
-            Active{" "}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-500 via-indigo-500 to-purple-500 animate-gradient-x">
-              Ventures
-            </span>
+          <h1 className="text-4xl md:text-6xl font-black uppercase text-slate-900 tracking-normal mb-4 drop-shadow-sm leading-tight text-transparent bg-clip-text bg-gradient-to-r from-teal-500 via-indigo-500 to-purple-500 animate-gradient-x">
+            Ventures
           </h1>
 
           <p className="text-slate-500 text-xl font-medium max-w-xl mx-auto leading-relaxed">

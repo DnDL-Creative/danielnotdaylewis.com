@@ -102,7 +102,7 @@ export default function Navbar() {
             md:bg-transparent md:border-transparent md:shadow-none
             ${
               scrolled
-                ? /* 👇 HERE IS THE MAGIC GRADIENT TINT RESTORED 👇 */
+                ? /* 👇 GRADIENT TINT 👇 */
                   "md:w-[85%] md:px-8 md:py-3 md:rounded-full md:shadow-2xl md:shadow-teal-900/10 md:backdrop-blur-3xl md:border md:border-white/50 md:bg-gradient-to-br md:from-white/90 md:via-teal-50/80 md:to-teal-200/60"
                 : "md:w-full md:max-w-[1400px] md:px-12 md:py-4"
             }
@@ -178,6 +178,8 @@ export default function Navbar() {
                         : "w-0 opacity-0"
                     }`}
                 />
+
+                {/* --- DESKTOP SEARCH EXIT BUTTON --- */}
                 {isSearchOpen && (
                   <button
                     type="button"
@@ -186,9 +188,12 @@ export default function Navbar() {
                       setResults([]);
                       setIsSearchOpen(false);
                     }}
-                    className="ml-1 text-slate-400 hover:text-red-500 transition-colors"
+                    className="group ml-1 p-0.5 rounded-full hover:bg-slate-100 transition-all duration-200"
                   >
-                    <X size={14} />
+                    <X
+                      size={14}
+                      className="text-slate-400 group-hover:text-teal-600"
+                    />
                   </button>
                 )}
               </form>
@@ -245,11 +250,15 @@ export default function Navbar() {
             : "opacity-0 invisible pointer-events-none"
         }`}
       >
+        {/* --- MOBILE EXIT BUTTON (THEMED) --- */}
         <button
           onClick={() => setIsOpen(false)}
-          className="absolute top-6 right-6 p-2 text-slate-800"
+          className="absolute top-6 right-6 group p-3 rounded-full bg-white border border-slate-100 shadow-sm hover:shadow-md hover:border-teal-100 transition-all duration-300"
         >
-          <X size={32} />
+          <X
+            size={24}
+            className="text-slate-400 group-hover:text-teal-500 group-hover:rotate-90 transition-transform duration-300 ease-out"
+          />
         </button>
 
         {navLinks.map((link) => (

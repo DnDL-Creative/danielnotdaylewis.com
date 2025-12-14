@@ -83,7 +83,7 @@ export default async function BlogPost({ params }) {
   const { wordCount, readTime } = calculateReadingStats(post.content);
 
   return (
-    <div className="min-h-screen w-full bg-[#FDFBF7] selection:bg-teal-200 selection:text-teal-900">
+    <div className="pt-24 md:pt-40 min-h-screen w-full bg-[#FDFBF7] selection:bg-teal-200 selection:text-teal-900">
       {/* HERO SECTION */}
       <div className="relative bg-slate-900 text-white pt-24 pb-20 px-4 md:px-6 rounded-b-[2.5rem] md:rounded-b-[3.5rem] shadow-2xl overflow-hidden">
         {/* Background Gradients */}

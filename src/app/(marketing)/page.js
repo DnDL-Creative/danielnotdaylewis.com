@@ -26,7 +26,9 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="w-full max-w-[100vw] overflow-x-hidden flex flex-col items-center bg-slate-50">
+    // FIX APPLIED HERE: Added 'pt-20 md:pt-40' to push content down below Navbar.
+    // 'bg-slate-50' ensures the background color extends behind the Navbar.
+    <div className="w-full max-w-[100vw] overflow-x-hidden flex flex-col items-center bg-slate-50 pt-20 md:pt-40">
       <div className="w-full max-w-[1400px] px-6 pb-20">
         {/* --- 1. HERO SECTION --- */}
         <header className="relative flex flex-col justify-center items-center min-h-[75vh] md:min-h-[80vh] pb-24 w-full max-w-4xl mx-auto space-y-8 animate-fade-in text-center">

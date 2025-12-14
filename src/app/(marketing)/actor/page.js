@@ -3,13 +3,9 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import Atmosphere from "../../../components/marketing/Atmosphere"; // (Check your path!)
 import {
   Play,
   Pause,
-  Star,
-  ChevronLeft,
-  ChevronRight,
   BookOpen,
   Users,
   Mic2,
@@ -23,25 +19,31 @@ import {
   Video as VideoIcon,
   ArrowRight,
   AlertCircle,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 export default function ActorPage() {
   return (
-    <div className="w-full max-w-[100vw] overflow-x-hidden flex flex-col items-center pb-32">
+    // 1. OUTER WRAPPER: The Gradient MUST be here to color the gap behind the navbar.
+    <div className="w-full min-h-screen max-w-[100vw] overflow-x-hidden flex flex-col items-center pb-24 bg-gradient-to-br from-teal-50/50 via-indigo-50/50 to-slate-50">
       {/* =========================================
           1. HERO & ORIGIN STORY
       ========================================= */}
       <section
         id="training"
-        className="w-full max-w-[1400px] px-4 md:px-6 pt-12 md:pt-24"
+        // 2. PRECISE PADDING: 'pt-16' (64px) is almost exactly the height of your mobile navbar.
+        //    This closes the physical gap.
+        className="w-full max-w-[1400px] px-4 md:px-6 pt-16 md:pt-32"
       >
         <div className="relative group rounded-[2.5rem] bg-white/40 backdrop-blur-md border border-white/60 shadow-xl overflow-hidden p-6 md:p-16 flex flex-col lg:flex-row items-center gap-12">
           {/* Ambient Background Orbs */}
           <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-teal-200/20 rounded-full blur-[100px] -z-10 pointer-events-none" />
           <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-indigo-200/20 rounded-full blur-[100px] -z-10 pointer-events-none" />
 
-          {/* HEADSHOT with Spinning Portal Ring */}
-          <div className="relative flex-shrink-0 w-72 h-72 md:w-[450px] md:h-[450px]">
+          {/* HEADSHOT */}
+          {/* 3. MOBILE ADJUSTMENT: Added 'mt-6' to push the image down slightly so it's not too close to the top edge */}
+          <div className="relative flex-shrink-0 w-72 h-72 md:w-[450px] md:h-[450px] mt-6 md:mt-0">
             <div className="absolute inset-0 rounded-full border border-teal-500/20 md:border-teal-500/10 scale-110 animate-[spin_10s_linear_infinite]" />
             <div className="absolute inset-0 rounded-full border border-indigo-500/20 md:border-indigo-500/10 scale-105 animate-[spin_15s_linear_infinite_reverse]" />
 
@@ -56,7 +58,7 @@ export default function ActorPage() {
             </div>
           </div>
 
-          {/* TEXT CONTENT - CHANGED: text-center removed, now text-left everywhere */}
+          {/* TEXT CONTENT */}
           <div className="flex-1 text-left space-y-8 z-10">
             <h1 className="text-4xl md:text-7xl font-black uppercase leading-[0.9] text-slate-900 tracking-tighter">
               Acting <br />
@@ -140,18 +142,17 @@ export default function ActorPage() {
       </section>
 
       {/* =========================================
-          3. THE PIVOT (POLAROID + TAPE)
+          3. THE PIVOT
       ========================================= */}
       <section id="career" className="w-full max-w-[1100px] px-6 mx-auto mb-24">
         <div className="flex flex-col-reverse md:flex-row items-center gap-12 md:gap-24">
-          {/* TEXT SIDE - CHANGED: text-center removed, now text-left everywhere */}
           <div className="flex-1 space-y-6 text-left">
             <div className="inline-block px-4 py-1.5 bg-indigo-50 text-indigo-900 rounded-full text-[10px] font-black uppercase tracking-[0.2em] border border-indigo-100">
               The Pivot
             </div>
             <h2 className="text-3xl md:text-5xl font-black text-slate-900 uppercase leading-none">
               From Screen <br /> to (mostly){" "}
-              <span className="text-teal-600">The Mic</span>
+              <span className="text-teal-600">Mic</span>
             </h2>
             <p className="text-slate-600 text-lg leading-relaxed">
               In 2018, everything changed during a Groundlings improv class when
@@ -163,21 +164,16 @@ export default function ActorPage() {
             </p>
             <p className="text-slate-500 text-lg font-medium">
               So I pivoted. Since then, I’ve recorded over{" "}
-              <strong className="text-slate-900">100 audiobooks</strong> with
+              <strong className="text-slate-900">100 audiobooks</strong> to
               thousands of outstanding reviews (minus the unhinged negative
               ones, which almost all authors and narrators have to put up with,
               btw).
             </p>
           </div>
 
-          {/* POLAROID SIDE - MAXIMALIST TAPE EFFECT */}
           <div className="relative group cursor-pointer perspective-1000 mt-12 md:mt-0">
-            {/* THE SCOTCH TAPE */}
             <div className="absolute -top-6 left-1/2 -translate-x-1/2 w-32 h-10 bg-white/30 backdrop-blur-[2px] border-l border-r border-white/40 rotate-[-3deg] shadow-sm z-30 pointer-events-none opacity-80 mix-blend-hard-light"></div>
-
-            {/* THE POLAROID CARD */}
             <div className="relative bg-white p-3 pb-16 rounded shadow-[0_20px_50px_rgba(0,0,0,0.15)] rotate-3 group-hover:rotate-0 transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] w-72 md:w-[320px] mx-auto border border-slate-100">
-              {/* Image Container */}
               <div className="relative aspect-[4/3] bg-gray-100 overflow-hidden filter contrast-110">
                 <Image
                   src="/images/dndl-website-pd.webp"
@@ -186,8 +182,6 @@ export default function ActorPage() {
                   className="object-cover grayscale group-hover:grayscale-0 transition-all duration-700"
                 />
               </div>
-
-              {/* Caption */}
               <div className="absolute bottom-4 left-0 right-0 text-center font-handwriting text-slate-800 opacity-90 font-bold rotate-[-1deg]">
                 First TV Appearance
                 <br />
@@ -201,14 +195,14 @@ export default function ActorPage() {
       </section>
 
       {/* =========================================
-          4. MEDIA GALLERY (VIDEO + REVIEWS)
+          4. MEDIA GALLERY
       ========================================= */}
       <section
         id="feedback"
         className="w-full max-w-[1400px] px-4 md:px-6 mb-24"
       >
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
-          {/* LEFT: Praise & Video Container */}
+          {/* LEFT */}
           <div className="relative rounded-[2.5rem] bg-white/40 backdrop-blur-md border border-white/60 shadow-xl p-8 md:p-10 space-y-8 flex flex-col">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div>
@@ -221,19 +215,12 @@ export default function ActorPage() {
               </div>
             </div>
 
-            {/* VIDEO PLAYER - FIXED FOR IPHONE & LOCALHOST */}
             <div className="relative group overflow-hidden rounded-[1.5rem] bg-slate-900 shadow-lg aspect-video w-full">
               <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] mix-blend-overlay pointer-events-none"></div>
               <div className="relative h-full w-full flex items-center justify-center bg-black">
                 <div className="absolute top-4 left-4 z-20 bg-white/10 backdrop-blur-md pl-2 pr-3 py-1 rounded-full text-white text-[10px] font-bold uppercase tracking-widest border border-white/20 flex items-center gap-2">
                   <VideoIcon size={12} /> Video Praise
                 </div>
-
-                {/* UPDATED VIDEO TAG: 
-                   1. src is direct (no <source>)
-                   2. playsInline added for iPhone
-                   3. preload="auto" for speed
-                */}
                 <video
                   key="video-praise"
                   className="w-full h-full object-contain opacity-90 group-hover:opacity-100 transition-opacity duration-500"
@@ -248,7 +235,6 @@ export default function ActorPage() {
               </div>
             </div>
 
-            {/* TESTIMONIALS */}
             <div className="space-y-4 flex-grow">
               <div className="relative p-5 bg-white/50 rounded-2xl border border-white shadow-sm">
                 <Quote
@@ -274,13 +260,7 @@ export default function ActorPage() {
                 <p className="relative z-10 text-slate-700 font-serif italic text-sm leading-relaxed pl-6">
                   “Fellow authors, If you’re looking for a professional narrator
                   to create your audiobook, you should give strong consideration
-                  to working with Daniel Lewis (no, not Daniel Day Lewis). Dan
-                  did an outstanding job narrating my last novel Right There in
-                  Black and White. It was a true performance... Dan was also a
-                  joy to collaborate with—professional, communicative, and
-                  genuinely passionate about the craft. If you want your
-                  audiobook to resonate with listeners and stand out from the
-                  crowd, Dan Lewis is the narrator to trust.”
+                  to working with Daniel Lewis (no, not Daniel Day Lewis)...”
                 </p>
                 <div className="mt-2 pl-6 text-xs font-bold text-slate-900 uppercase tracking-wider">
                   — Jim Christ, Author of “Right There in Black and White”
@@ -356,12 +336,10 @@ export default function ActorPage() {
       <section className="w-full max-w-[1000px] px-6 mb-32">
         <div className="relative overflow-hidden rounded-[3rem] p-1 bg-gradient-to-br from-teal-300 via-indigo-300 to-pink-300 shadow-2xl shadow-indigo-100">
           <div className="bg-white/95 rounded-[2.8rem] p-12 md:p-20 text-center relative overflow-hidden">
-            {/* Background Glow */}
             <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-transparent to-white z-10" />
             <div className="absolute -top-20 -right-20 w-64 h-64 bg-teal-200/30 rounded-full blur-3xl z-0" />
 
             <div className="relative z-20 flex flex-col items-center">
-              {/* Floating Icon */}
               <div className="w-20 h-20 bg-gradient-to-br from-slate-900 to-slate-700 text-white rounded-3xl flex items-center justify-center mb-8 shadow-xl transform -rotate-6 transition-transform hover:rotate-0 duration-500">
                 <Smartphone size={36} />
               </div>
@@ -375,17 +353,15 @@ export default function ActorPage() {
 
               <p className="text-slate-500 text-lg max-w-xl mx-auto mb-10 leading-relaxed font-medium">
                 I’ve built a <strong>comprehensive smart scheduler</strong>{" "}
-                designed specifically for audio production. It handles solo
-                bookings instantly and intelligently routes dual, duet, and
-                multi-cast projects to ensure seamless coordination.
+                designed specifically for audio production.
               </p>
 
               <a
                 href="/scheduler"
                 target="_blank"
-                className="inline-flex items-center justify-center gap-3 px-8 py-4 bg-slate-900 text-white font-black uppercase tracking-widest rounded-full hover:bg-teal-600 hover:scale-105 hover:shadow-teal-500/20 transition-all shadow-xl"
+                className="w-full md:w-auto inline-flex items-center justify-center gap-3 px-6 py-3 md:px-8 md:py-4 bg-slate-900 text-white text-sm md:text-base font-black uppercase tracking-widest rounded-full hover:bg-teal-600 hover:scale-105 hover:shadow-teal-500/20 transition-all shadow-xl"
               >
-                Enter Your Project Details Now <ArrowRight size={18} />
+                Enter Project Details Now <ArrowRight size={18} />
               </a>
             </div>
           </div>
@@ -458,12 +434,12 @@ function Carousel() {
     {
       img: "/images/never-far.png",
       title: "Never Far",
-      subtitle: "by A.A. Dark and Alaska Angelini",
+      subtitle: "by A.A. Dark",
       link: "https://www.audible.com/pd/Never-Far-The-Foundation-of-Boston-Marks-Audiobook/B0F6GV9HLR",
     },
     {
       img: "/images/dndl-website-rtibw.webp",
-      title: "Right There in Black & White",
+      title: "Right There",
       subtitle: "by Jim Christ",
       link: "https://www.amazon.com/Right-There-Black-White-Christ/dp/1958727601",
     },
@@ -536,12 +512,11 @@ function AudioPlayer() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
-
   const audioRef = useRef(null);
 
   const tracks = [
     {
-      title: "Emotional/Angsty",
+      title: "Emotional",
       src: "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/audio/demo_neverfar.mp3",
       explicit: true,
     },
@@ -549,14 +524,12 @@ function AudioPlayer() {
       title: "M/F Dialogue",
       src: "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/audio/demo_filthy_rich_santas_female_dialogue.mp3",
     },
-
     {
-      title: "Character Interaction",
+      title: "Character",
       src: "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/audio/demo-rtibw-amos-intro.mp3",
     },
   ];
 
-  // Logic: Select Track & Play
   const playTrack = (src) => {
     if (activeTrack === src) {
       togglePlay();
@@ -567,13 +540,11 @@ function AudioPlayer() {
     }
   };
 
-  // Logic: Toggle Play/Pause
   const togglePlay = () => {
     if (!activeTrack) {
       playTrack(tracks[0].src);
       return;
     }
-
     if (isPlaying) {
       audioRef.current.pause();
       setIsPlaying(false);
@@ -583,28 +554,20 @@ function AudioPlayer() {
     }
   };
 
-  // Logic: Update Progress Bar
   const onTimeUpdate = () => {
-    if (audioRef.current) {
-      setCurrentTime(audioRef.current.currentTime);
-    }
+    if (audioRef.current) setCurrentTime(audioRef.current.currentTime);
   };
 
-  // Logic: Load Duration
   const onLoadedMetadata = () => {
-    if (audioRef.current) {
-      setDuration(audioRef.current.duration);
-    }
+    if (audioRef.current) setDuration(audioRef.current.duration);
   };
 
-  // Logic: Seek
   const handleSeek = (e) => {
     const time = parseFloat(e.target.value);
     audioRef.current.currentTime = time;
     setCurrentTime(time);
   };
 
-  // Helper: Format Time
   const formatTime = (time) => {
     if (isNaN(time)) return "0:00";
     const minutes = Math.floor(time / 60);
@@ -612,18 +575,16 @@ function AudioPlayer() {
     return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
   };
 
-  // Helper: Get Current Track Info
   const currentTrackObj = tracks.find((t) => t.src === activeTrack);
   const currentTitle = currentTrackObj?.title || "Select a Demo";
   const isExplicit = currentTrackObj?.explicit;
 
   return (
-    <div className="bg-white/80 backdrop-blur-xl p-2 md:py-3 md:px-6 rounded-3xl shadow-[0_20px_50px_-12px_rgba(0,0,0,0.3)] border border-white/60 ring-1 ring-black/5 animate-fade-in-up">
-      {/* Top Row: Play & Progress */}
-      <div className="flex items-center gap-3 md:gap-4 mb-2 md:mb-2">
+    <div className="bg-white/80 backdrop-blur-xl p-3 md:py-3 md:px-6 rounded-3xl shadow-[0_20px_50px_-12px_rgba(0,0,0,0.3)] border border-white/60 ring-1 ring-black/5 animate-fade-in-up z-10">
+      <div className="flex items-center gap-3 md:gap-4 mb-3">
         <button
           onClick={togglePlay}
-          className={`flex-shrink-0 w-10 h-10 md:w-14 md:h-14 rounded-full flex items-center justify-center text-white shadow-lg transition-all ${
+          className={`flex-shrink-0 w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center text-white shadow-lg transition-all ${
             isPlaying
               ? "bg-teal-500 hover:scale-105 hover:bg-teal-400"
               : "bg-slate-900 hover:scale-105 hover:bg-slate-800"
@@ -640,16 +601,15 @@ function AudioPlayer() {
           )}
         </button>
 
-        <div className="flex-1 flex flex-col justify-center">
-          <div className="flex justify-between items-end mb-1 px-1">
+        <div className="flex-1 flex flex-col justify-center pl-2 md:pl-4">
+          <div className="flex justify-between items-center mb-2">
             <div className="flex items-center gap-2">
-              <span className="text-[9px] md:text-xs font-black uppercase tracking-widest text-slate-900">
+              <span className="text-[10px] md:text-xs font-black uppercase tracking-widest text-slate-900 truncate max-w-[120px] md:max-w-none">
                 {currentTitle}
               </span>
 
-              {/* --- WARNING LABEL --- */}
               {isExplicit && (
-                <div className="flex items-center gap-1 bg-red-50 px-1.5 py-0.5 rounded-full border border-red-100 animate-pulse">
+                <div className="flex items-center gap-1 bg-red-50 px-1.5 py-0.5 rounded-full border border-red-100">
                   <AlertCircle size={8} className="text-red-500" />
                   <span className="text-[6px] md:text-[8px] font-black uppercase text-red-500 tracking-wider">
                     Graphic
@@ -658,7 +618,7 @@ function AudioPlayer() {
               )}
             </div>
 
-            <span className="text-[9px] font-mono font-medium text-slate-500">
+            <span className="text-[9px] font-mono font-medium text-slate-500 whitespace-nowrap ml-2">
               {formatTime(currentTime)} / {formatTime(duration)}
             </span>
           </div>
@@ -669,18 +629,17 @@ function AudioPlayer() {
             max={duration}
             value={currentTime}
             onChange={handleSeek}
-            className="w-full h-1 md:h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-teal-500 hover:accent-teal-400 transition-all"
+            className="w-full h-1 md:h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-teal-500 hover:accent-teal-400 transition-all block"
           />
         </div>
       </div>
 
-      {/* Bottom Row: Track Selectors */}
-      <div className="grid grid-cols-3 gap-1 md:gap-2">
+      <div className="grid grid-cols-3 gap-2">
         {tracks.map((track) => (
           <button
             key={track.src}
             onClick={() => playTrack(track.src)}
-            className={`py-1.5 px-1 md:py-2.5 rounded-xl text-[9px] md:text-xs font-bold uppercase tracking-wider transition-all border flex items-center justify-center gap-1
+            className={`py-2 px-1 rounded-xl text-[9px] md:text-xs font-bold uppercase tracking-wider transition-all border flex items-center justify-center gap-1
                  ${
                    activeTrack === track.src
                      ? "bg-teal-50 text-teal-900 border-teal-200 shadow-sm"
@@ -689,7 +648,6 @@ function AudioPlayer() {
                `}
           >
             {track.title}
-            {/* Small red dot on the button itself if explicit */}
             {track.explicit && (
               <div className="w-1.5 h-1.5 bg-red-400 rounded-full" />
             )}
@@ -708,6 +666,7 @@ function AudioPlayer() {
     </div>
   );
 }
+
 function WhyCard({ icon, title, desc }) {
   return (
     <div className="group relative bg-white/40 backdrop-blur-sm border border-white/60 p-8 rounded-3xl text-left transition-all duration-500 hover:-translate-y-2 hover:bg-white/80 hover:shadow-2xl hover:shadow-teal-900/5">

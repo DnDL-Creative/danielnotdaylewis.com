@@ -24,7 +24,7 @@ export default function CollabPage() {
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center bg-gradient-to-br from-[#FDFBF7] via-[#E8F3F1] to-[#E0E7FF] px-4 pt-24 pb-24 selection:bg-teal-200 selection:text-teal-900">
+    <div className="min-h-screen w-full flex flex-col items-center justify-center bg-gradient-to-br from-[#FDFBF7] via-[#E8F3F1] to-[#E0E7FF] px-4 pt-24 md:pt-40 pb-24 selection:bg-teal-200 selection:text-teal-900">
       <div className="w-full max-w-2xl relative z-10 animate-fade-in-up">
         {/* --- HEADER --- */}
         <div className="text-center mb-12">

@@ -23,12 +23,16 @@ export default function BlogIndexPage() {
   }, []);
 
   return (
-    <div className="relative min-h-screen w-full bg-slate-50 pt-24 pb-24 px-4 overflow-hidden">
-      {/* ATMOSPHERE: Clean, soft blobs */}
+    // FIX: Removed 'bg-slate-50' from here if it was causing issues, or ensure body is slate-50.
+    // ADDED: bg-slate-50 explicitly to wrapper to cover the top gap.
+    <div className="pt-24 md:pt-40 relative min-h-screen w-full bg-slate-50 pt-28 pb-24 px-4 overflow-hidden">
+      {/* ATMOSPHERE: Make sure this is ABSOLUTE TOP: 0 */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
         <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-teal-100/40 blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-blue-100/40 blur-[120px]" />
       </div>
+
+      {/* Rest of your content... */}
 
       <div className="relative z-10 max-w-7xl mx-auto">
         {/* Header */}
@@ -44,7 +48,7 @@ export default function BlogIndexPage() {
             Blog
           </h1>
 
-          <p className="text-slate-500 text-xl font-medium max-w-xl mx-auto leading-relaxed">
+          <p className="text-slate-500 text-2xl font-medium max-w-xl mx-auto leading-relaxed">
             Lessons from exploring the alternatives space.
           </p>
         </header>

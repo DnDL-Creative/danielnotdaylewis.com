@@ -12,16 +12,17 @@ const nunito = Nunito_Sans({
 
 export const metadata = {
   title: {
-    template: "%s | Dan Lewis",
+    template: "%s | Daniel Lewis",
     default: "Daniel (not Day) Lewis",
   },
-  description:
-    "Portfolio of sorts and thoughts of Daniel Lewis, Artist and Entrepreneur.",
+  description: "A quasi-portfolio.",
   icons: {
-    icon: "/icon.png", // The file you just added
+    icon: "/icon.png",
     apple: "/icon.png",
   },
 };
+
+/* ... imports */
 
 export default function RootLayout({ children }) {
   return (
@@ -33,11 +34,9 @@ export default function RootLayout({ children }) {
           min-h-screen 
           flex flex-col 
           
-          /* --- CREME TO GRAY GRADIENT --- */
-          /* 1. Direction: Top to Bottom (bg-gradient-to-b) */
-          /* 2. Start: Warm off-white/creme (from-stone-50) */
-          /* 3. End: Neutral light gray (to-gray-200) */
-          bg-gradient-to-b from-stone-50 via-gray-100 to-gray-200
+          /* --- EYE SAVER GRADIENT --- */
+          /* Changed from white/stone to cool slate greys */
+          bg-gradient-to-b from-slate-200 via-slate-300 to-slate-400
           
           bg-fixed
           
@@ -49,6 +48,7 @@ export default function RootLayout({ children }) {
         `}
         suppressHydrationWarning
       >
+        {/* ... Rest of file ... */}
         <ThemeProvider
           attribute="class"
           defaultTheme="light"
@@ -56,7 +56,14 @@ export default function RootLayout({ children }) {
         >
           <div className="flex flex-col min-h-screen relative z-10">
             <Navbar />
-            <main className="flex-grow pt-32 md:pt-40">{children}</main>
+
+            {/* FIXED: Removed 'pt-32 md:pt-40' 
+                Now the pages (children) will go all the way to the top.
+                The pages themselves (ActorPage, etc.) must handle the top padding
+                to clear the Navbar.
+            */}
+            <main className="flex-grow">{children}</main>
+
             <Footer />
           </div>
         </ThemeProvider>

@@ -49,7 +49,7 @@ export default function Footer() {
                   text-2xl md:text-3xl
                   text-transparent bg-clip-text
                   bg-gradient-to-r from-blue-600 to-teal-400
-                  transition-transform duration-300 group-hover:scale-[1.02]
+                  transition-transform duration-300 group-hover:scale-[1.02] pr-5
                 "
               >
                 Daniel (not Day) Lewis

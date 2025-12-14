@@ -39,10 +39,14 @@
   --color-primary-dark: #115e59;
   --color-secondary: #d4a373;
   --color-secondary-light: #faedcd;
-  --color-bg: #fdfdfc;
-  --color-surface: #ffffff;
+
+  /* CHANGED: Darker background for eye strain */
+  --color-bg: #e2e8f0;
+  /* CHANGED: Slightly softer surface white */
+  --color-surface: #f8fafc;
+
   --color-text-main: #1f2937;
-  --color-text-muted: #6b7280;
+  --color-text-muted: #4b5563; /* Darkened slightly for better contrast on darker bg */
   --nav-height: 80px;
   --radius-lg: 1.5rem;
 }
@@ -52,8 +56,8 @@
   --color-primary: #14b8a6;
   --color-primary-light: #2dd4bf;
   --color-primary-dark: #0f766e;
-  --color-bg: #0a0a0a;
-  --color-surface: #171717;
+  --color-bg: #0f172a; /* Slate 900 */
+  --color-surface: #1e293b; /* Slate 800 */
   --color-text-main: #f3f4f6;
   --color-text-muted: #9ca3af;
 }
@@ -261,76 +265,59 @@
 /* =========================================
    4. BLOG TYPOGRAPHY SYSTEM
    ========================================= */
-/* Targets the raw HTML injected via dangerouslySetInnerHTML */
-
 .blog-content {
-  color: #334155; /* Slate-700 */
+  color: #334155;
   line-height: 1.8;
-  font-size: 1.125rem; /* 18px */
+  font-size: 1.125rem;
 }
-
-/* Common flow for all injected content */
 .blog-content > * + * {
   margin-top: 1.5em;
 }
-
-/* --- HEADINGS --- */
 .blog-content h2 {
-  font-size: 1.875rem; /* 30px */
+  font-size: 1.875rem;
   font-weight: 900;
-  color: #0f172a; /* Slate-900 */
+  color: #0f172a;
   margin-top: 3.5rem;
   margin-bottom: 1.5rem;
   letter-spacing: -0.025em;
   line-height: 1.2;
 }
-
 .blog-content h3 {
-  font-size: 1.5rem; /* 24px */
+  font-size: 1.5rem;
   font-weight: 800;
   color: #1e293b;
   margin-top: 2.5rem;
   margin-bottom: 1rem;
 }
-
-/* --- PARAGRAPHS --- */
 .blog-content p {
   margin-bottom: 2rem;
 }
-
-/* --- GLOWING LISTS --- */
 .blog-content ul {
   list-style: none;
   margin: 2rem 0;
   padding-left: 0;
 }
-
 .blog-content li {
   position: relative;
   padding-left: 2rem;
   margin-bottom: 1rem;
 }
-
-/* Radioactive Dot */
 .blog-content li::before {
   content: "";
   position: absolute;
   left: 0;
-  top: 11px; /* Aligns with text */
+  top: 11px;
   width: 8px;
   height: 8px;
-  background-color: #14b8a6; /* Teal-500 */
+  background-color: #14b8a6;
   border-radius: 50%;
   box-shadow: 0 0 10px #14b8a6, 0 0 20px rgba(20, 184, 166, 0.4);
   transition: transform 0.3s ease;
 }
-
 .blog-content li:hover::before {
   transform: scale(1.5);
   box-shadow: 0 0 15px #14b8a6, 0 0 30px rgba(20, 184, 166, 0.6);
 }
-
-/* --- LINKS --- */
 .blog-content a {
   color: #0d9488;
   font-weight: 700;
@@ -339,14 +326,11 @@
   text-underline-offset: 4px;
   transition: all 0.2s;
 }
-
 .blog-content a:hover {
   background-color: #ccfbf1;
   color: #0f766e;
   text-decoration-color: #0f766e;
 }
-
-/* --- BLOCKQUOTES --- */
 .blog-content blockquote {
   border-left: 4px solid #14b8a6;
   background: #f0fdfa;
@@ -356,20 +340,16 @@
   color: #475569;
   margin: 2.5rem 0;
 }
-
-/* --- FIGURES & IMAGES --- */
 .blog-content figure {
   margin: 3rem 0;
   width: 100%;
 }
-
 .blog-content img {
   border-radius: 1rem;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
   width: 100%;
   height: auto;
 }
-
 .blog-content figcaption {
   text-align: center;
   font-size: 0.875rem;
