@@ -178,6 +178,19 @@ export default function Navbar() {
                         : "w-0 opacity-0"
                     }`}
                 />
+                {isSearchOpen && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuery("");
+                      setResults([]);
+                      setIsSearchOpen(false);
+                    }}
+                    className="ml-1 text-slate-400 hover:text-red-500 transition-colors"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
               </form>
 
               {/* SEARCH DROPDOWN */}
