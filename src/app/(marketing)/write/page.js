@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 
 // --- CONFIGURATION ---
-const SECRET_CODE = "admin123"; // 🔴 CHANGE THIS TO YOUR PASSWORD
+const SECRET_CODE = "1425"; // 🔴 CHANGE THIS TO YOUR PASSWORD
 
 // ==========================================
 // MAIN COMPONENT (The Default Export)
@@ -197,8 +197,15 @@ function LoginGate({ onLogin }) {
 // ==========================================
 // SUB-COMPONENT: STUDIO CONTENT
 // ==========================================
+// ==========================================
+// 2. STUDIO CONTENT (Editor + Terminal)
+// ==========================================
 function StudioContent() {
   const [copied, setCopied] = useState(false);
+
+  // Ref for the textarea so we can grab cursor position
+  const [contentRef, setContentRef] = useState(null);
+
   const [formData, setFormData] = useState({
     title: "",
     slug: "",
@@ -226,7 +233,59 @@ function StudioContent() {
     }
   };
 
+  // --- NEW: TEXT FORMATTING LOGIC ---
+  const insertFormat = (startTag, endTag) => {
+    const textarea = document.getElementById("content-editor");
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = formData.content;
+    const selectedText = text.substring(start, end);
+
+    // Insert the tags around the selected text
+    const newText =
+      text.substring(0, start) +
+      startTag +
+      selectedText +
+      endTag +
+      text.substring(end);
+
+    // Update state
+    setFormData((prev) => ({ ...prev, content: newText }));
+
+    // Restore focus and cursor (optional, but nice UX)
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(
+        start + startTag.length,
+        end + startTag.length
+      );
+    }, 0);
+  };
+
+  const handleDropdownChange = (e) => {
+    const value = e.target.value;
+    if (!value) return;
+
+    // Define the tags based on selection
+    const formats = {
+      h1: ["<h1>", "</h1>"],
+      h2: ["<h2>", "</h2>"],
+      h3: ["<h3>", "</h3>"],
+      h4: ["<h4>", "</h4>"],
+      h5: ["<h5>", "</h5>"],
+    };
+
+    if (formats[value]) {
+      insertFormat(formats[value][0], formats[value][1]);
+    }
+    // Reset dropdown to default
+    e.target.value = "";
+  };
+
   const generateSQL = () => {
+    // 1. Wrap paragraphs (Only if they don't start with HTML tags)
     const formattedContent = formData.content
       .split("\n\n")
       .map((para) => para.trim())
@@ -263,7 +322,7 @@ VALUES (
 
   return (
     <>
-      {/* HEADER: Stack on mobile, Row on desktop */}
+      {/* HEADER */}
       <header className="mb-8 md:mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-slate-200 pb-6">
         <div className="space-y-2 text-center md:text-left">
           <h2 className="text-3xl md:text-5xl font-black text-slate-900 tracking-tighter uppercase">
@@ -276,7 +335,6 @@ VALUES (
           </div>
         </div>
 
-        {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
           <Link
             href="/blog"
@@ -285,18 +343,17 @@ VALUES (
           >
             <Layout size={16} /> View Blog
           </Link>
-
           <a
             href="https://supabase.com/dashboard"
             target="_blank"
             className="flex items-center justify-center gap-2 font-bold text-teal-700 hover:text-teal-800 transition-colors text-xs md:text-sm uppercase tracking-wider bg-teal-100 hover:bg-teal-200 px-4 py-3 rounded-lg"
           >
-            Supabase <ExternalLink size={16} />
+            Supabase <ChevronRight size={16} />
           </a>
         </div>
       </header>
 
-      {/* MAIN GRID: Stack on mobile, Side-by-side on desktop */}
+      {/* MAIN GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16">
         {/* --- LEFT: WRITER UI --- */}
         <div className="space-y-8 animate-fade-in-up">
@@ -307,7 +364,7 @@ VALUES (
             </h3>
 
             <div className="space-y-4">
-              {/* TITLE */}
+              {/* Title Input */}
               <div>
                 <label className="text-xs font-bold uppercase text-slate-400 mb-1 block">
                   Blog Title
@@ -321,7 +378,7 @@ VALUES (
                 />
               </div>
 
-              {/* SLUG */}
+              {/* Slug Input */}
               <div className="flex items-center gap-2 bg-slate-50 p-3 rounded-lg border border-slate-200">
                 <span className="text-slate-400 font-mono text-xs md:text-sm">
                   /blog/
@@ -334,7 +391,7 @@ VALUES (
                 />
               </div>
 
-              {/* TAG & DATE GRID */}
+              {/* Tags & Date */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-bold uppercase text-slate-400 mb-2 flex items-center gap-1">
@@ -375,7 +432,7 @@ VALUES (
                 </div>
               </div>
 
-              {/* IMAGE PATH */}
+              {/* Image & Caption */}
               <div>
                 <label className="text-xs font-bold uppercase text-slate-400 mb-2 flex items-center gap-1">
                   <ImageIcon size={12} /> Image Path
@@ -387,7 +444,6 @@ VALUES (
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 font-mono text-xs text-slate-600 outline-none focus:border-teal-500"
                 />
               </div>
-              {/* CAPTION */}
               <div>
                 <label className="text-xs font-bold uppercase text-slate-400 mb-2 block">
                   Image Caption
@@ -403,23 +459,73 @@ VALUES (
             </div>
           </div>
 
-          {/* CONTENT EDITOR */}
-          <div className="bg-white p-5 md:p-8 rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 h-full">
-            <div className="flex justify-between items-center mb-6 border-b border-slate-50 pb-4">
-              <h3 className="font-black text-slate-400 text-xs uppercase tracking-widest flex items-center gap-2">
-                <FileText size={14} className="text-teal-500" /> Content
-              </h3>
-              <span className="text-[10px] bg-slate-100 text-slate-500 font-bold px-2 py-1 rounded">
-                HTML ENABLED
-              </span>
+          {/* CONTENT EDITOR WITH TOOLBAR */}
+          <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden h-full flex flex-col">
+            {/* --- NEW TOOLBAR --- */}
+            <div className="bg-slate-50 border-b border-slate-100 p-3 flex flex-wrap items-center gap-2">
+              {/* Heading Dropdown */}
+              <div className="relative group">
+                <select
+                  onChange={handleDropdownChange}
+                  className="appearance-none bg-white border border-slate-200 text-slate-600 text-xs font-bold uppercase tracking-wide rounded-lg pl-3 pr-8 py-2 hover:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-500/20 cursor-pointer"
+                >
+                  <option value="h1">Heading 1</option>
+                  <option value="h2">Heading 2</option>
+                  <option value="h3">Heading 3</option>
+                  <option value="h4">Heading 4</option>
+                </select>
+                <ChevronRight
+                  size={12}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none"
+                />
+              </div>
+
+              <div className="w-[1px] h-6 bg-slate-200 mx-1"></div>
+
+              {/* Quick Action Buttons */}
+              <button
+                onClick={() => insertFormat("<strong>", "</strong>")}
+                className="p-2 text-slate-500 hover:text-teal-600 hover:bg-white hover:shadow-sm rounded transition-all font-bold text-xs uppercase"
+                title="Bold"
+              >
+                B
+              </button>
+              <button
+                onClick={() => insertFormat("<em>", "</em>")}
+                className="p-2 text-slate-500 hover:text-teal-600 hover:bg-white hover:shadow-sm rounded transition-all italic text-xs font-serif"
+                title="Italic"
+              >
+                I
+              </button>
+
+              <div className="w-[1px] h-6 bg-slate-200 mx-1"></div>
+
+              <button
+                onClick={() => insertFormat("<ul>\n  <li>", "</li>\n</ul>")}
+                className="flex items-center gap-1 px-3 py-2 text-slate-500 hover:text-teal-600 hover:bg-white hover:shadow-sm rounded transition-all text-[10px] font-bold uppercase tracking-wider"
+              >
+                List
+              </button>
+
+              <button
+                onClick={() => insertFormat("<blockquote>", "</blockquote>")}
+                className="flex items-center gap-1 px-3 py-2 text-slate-500 hover:text-teal-600 hover:bg-white hover:shadow-sm rounded transition-all text-[10px] font-bold uppercase tracking-wider"
+              >
+                Quote
+              </button>
             </div>
-            <textarea
-              name="content"
-              value={formData.content}
-              onChange={handleChange}
-              placeholder="Write your masterpiece here..."
-              className="w-full min-h-[400px] p-0 border-none outline-none text-base md:text-lg leading-loose font-serif text-slate-800 placeholder:text-slate-300 placeholder:italic resize-y"
-            />
+
+            {/* The Text Area */}
+            <div className="p-5 md:p-8 flex-grow">
+              <textarea
+                id="content-editor"
+                name="content"
+                value={formData.content}
+                onChange={handleChange}
+                placeholder="Write your masterpiece here... (Use the toolbar to format)"
+                className="w-full h-full min-h-[400px] border-none outline-none text-base md:text-lg leading-loose font-serif text-slate-800 placeholder:text-slate-300 placeholder:italic resize-y"
+              />
+            </div>
           </div>
         </div>
 
@@ -491,10 +597,9 @@ VALUES (
           {/* INSTRUCTIONS */}
           <div className="bg-white/60 backdrop-blur-sm p-6 rounded-2xl border border-white/50 text-slate-500 text-xs font-medium leading-relaxed">
             <p>
-              <strong className="text-slate-900">Pro Tip:</strong> Paste the
-              generated SQL code directly into your Supabase SQL Editor. The
-              code handles single-quote escaping and HTML wrapping
-              automatically.
+              <strong className="text-slate-900">Pro Tip:</strong> You can see
+              your formatting tags right in the editor. The SQL Generator will
+              prioritize those tags over default paragraph spacing.
             </p>
           </div>
         </div>
