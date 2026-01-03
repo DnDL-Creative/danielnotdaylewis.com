@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/src/utils/supabase/client";
 import {
-  Calendar,
+  Calendar as CalendarIcon,
   Ghost,
   ShieldBan,
   Wand2,
@@ -13,10 +13,17 @@ import {
   Loader2,
   Trash2,
   AlertTriangle,
-  MousePointer2,
   CheckCircle2,
+  Plus,
+  Briefcase,
   X,
+  User,
+  Mail,
   BookOpen,
+  Mic2,
+  Tags,
+  FileText,
+  Clock,
 } from "lucide-react";
 
 const supabase = createClient(
@@ -29,23 +36,34 @@ export default function SchedulerDashboard() {
   const [loading, setLoading] = useState(false);
   const [calendarLoading, setCalendarLoading] = useState(true);
 
-  // Calendar Data
+  // Calendar State
   const [currentDate, setCurrentDate] = useState(new Date());
   const [items, setItems] = useState([]);
 
-  // Range Selection State
-  const [isSelectionMode, setIsSelectionMode] = useState(false);
-  const [selectionStart, setSelectionStart] = useState(null);
-  const [selectionEnd, setSelectionEnd] = useState(null);
+  // "Quick Add" Modal State
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [addType, setAddType] = useState("project"); // 'project' | 'block'
 
-  // Forms
-  const [timeOffStart, setTimeOffStart] = useState("");
-  const [timeOffEnd, setTimeOffEnd] = useState("");
-  const [reason, setReason] = useState("Vacation");
+  // FULL PROJECT FORM DATA
+  const [newItemData, setNewItemData] = useState({
+    title: "",
+    client: "",
+    email: "",
+    client_type: "Direct",
+    is_returning: false,
+    style: "Solo",
+    genre: "Fiction",
+    notes: "",
+    duration: 1,
+    reason: "Personal", // For blocks
+  });
+
+  // Ghost / Global Form State
   const [ghostDensity, setGhostDensity] = useState("low");
   const [ghostMonths, setGhostMonths] = useState(3);
 
-  // Custom Modal State
+  // Alerts
   const [modal, setModal] = useState({
     isOpen: false,
     title: "",
@@ -63,31 +81,27 @@ export default function SchedulerDashboard() {
   };
 
   // =========================================================================
-  // 1. DATA FETCHING (UPDATED TO PULL BOOK TITLES)
+  // 1. DATA FETCHING
   // =========================================================================
   const fetchCalendar = async () => {
     setCalendarLoading(true);
 
-    // 1. Fetch Real Requests (Added book_title)
-    const { data: real } = await supabase
-      .from("2_booking_requests")
-      .select("id, client_name, book_title, start_date, end_date, status"); // <--- Added book_title
-
-    // 2. Fetch Blocks
-    const { data: blocks } = await supabase
-      .from("9_bookouts")
-      .select("id, reason, type, start_date, end_date");
+    const [requests, bookouts] = await Promise.all([
+      supabase
+        .from("2_booking_requests")
+        .select("id, client_name, book_title, start_date, end_date, status")
+        .neq("status", "archived"),
+      supabase
+        .from("8_bookouts")
+        .select("id, reason, type, start_date, end_date"),
+    ]);
 
     const merged = [];
 
-    // Map Real Projects
-    if (real) {
-      real.forEach((r) => {
-        if (r.status === "archived") return;
-
+    if (requests.data) {
+      requests.data.forEach((r) => {
         merged.push({
           id: r.id,
-          // SHOW BOOK TITLE (Fallback to Client Name)
           title: r.book_title || r.client_name || "Project",
           start: new Date(r.start_date),
           end: new Date(r.end_date),
@@ -98,9 +112,8 @@ export default function SchedulerDashboard() {
       });
     }
 
-    // Map Blocks
-    if (blocks) {
-      blocks.forEach((b) => {
+    if (bookouts.data) {
+      bookouts.data.forEach((b) => {
         merged.push({
           id: b.id,
           title: b.reason || "Block",
@@ -108,7 +121,7 @@ export default function SchedulerDashboard() {
           end: new Date(b.end_date),
           type: b.type === "ghost" ? "ghost" : "personal",
           status: "blocked",
-          sourceTable: "9_bookouts",
+          sourceTable: "8_bookouts",
         });
       });
     }
@@ -122,96 +135,116 @@ export default function SchedulerDashboard() {
   }, []);
 
   // =========================================================================
-  // 2. ACTIONS (TIME OFF)
+  // 2. QUICK ADD (FULL PROJECT SUPPORT)
   // =========================================================================
-  const handleTimeOff = async () => {
-    if (!timeOffStart || !timeOffEnd)
-      return showAlert(
-        "Missing Dates",
-        "Please select a start and end date.",
-        "error"
-      );
-
-    setLoading(true);
-
-    const start = new Date(timeOffStart);
-    const end = new Date(timeOffEnd);
-
-    const overlaps = items.filter((i) => {
-      const iStart = new Date(i.start);
-      const iEnd = new Date(i.end);
-      return start <= iEnd && end >= iStart;
+  const openAddModal = (date) => {
+    setSelectedDate(date);
+    // Reset to defaults
+    setNewItemData({
+      title: "",
+      client: "",
+      email: "",
+      client_type: "Direct",
+      is_returning: false,
+      style: "Solo",
+      genre: "Fiction",
+      notes: "",
+      duration: 1,
+      reason: "Personal",
     });
-
-    if (overlaps.length > 0) {
-      setLoading(false);
-      showAlert(
-        "Conflict Detected",
-        `You have ${overlaps.length} existing items in this range. Overwrite them?`,
-        "confirm",
-        async () => {
-          for (const item of overlaps) {
-            await supabase.from(item.sourceTable).delete().eq("id", item.id);
-          }
-          await executeTimeOffInsert();
-        }
-      );
-      return;
-    }
-
-    await executeTimeOffInsert();
+    setAddModalOpen(true);
   };
 
-  const executeTimeOffInsert = async () => {
+  const handleQuickAdd = async () => {
+    if (!newItemData.duration || newItemData.duration < 1)
+      return alert("Duration needed");
+
     setLoading(true);
-    const { error } = await supabase.from("9_bookouts").insert([
-      {
-        reason,
-        type: "personal",
-        start_date: new Date(timeOffStart).toISOString(),
-        end_date: new Date(timeOffEnd).toISOString(),
-      },
-    ]);
+
+    const startDate = new Date(selectedDate);
+    const endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + (parseInt(newItemData.duration) - 1));
+
+    let error = null;
+
+    if (addType === "project") {
+      if (!newItemData.title) {
+        setLoading(false);
+        return alert("Title required");
+      }
+
+      // INSERT INTO 2_BOOKING_REQUESTS (The "Real" Table)
+      const { error: dbError } = await supabase
+        .from("2_booking_requests")
+        .insert([
+          {
+            book_title: newItemData.title,
+            client_name: newItemData.client || "Internal Entry",
+            email: newItemData.email,
+            client_type: newItemData.client_type,
+            is_returning: newItemData.is_returning,
+            narration_style: newItemData.style,
+            genre: newItemData.genre,
+            notes: newItemData.notes,
+            start_date: startDate.toISOString(),
+            end_date: endDate.toISOString(),
+            status: "approved", // Auto-approve manual entries
+            days_needed: newItemData.duration,
+            word_count: 0, // Placeholder
+          },
+        ]);
+      error = dbError;
+    } else {
+      // Block (Vacation/Personal)
+      const { error: dbError } = await supabase.from("8_bookouts").insert([
+        {
+          reason: newItemData.reason,
+          type: "personal",
+          start_date: startDate.toISOString(),
+          end_date: endDate.toISOString(),
+        },
+      ]);
+      error = dbError;
+    }
 
     setLoading(false);
-    if (error) showAlert("Error", "Failed to save time off.", "error");
-    else {
-      showAlert("Success", "Time off blocked successfully.");
-      setTimeOffStart("");
-      setTimeOffEnd("");
-      fetchCalendar();
-      setActiveTab("calendar");
-      closeModal();
+
+    if (error) {
+      console.error(error);
+      showAlert("Error", "Failed to create item.", "error");
+    } else {
+      setAddModalOpen(false);
+      fetchCalendar(); // Refresh calendar immediately
     }
   };
 
   // =========================================================================
-  // 3. GHOST MODE (SMART)
+  // 3. GHOST MODE
   // =========================================================================
   const handleGhostMode = async () => {
     setLoading(true);
-
-    const { data: real } = await supabase
-      .from("2_booking_requests")
-      .select("start_date, end_date")
-      .neq("status", "archived");
-    const { data: blocks } = await supabase
-      .from("9_bookouts")
-      .select("start_date, end_date");
+    // ... (Keep existing logic)
+    const [real, blocks] = await Promise.all([
+      supabase
+        .from("2_booking_requests")
+        .select("start_date, end_date")
+        .neq("status", "archived"),
+      supabase.from("8_bookouts").select("start_date, end_date"),
+    ]);
 
     let busyRanges = [];
-    if (real)
+    if (real.data)
       busyRanges = [
         ...busyRanges,
-        ...real.map((r) => ({
+        ...real.data.map((r) => ({
           start: new Date(r.start_date),
           end: new Date(r.end_date),
         })),
       ];
-    if (blocks)
+    if (blocks.data)
       busyRanges = [
         ...busyRanges,
-        ...blocks.map((r) => ({
+        ...blocks.data.map((r) => ({
           start: new Date(r.start_date),
           end: new Date(r.end_date),
         })),
@@ -245,10 +278,7 @@ export default function SchedulerDashboard() {
       if (daysFree >= 3) {
         const maxDuration = Math.min(daysFree, 10);
         const duration = Math.floor(Math.random() * (maxDuration - 3 + 1)) + 3;
-        const skipChance =
-          ghostDensity === "low" ? 0.6 : ghostDensity === "medium" ? 0.3 : 0.1;
-
-        if (Math.random() > skipChance) {
+        if (Math.random() > (ghostDensity === "low" ? 0.6 : 0.1)) {
           const start = new Date(cursor);
           const end = new Date(start);
           end.setDate(start.getDate() + duration);
@@ -261,96 +291,28 @@ export default function SchedulerDashboard() {
           cursor = new Date(end);
         }
       }
-      cursor.setDate(
-        cursor.getDate() + gapTolerance + Math.floor(Math.random() * 3)
-      );
+      cursor.setDate(cursor.getDate() + gapTolerance);
     }
 
     if (newGhosts.length > 0) {
-      const { error } = await supabase.from("9_bookouts").insert(newGhosts);
-      setLoading(false);
-      if (!error) {
-        showAlert(
-          "Ghost Mode Active",
-          `Generated ${newGhosts.length} ghost blocks.`
-        );
-        fetchCalendar();
-        setActiveTab("calendar");
-      } else {
-        showAlert("Error", "Database error.", "error");
-      }
+      await supabase.from("8_bookouts").insert(newGhosts);
+      fetchCalendar();
+      showAlert("Success", `Added ${newGhosts.length} ghosts.`);
     } else {
-      setLoading(false);
-      showAlert("Schedule Full", "No suitable gaps found for new ghosts.");
+      showAlert("Full", "No gaps found.");
     }
+    setLoading(false);
   };
 
   // =========================================================================
-  // 4. RANGE SELECTION & DELETION
+  // 4. DELETION
   // =========================================================================
-  const handleDayClick = (date) => {
-    if (!isSelectionMode) return;
-    if (!selectionStart || (selectionStart && selectionEnd)) {
-      setSelectionStart(date);
-      setSelectionEnd(null);
-    } else {
-      if (date < selectionStart) {
-        setSelectionEnd(selectionStart);
-        setSelectionStart(date);
-      } else {
-        setSelectionEnd(date);
-      }
-    }
-  };
-
-  const handleBulkDelete = () => {
-    if (!selectionStart || !selectionEnd) return;
-    const toDelete = items.filter((i) => {
-      const iStart = new Date(i.start).setHours(0, 0, 0, 0);
-      const iEnd = new Date(i.end).setHours(0, 0, 0, 0);
-      const rStart = selectionStart.setHours(0, 0, 0, 0);
-      const rEnd = selectionEnd.setHours(0, 0, 0, 0);
-      return iStart <= rEnd && iEnd >= rStart;
-    });
-
-    if (toDelete.length === 0)
-      return showAlert("Empty Range", "No items found in selected range.");
-
-    showAlert(
-      "Bulk Delete",
-      `Found ${toDelete.length} items. Delete them all?`,
-      "confirm",
-      async () => {
-        let count = 0;
-        for (const item of toDelete) {
-          await supabase.from(item.sourceTable).delete().eq("id", item.id);
-          count++;
-        }
-        fetchCalendar();
-        closeModal();
-        resetSelection();
-        setTimeout(() => showAlert("Deleted", `Deleted ${count} blocks.`), 300);
-      }
-    );
-  };
-
-  const resetSelection = () => {
-    setIsSelectionMode(false);
-    setSelectionStart(null);
-    setSelectionEnd(null);
-  };
-
   const deleteSingleItem = (id, table, title) => {
-    showAlert(
-      "Delete Item",
-      `Delete "${title}"? This will open up the dates.`,
-      "confirm",
-      async () => {
-        await supabase.from(table).delete().eq("id", id);
-        fetchCalendar();
-        closeModal();
-      }
-    );
+    showAlert("Delete Item", `Delete "${title}"?`, "confirm", async () => {
+      await supabase.from(table).delete().eq("id", id);
+      fetchCalendar();
+      closeModal();
+    });
   };
 
   // =========================================================================
@@ -363,6 +325,7 @@ export default function SchedulerDashboard() {
     const firstDay = new Date(year, month, 1).getDay();
     const blanks = Array(firstDay).fill(null);
     const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+    const today = new Date();
 
     const changeMonth = (offset) => {
       const d = new Date(currentDate);
@@ -372,35 +335,6 @@ export default function SchedulerDashboard() {
 
     return (
       <div className="animate-fade-in relative">
-        {/* Bulk Delete Toolbar */}
-        {isSelectionMode && (
-          <div className="absolute top-16 left-0 right-0 z-20 bg-white border border-slate-200 p-4 rounded-xl shadow-2xl flex items-center justify-between animate-slide-up">
-            <div className="text-xs font-bold uppercase tracking-widest text-slate-900">
-              {selectionStart
-                ? selectionEnd
-                  ? "Range Selected"
-                  : "Select End Date"
-                : "Select Start Date"}
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={resetSelection}
-                className="px-3 py-1 bg-slate-100 rounded-lg text-[10px] font-black uppercase hover:bg-slate-200"
-              >
-                Cancel
-              </button>
-              {selectionStart && selectionEnd && (
-                <button
-                  onClick={handleBulkDelete}
-                  className="px-3 py-1 bg-red-500 text-white rounded-lg text-[10px] font-black uppercase flex items-center gap-2 hover:bg-red-600 shadow-sm"
-                >
-                  <Trash2 size={12} /> Delete Range
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-
         {/* Controls */}
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
           <div className="flex flex-wrap gap-2">
@@ -418,39 +352,25 @@ export default function SchedulerDashboard() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center bg-slate-50 rounded-xl p-1 border border-slate-100">
             <button
-              onClick={() => setIsSelectionMode(!isSelectionMode)}
-              className={`p-2 rounded-lg border transition-all ${
-                isSelectionMode
-                  ? "bg-indigo-50 border-indigo-200 text-indigo-600"
-                  : "bg-white border-slate-200 text-slate-400"
-              }`}
-              title="Range Select Mode"
+              onClick={() => changeMonth(-1)}
+              className="p-2 hover:bg-white rounded-lg text-slate-500 shadow-sm transition-all"
             >
-              <MousePointer2 size={18} />
+              <ChevronLeft size={18} />
             </button>
-
-            <div className="flex items-center bg-slate-50 rounded-xl p-1 border border-slate-100">
-              <button
-                onClick={() => changeMonth(-1)}
-                className="p-2 hover:bg-white rounded-lg text-slate-500 shadow-sm transition-all"
-              >
-                <ChevronLeft size={18} />
-              </button>
-              <span className="w-28 text-center text-xs font-black uppercase text-slate-700">
-                {currentDate.toLocaleDateString("en-US", {
-                  month: "short",
-                  year: "numeric",
-                })}
-              </span>
-              <button
-                onClick={() => changeMonth(1)}
-                className="p-2 hover:bg-white rounded-lg text-slate-500 shadow-sm transition-all"
-              >
-                <ChevronRight size={18} />
-              </button>
-            </div>
+            <span className="w-28 text-center text-xs font-black uppercase text-slate-700">
+              {currentDate.toLocaleDateString("en-US", {
+                month: "short",
+                year: "numeric",
+              })}
+            </span>
+            <button
+              onClick={() => changeMonth(1)}
+              className="p-2 hover:bg-white rounded-lg text-slate-500 shadow-sm transition-all"
+            >
+              <ChevronRight size={18} />
+            </button>
           </div>
         </div>
 
@@ -474,14 +394,7 @@ export default function SchedulerDashboard() {
           {days.map((day, i) => {
             const date = new Date(year, month, day);
             date.setHours(0, 0, 0, 0);
-
-            let isSelected = false;
-            if (isSelectionMode && selectionStart) {
-              const s = selectionStart.getTime();
-              const e = selectionEnd ? selectionEnd.getTime() : s;
-              const d = date.getTime();
-              if (d >= Math.min(s, e) && d <= Math.max(s, e)) isSelected = true;
-            }
+            const isToday = date.toDateString() === today.toDateString();
 
             const dayItems = items.filter((i) => {
               const s = new Date(i.start).setHours(0, 0, 0, 0);
@@ -492,24 +405,24 @@ export default function SchedulerDashboard() {
             return (
               <div
                 key={i}
-                onClick={() => handleDayClick(date)}
-                className={`h-16 md:h-24 border rounded-xl p-1 relative overflow-hidden group transition-all cursor-pointer
+                onClick={() => openAddModal(date)}
+                className={`h-16 md:h-24 border rounded-xl p-1 relative overflow-hidden group transition-all cursor-pointer hover:border-blue-300 hover:shadow-md
                     ${
-                      isSelected
-                        ? "bg-indigo-50 border-indigo-300 ring-2 ring-indigo-200"
-                        : "bg-white border-slate-100 hover:border-blue-200"
+                      isToday
+                        ? "bg-blue-50/50 border-blue-200"
+                        : "bg-white border-slate-100"
                     }
                 `}
               >
                 <span
-                  className={`text-[10px] font-bold absolute top-1 right-2 ${
-                    isSelected ? "text-indigo-500" : "text-slate-300"
+                  className={`text-[10px] font-bold absolute top-1 right-2 flex items-center justify-center w-5 h-5 rounded-full ${
+                    isToday ? "bg-blue-500 text-white" : "text-slate-300"
                   }`}
                 >
                   {day}
                 </span>
 
-                <div className="mt-4 space-y-1 overflow-y-auto max-h-[60px] md:max-h-[80px] scrollbar-hide">
+                <div className="mt-5 space-y-1 overflow-y-auto max-h-[50px] md:max-h-[70px] scrollbar-hide">
                   {dayItems.map((item, idx) => {
                     let color =
                       "bg-emerald-50 text-emerald-700 border-emerald-100";
@@ -539,6 +452,13 @@ export default function SchedulerDashboard() {
                     );
                   })}
                 </div>
+
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                  <Plus
+                    className="text-slate-300 bg-white rounded-full shadow-sm p-1"
+                    size={24}
+                  />
+                </div>
               </div>
             );
           })}
@@ -546,66 +466,6 @@ export default function SchedulerDashboard() {
       </div>
     );
   };
-
-  // --- RENDER FORMS ---
-  const renderTimeOff = () => (
-    <div className="max-w-xl mx-auto py-8 animate-fade-in">
-      <div className="bg-slate-50 p-6 md:p-8 rounded-3xl border border-slate-100">
-        <h3 className="text-xl font-black uppercase text-slate-900 mb-6 flex items-center gap-2">
-          <ShieldBan className="text-slate-400" /> Block Dates
-        </h3>
-        <div className="space-y-6">
-          <div>
-            <label className="text-xs font-bold uppercase text-slate-400 tracking-wider">
-              Reason
-            </label>
-            <select
-              className="w-full bg-white p-4 rounded-xl font-bold text-slate-700 outline-none border border-slate-200"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            >
-              <option>Vacation</option>
-              <option>Personal</option>
-              <option>Travel</option>
-              <option>Sick Day</option>
-              <option>Admin Work</option>
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs font-bold uppercase text-slate-400 tracking-wider">
-                Start
-              </label>
-              <input
-                type="date"
-                className="w-full bg-white p-4 rounded-xl font-bold text-slate-700 border border-slate-200"
-                value={timeOffStart}
-                onChange={(e) => setTimeOffStart(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="text-xs font-bold uppercase text-slate-400 tracking-wider">
-                End
-              </label>
-              <input
-                type="date"
-                className="w-full bg-white p-4 rounded-xl font-bold text-slate-700 border border-slate-200"
-                value={timeOffEnd}
-                onChange={(e) => setTimeOffEnd(e.target.value)}
-              />
-            </div>
-          </div>
-          <button
-            onClick={handleTimeOff}
-            disabled={loading}
-            className="w-full py-4 bg-slate-900 text-white rounded-xl font-black uppercase tracking-widest hover:bg-slate-800 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            {loading ? <Loader2 className="animate-spin" /> : "Block Dates"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 
   const renderGhostMode = () => (
     <div className="max-w-xl mx-auto py-8 animate-fade-in">
@@ -678,9 +538,280 @@ export default function SchedulerDashboard() {
 
   return (
     <div className="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden relative">
-      {/* --- CLEAN MODAL --- */}
-      {modal.isOpen && (
+      {/* --- ADD ITEM MODAL (EXPANDED) --- */}
+      {addModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm"
+            onClick={() => setAddModalOpen(false)}
+          />
+          <div className="relative bg-white rounded-[2rem] p-8 max-w-lg w-full shadow-2xl animate-scale-up max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h3 className="text-2xl font-black uppercase text-slate-900 mb-1">
+                  Add to Schedule
+                </h3>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                  {selectedDate?.toLocaleDateString("en-US", {
+                    weekday: "long",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </p>
+              </div>
+              <button
+                onClick={() => setAddModalOpen(false)}
+                className="p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Type Toggle */}
+            <div className="flex p-1 bg-slate-100 rounded-xl mb-8">
+              <button
+                onClick={() => setAddType("project")}
+                className={`flex-1 py-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                  addType === "project"
+                    ? "bg-white shadow-sm text-slate-900"
+                    : "text-slate-400 hover:text-slate-600"
+                }`}
+              >
+                Project
+              </button>
+              <button
+                onClick={() => setAddType("block")}
+                className={`flex-1 py-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                  addType === "block"
+                    ? "bg-white shadow-sm text-slate-900"
+                    : "text-slate-400 hover:text-slate-600"
+                }`}
+              >
+                Block
+              </button>
+            </div>
+
+            <div className="space-y-6 mb-8">
+              {/* --- PROJECT FORM --- */}
+              {addType === "project" ? (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[10px] font-bold uppercase text-slate-400 block mb-2 flex items-center gap-2">
+                        <BookOpen size={12} /> Title
+                      </label>
+                      <input
+                        className="w-full bg-slate-50 p-3 rounded-xl text-sm font-bold border border-slate-200 focus:border-slate-400 outline-none"
+                        value={newItemData.title}
+                        onChange={(e) =>
+                          setNewItemData({
+                            ...newItemData,
+                            title: e.target.value,
+                          })
+                        }
+                        placeholder="Book Title..."
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase text-slate-400 block mb-2 flex items-center gap-2">
+                        <User size={12} /> Client
+                      </label>
+                      <input
+                        className="w-full bg-slate-50 p-3 rounded-xl text-sm font-bold border border-slate-200 focus:border-slate-400 outline-none"
+                        value={newItemData.client}
+                        onChange={(e) =>
+                          setNewItemData({
+                            ...newItemData,
+                            client: e.target.value,
+                          })
+                        }
+                        placeholder="Author Name..."
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold uppercase text-slate-400 block mb-2 flex items-center gap-2">
+                      <Mail size={12} /> Email
+                    </label>
+                    <input
+                      className="w-full bg-slate-50 p-3 rounded-xl text-sm font-bold border border-slate-200 focus:border-slate-400 outline-none"
+                      value={newItemData.email}
+                      onChange={(e) =>
+                        setNewItemData({
+                          ...newItemData,
+                          email: e.target.value,
+                        })
+                      }
+                      placeholder="client@example.com"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[10px] font-bold uppercase text-slate-400 block mb-2 flex items-center gap-2">
+                        <Briefcase size={12} /> Type
+                      </label>
+                      <select
+                        className="w-full bg-slate-50 p-3 rounded-xl text-sm font-bold border border-slate-200 outline-none"
+                        value={newItemData.client_type}
+                        onChange={(e) =>
+                          setNewItemData({
+                            ...newItemData,
+                            client_type: e.target.value,
+                          })
+                        }
+                      >
+                        <option>Direct</option>
+                        <option>Publisher</option>
+                        <option>Roster</option>
+                        <option>Audition</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase text-slate-400 block mb-2 flex items-center gap-2">
+                        <Tags size={12} /> Genre
+                      </label>
+                      <select
+                        className="w-full bg-slate-50 p-3 rounded-xl text-sm font-bold border border-slate-200 outline-none"
+                        value={newItemData.genre}
+                        onChange={(e) =>
+                          setNewItemData({
+                            ...newItemData,
+                            genre: e.target.value,
+                          })
+                        }
+                      >
+                        <option>Fiction</option>
+                        <option>Non-Fic</option>
+                        <option>Sci-Fi</option>
+                        <option>Romance</option>
+                        <option>Thriller</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[10px] font-bold uppercase text-slate-400 block mb-2 flex items-center gap-2">
+                        <Mic2 size={12} /> Style
+                      </label>
+                      <select
+                        className="w-full bg-slate-50 p-3 rounded-xl text-sm font-bold border border-slate-200 outline-none"
+                        value={newItemData.style}
+                        onChange={(e) =>
+                          setNewItemData({
+                            ...newItemData,
+                            style: e.target.value,
+                          })
+                        }
+                      >
+                        <option>Solo</option>
+                        <option>Dual</option>
+                        <option>Duet</option>
+                        <option>Multicast</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase text-slate-400 block mb-2 flex items-center gap-2">
+                        <Clock size={12} /> Days
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        className="w-full bg-slate-50 p-3 rounded-xl text-sm font-bold border border-slate-200 outline-none"
+                        value={newItemData.duration}
+                        onChange={(e) =>
+                          setNewItemData({
+                            ...newItemData,
+                            duration: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold uppercase text-slate-400 block mb-2 flex items-center gap-2">
+                      <FileText size={12} /> Notes
+                    </label>
+                    <textarea
+                      className="w-full bg-slate-50 p-3 rounded-xl text-sm font-medium border border-slate-200 focus:border-slate-400 outline-none resize-none h-20"
+                      value={newItemData.notes}
+                      onChange={(e) =>
+                        setNewItemData({
+                          ...newItemData,
+                          notes: e.target.value,
+                        })
+                      }
+                      placeholder="Project details..."
+                    />
+                  </div>
+                </>
+              ) : (
+                /* --- BLOCK FORM --- */
+                <>
+                  <div>
+                    <label className="text-[10px] font-bold uppercase text-slate-400 block mb-2">
+                      Reason
+                    </label>
+                    <select
+                      className="w-full bg-slate-50 p-3 rounded-xl text-sm font-bold border border-slate-200 outline-none"
+                      value={newItemData.reason}
+                      onChange={(e) =>
+                        setNewItemData({
+                          ...newItemData,
+                          reason: e.target.value,
+                        })
+                      }
+                    >
+                      <option>Vacation</option>
+                      <option>Personal</option>
+                      <option>Travel</option>
+                      <option>Admin Work</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold uppercase text-slate-400 block mb-2">
+                      Duration (Days)
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      className="w-full bg-slate-50 p-3 rounded-xl text-sm font-bold border border-slate-200 outline-none"
+                      value={newItemData.duration}
+                      onChange={(e) =>
+                        setNewItemData({
+                          ...newItemData,
+                          duration: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+
+            <button
+              onClick={handleQuickAdd}
+              disabled={loading}
+              className="w-full py-4 bg-slate-900 text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-emerald-500 transition-all flex items-center justify-center gap-2 shadow-xl shadow-slate-900/10"
+            >
+              {loading ? (
+                <Loader2 className="animate-spin" size={16} />
+              ) : (
+                <>
+                  <CheckCircle2 size={16} /> Save to Schedule
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* --- ALERT MODAL --- */}
+      {modal.isOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-white/80 backdrop-blur-sm"
             onClick={closeModal}
@@ -691,18 +822,10 @@ export default function SchedulerDashboard() {
                 className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
                   modal.type === "error"
                     ? "bg-red-50 text-red-500"
-                    : modal.type === "confirm"
-                    ? "bg-indigo-50 text-indigo-500"
-                    : "bg-teal-50 text-teal-500"
+                    : "bg-indigo-50 text-indigo-500"
                 }`}
               >
-                {modal.type === "error" ? (
-                  <AlertTriangle />
-                ) : modal.type === "confirm" ? (
-                  <ShieldBan />
-                ) : (
-                  <CheckCircle2 />
-                )}
+                {modal.type === "error" ? <AlertTriangle /> : <CheckCircle2 />}
               </div>
               <h3 className="text-lg font-black uppercase text-slate-900">
                 {modal.title}
@@ -714,14 +837,14 @@ export default function SchedulerDashboard() {
             <div className="flex gap-3">
               <button
                 onClick={closeModal}
-                className="flex-1 py-3 bg-slate-50 rounded-xl text-slate-500 font-bold uppercase text-xs hover:bg-slate-100 transition-colors"
+                className="flex-1 py-3 bg-slate-50 rounded-xl text-slate-500 font-bold uppercase text-xs hover:bg-slate-100"
               >
-                {modal.type === "confirm" ? "Cancel" : "Close"}
+                Cancel
               </button>
               {modal.type === "confirm" && (
                 <button
                   onClick={modal.onConfirm}
-                  className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-bold uppercase text-xs hover:bg-indigo-600 transition-colors"
+                  className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-bold uppercase text-xs hover:bg-indigo-600"
                 >
                   Confirm
                 </button>
@@ -755,8 +878,7 @@ export default function SchedulerDashboard() {
       {/* TABS */}
       <div className="flex p-1 bg-slate-50 rounded-2xl mb-8 border border-slate-100 overflow-x-auto">
         {[
-          { id: "calendar", label: "Calendar", icon: Calendar },
-          { id: "timeoff", label: "Block Dates", icon: ShieldBan },
+          { id: "calendar", label: "Calendar", icon: CalendarIcon },
           { id: "ghost", label: "Ghost Gen", icon: Ghost },
         ].map((tab) => (
           <button
@@ -775,7 +897,6 @@ export default function SchedulerDashboard() {
 
       <div className="min-h-[400px]">
         {activeTab === "calendar" && renderCalendarView()}
-        {activeTab === "timeoff" && renderTimeOff()}
         {activeTab === "ghost" && renderGhostMode()}
       </div>
     </div>

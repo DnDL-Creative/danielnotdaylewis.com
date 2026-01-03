@@ -16,8 +16,8 @@ import {
   ArrowRight,
   Hash,
   Users,
-  Copy,
   ExternalLink,
+  Loader2,
 } from "lucide-react";
 
 const supabase = createClient(
@@ -30,18 +30,51 @@ export default function OnboardingManager() {
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState(null);
 
-  // --- FETCH ---
+  // --- ROBUST FETCH (MANUAL JOIN) ---
   const fetchItems = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("bookings")
-      .select("*")
-      .eq("status", "onboarding")
-      .order("created_at", { ascending: true }); // Oldest first (FIFO)
 
-    if (error) console.error(error);
-    else setItems(data || []);
-    setLoading(false);
+    try {
+      // 1. Fetch the Checklist Data
+      const { data: onboardingData, error: obError } = await supabase
+        .from("3_onboarding")
+        .select("*")
+        .order("id", { ascending: true }); // Using ID for stable sort
+
+      if (obError) throw obError;
+
+      // 2. Fetch the Project Details (if we have onboarding items)
+      let mergedData = [];
+
+      if (onboardingData && onboardingData.length > 0) {
+        const requestIds = onboardingData.map((i) => i.request_id);
+
+        const { data: requestData, error: reqError } = await supabase
+          .from("2_booking_requests")
+          .select(
+            "id, client_name, book_title, email, is_returning, client_type"
+          )
+          .in("id", requestIds);
+
+        if (reqError) throw reqError;
+
+        // 3. Merge them in JavaScript
+        mergedData = onboardingData.map((item) => {
+          const details =
+            requestData.find((r) => r.id === item.request_id) || {};
+          return {
+            ...item,
+            request: details, // Embed details securely
+          };
+        });
+      }
+
+      setItems(mergedData);
+    } catch (error) {
+      console.error("Error fetching onboarding:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -52,43 +85,38 @@ export default function OnboardingManager() {
   const updateField = async (id, field, value) => {
     // Optimistic Update
     setItems(items.map((i) => (i.id === id ? { ...i, [field]: value } : i)));
-    await supabase
-      .from("bookings")
+
+    const { error } = await supabase
+      .from("3_onboarding")
       .update({ [field]: value })
       .eq("id", id);
+
+    if (error) {
+      console.error("Update failed:", error);
+      fetchItems(); // Revert on fail
+    }
   };
 
-  const handleNudge = async (id, currentCount) => {
-    const newCount = (currentCount || 0) + 1;
-    const now = new Date().toISOString();
+  const moveToF15 = async (item) => {
+    const title = item.request?.book_title || "Project";
+    if (!confirm(`Move "${title}" to First 15?`)) return;
 
-    setItems(
-      items.map((i) =>
-        i.id === id ? { ...i, strike_count: newCount, last_nudge_date: now } : i
-      )
-    );
+    // 1. Create row in 4_first_15
+    const { error } = await supabase.from("4_first_15").insert([
+      {
+        request_id: item.request_id,
+        sent_date: null,
+      },
+    ]);
 
-    await supabase
-      .from("bookings")
-      .update({
-        strike_count: newCount,
-        last_nudge_date: now,
-      })
-      .eq("id", id);
-
-    // In a real app, this would also trigger the email API
-    alert(`Nudge Recorded. Strike Count: ${newCount}`);
-  };
-
-  // In OnboardingManager.js
-  const moveToProduction = async (id) => {
-    if (!confirm("Move to F15?")) return;
-    // CHANGE 'production' TO 'f15_production'
-    await supabase
-      .from("bookings")
-      .update({ status: "f15_production" })
-      .eq("id", id);
-    fetchItems();
+    if (!error) {
+      // 2. Delete from Onboarding
+      await supabase.from("3_onboarding").delete().eq("id", item.id);
+      fetchItems();
+    } else {
+      alert("Failed to move project.");
+      console.error(error);
+    }
   };
 
   // --- HELPERS ---
@@ -106,7 +134,7 @@ export default function OnboardingManager() {
     >
       <div
         className={`p-1.5 rounded-full ${
-          checked ? "bg-white/20" : "bg-slate-100"
+          checked ? "bg-white/20" : "bg-slate-100 text-slate-400"
         }`}
       >
         {Icon ? <Icon size={14} /> : <CheckCircle2 size={14} />}
@@ -129,14 +157,18 @@ export default function OnboardingManager() {
 
   if (loading)
     return (
-      <div className="text-center py-20 text-slate-400 font-bold uppercase tracking-widest animate-pulse">
+      <div className="text-center py-20 text-slate-400 font-bold uppercase tracking-widest animate-pulse flex flex-col items-center gap-4">
+        <Loader2 className="animate-spin" size={32} />
         Loading Pipeline...
       </div>
     );
+
   if (items.length === 0)
     return (
-      <div className="text-center py-20 bg-white rounded-[2rem] border border-slate-200 text-slate-400 font-bold uppercase tracking-widest">
-        Onboarding Clear
+      <div className="text-center py-24 bg-white rounded-[2.5rem] border border-slate-200 shadow-sm">
+        <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">
+          Onboarding Queue Empty
+        </p>
       </div>
     );
 
@@ -144,295 +176,237 @@ export default function OnboardingManager() {
     <div className="space-y-6">
       {items.map((item) => {
         const isExpanded = expandedId === item.id;
-        const strikeColor =
-          item.strike_count >= 2
-            ? "bg-red-100 text-red-600"
-            : item.strike_count === 1
-            ? "bg-orange-100 text-orange-600"
-            : "bg-emerald-100 text-emerald-600";
-        const isReady =
-          item.checklist_deposit_paid &&
-          item.checklist_contract_signed &&
-          item.checklist_prod_folder;
+        const req = item.request || {};
+
+        // Calculate Progress
+        const totalSteps = 8;
+        const completed = [
+          item.contract_sent,
+          item.contract_signed,
+          item.deposit_sent,
+          item.deposit_paid,
+          item.email_receipt_sent,
+          item.manuscript_received,
+          item.docs_customized,
+          item.backend_folder,
+        ].filter(Boolean).length;
+
+        const isReady = completed >= 7;
 
         return (
           <div
             key={item.id}
-            className={`bg-white border border-slate-200 rounded-[2rem] shadow-sm transition-all duration-300 ${
+            className={`bg-white border border-slate-200 rounded-[2.5rem] shadow-sm transition-all duration-300 overflow-hidden ${
               isExpanded
-                ? "ring-2 ring-indigo-500 shadow-2xl"
-                : "hover:shadow-md"
+                ? "ring-2 ring-indigo-500 shadow-2xl scale-[1.01]"
+                : "hover:shadow-lg"
             }`}
           >
             {/* HEADER ROW */}
             <div
-              className="p-6 flex flex-col md:flex-row md:items-center gap-6 cursor-pointer"
+              className="p-8 flex flex-col md:flex-row md:items-center gap-6 cursor-pointer relative"
               onClick={() => setExpandedId(isExpanded ? null : item.id)}
             >
-              {/* STRIKE BADGE */}
-              <div
-                className={`w-12 h-12 shrink-0 rounded-2xl flex items-center justify-center font-black text-lg shadow-inner ${strikeColor}`}
-              >
-                {item.strike_count || 0}
+              {/* PROGRESS CIRCLE */}
+              <div className="relative w-14 h-14 shrink-0 flex items-center justify-center">
+                <svg
+                  className="w-full h-full rotate-[-90deg]"
+                  viewBox="0 0 36 36"
+                >
+                  <path
+                    className="text-slate-100"
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className={isReady ? "text-emerald-500" : "text-indigo-500"}
+                    strokeDasharray={`${(completed / totalSteps) * 100}, 100`}
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                <span className="absolute text-[10px] font-black text-slate-700">
+                  {Math.round((completed / totalSteps) * 100)}%
+                </span>
               </div>
 
               {/* MAIN INFO */}
               <div className="flex-grow">
-                <div className="flex items-center gap-3 mb-1">
-                  <h3 className="text-xl font-black text-slate-900">
-                    {item.book_title}
+                <div className="flex items-center gap-3 mb-2">
+                  <h3 className="text-2xl font-black text-slate-900 leading-none">
+                    {req.book_title || "Untitled Project"}
                   </h3>
-                  {item.is_returning && (
-                    <span className="bg-blue-100 text-blue-600 text-[9px] px-2 py-0.5 rounded-full font-bold uppercase">
+                  {req.is_returning && (
+                    <span className="bg-blue-100 text-blue-600 text-[9px] px-2 py-1 rounded-md font-bold uppercase">
                       Returning
-                    </span>
-                  )}
-                  {item.is_regular && (
-                    <span className="bg-purple-100 text-purple-600 text-[9px] px-2 py-0.5 rounded-full font-bold uppercase">
-                      Regular
                     </span>
                   )}
                 </div>
                 <div className="flex flex-wrap items-center gap-4 text-xs font-bold text-slate-400 uppercase tracking-wide">
-                  <span className="flex items-center gap-1">
-                    <Users size={12} /> {item.client_name}
+                  <span className="flex items-center gap-1.5 hover:text-indigo-500 transition-colors">
+                    <Users size={14} /> {req.client_name || "Unknown Client"}
                   </span>
-                  <span className="flex items-center gap-1">
-                    <Hash size={12} /> {item.ref_number || "No Ref #"}
-                  </span>
-                  {item.last_nudge_date && (
-                    <span className="text-orange-400 flex items-center gap-1">
-                      <Clock size={12} /> Nudged{" "}
-                      {new Date(item.last_nudge_date).toLocaleDateString()}
+                  {!isExpanded && (
+                    <span className="flex items-center gap-1.5">
+                      <Hash size={14} /> {item.id.slice(0, 8)}
                     </span>
                   )}
                 </div>
               </div>
 
               {/* ACTION PREVIEW */}
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-6">
                 {isReady && (
-                  <div className="bg-emerald-100 text-emerald-700 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2 animate-pulse">
+                  <div className="hidden md:flex bg-emerald-100 text-emerald-700 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest items-center gap-2 animate-pulse">
                     <CheckCircle2 size={14} /> Ready for F15
                   </div>
                 )}
-                {isExpanded ? (
-                  <ChevronUp className="text-slate-300" />
-                ) : (
-                  <ChevronDown className="text-slate-300" />
-                )}
+                <div
+                  className={`p-3 rounded-full transition-all ${
+                    isExpanded
+                      ? "bg-indigo-50 text-indigo-500 rotate-180"
+                      : "bg-white text-slate-300"
+                  }`}
+                >
+                  <ChevronDown size={20} />
+                </div>
               </div>
             </div>
 
             {/* EXPANDED WORKSPACE */}
             {isExpanded && (
-              <div className="border-t border-slate-100 bg-slate-50/50 p-6 md:p-8 grid grid-cols-1 xl:grid-cols-3 gap-8 animate-fade-in">
-                {/* COL 1: SETUP & ASSETS */}
+              <div className="border-t border-slate-100 bg-slate-50/50 p-8 grid grid-cols-1 xl:grid-cols-3 gap-8 animate-fade-in">
+                {/* COL 1: SETUP */}
                 <div className="space-y-6">
-                  <div>
-                    <SectionHeader title="Admin Setup" icon={FolderCog} />
-                    <div className="grid grid-cols-1 gap-2">
-                      <div className="flex items-center gap-2 mb-2">
-                        <input
-                          placeholder="Ref / Inv #"
-                          className="w-full bg-white border border-slate-200 p-2 rounded-lg text-xs font-bold uppercase tracking-widest outline-none focus:border-indigo-500"
-                          value={item.ref_number || ""}
-                          onChange={(e) =>
-                            updateField(item.id, "ref_number", e.target.value)
-                          }
-                        />
-                      </div>
-                      <Toggle
-                        label="Add to Contacts"
-                        checked={item.checklist_added_to_contacts}
-                        onClick={() =>
-                          updateField(
-                            item.id,
-                            "checklist_added_to_contacts",
-                            !item.checklist_added_to_contacts
-                          )
-                        }
-                      />
-                      <Toggle
-                        label="Backend Folder"
-                        checked={item.checklist_backend_folder}
-                        onClick={() =>
-                          updateField(
-                            item.id,
-                            "checklist_backend_folder",
-                            !item.checklist_backend_folder
-                          )
-                        }
-                      />
-                      <Toggle
-                        label="Customize Docs"
-                        checked={item.checklist_docs_customized}
-                        onClick={() =>
-                          updateField(
-                            item.id,
-                            "checklist_docs_customized",
-                            !item.checklist_docs_customized
-                          )
-                        }
-                      />
-                      <Toggle
-                        label="Client Folder"
-                        checked={item.checklist_prod_folder}
-                        onClick={() =>
-                          updateField(
-                            item.id,
-                            "checklist_prod_folder",
-                            !item.checklist_prod_folder
-                          )
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <SectionHeader title="Assets" icon={FileText} />
-                    <div className="grid grid-cols-1 gap-2">
-                      <Toggle
-                        label="Breakdown Received"
-                        checked={!!item.breakdown_received_date}
-                        onClick={() =>
-                          updateField(
-                            item.id,
-                            "breakdown_received_date",
-                            item.breakdown_received_date
-                              ? null
-                              : new Date().toISOString()
-                          )
-                        }
-                      />
-                      <Toggle
-                        label="Manuscript Received"
-                        checked={item.checklist_manuscript_received}
-                        onClick={() =>
-                          updateField(
-                            item.id,
-                            "checklist_manuscript_received",
-                            !item.checklist_manuscript_received
-                          )
-                        }
-                      />
-                    </div>
+                  <SectionHeader title="Admin Setup" icon={FolderCog} />
+                  <div className="space-y-2">
+                    <Toggle
+                      label="Create Backend Folder"
+                      checked={item.backend_folder}
+                      onClick={() =>
+                        updateField(
+                          item.id,
+                          "backend_folder",
+                          !item.backend_folder
+                        )
+                      }
+                    />
+                    <Toggle
+                      label="Customize Templates"
+                      checked={item.docs_customized}
+                      onClick={() =>
+                        updateField(
+                          item.id,
+                          "docs_customized",
+                          !item.docs_customized
+                        )
+                      }
+                    />
                   </div>
                 </div>
 
-                {/* COL 2: CONTRACT & MONEY */}
+                {/* COL 2: ASSETS & CONTRACT */}
                 <div className="space-y-6">
-                  <div>
-                    <SectionHeader title="Contract" icon={FileSignature} />
-                    <div className="grid grid-cols-1 gap-2">
-                      <Toggle
-                        label="Email 1: Contract Sent"
-                        checked={item.checklist_contract_sent}
-                        onClick={() =>
-                          updateField(
-                            item.id,
-                            "checklist_contract_sent",
-                            !item.checklist_contract_sent
-                          )
-                        }
-                        icon={Send}
-                      />
-                      <Toggle
-                        label="E-Sig Requested"
-                        checked={item.checklist_esig_sent}
-                        onClick={() =>
-                          updateField(
-                            item.id,
-                            "checklist_esig_sent",
-                            !item.checklist_esig_sent
-                          )
-                        }
-                      />
-                      <Toggle
-                        label="Contract Signed"
-                        checked={item.checklist_contract_signed}
-                        onClick={() =>
-                          updateField(
-                            item.id,
-                            "checklist_contract_signed",
-                            !item.checklist_contract_signed
-                          )
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <SectionHeader title="Deposit" icon={CreditCard} />
-                    <div className="grid grid-cols-1 gap-2">
-                      <Toggle
-                        label="Email 2: Invoice Sent"
-                        checked={item.checklist_deposit_sent}
-                        onClick={() =>
-                          updateField(
-                            item.id,
-                            "checklist_deposit_sent",
-                            !item.checklist_deposit_sent
-                          )
-                        }
-                        icon={Send}
-                      />
-                      <Toggle
-                        label="Deposit Paid"
-                        checked={item.checklist_deposit_paid}
-                        onClick={() =>
-                          updateField(
-                            item.id,
-                            "checklist_deposit_paid",
-                            !item.checklist_deposit_paid
-                          )
-                        }
-                      />
-                      <Toggle
-                        label="Email 3: Receipt Sent"
-                        checked={item.checklist_email_deposit_receipt}
-                        onClick={() =>
-                          updateField(
-                            item.id,
-                            "checklist_email_deposit_receipt",
-                            !item.checklist_email_deposit_receipt
-                          )
-                        }
-                        icon={Send}
-                      />
-                    </div>
+                  <SectionHeader
+                    title="Contract & Assets"
+                    icon={FileSignature}
+                  />
+                  <div className="space-y-2">
+                    <Toggle
+                      label="Manuscript Received"
+                      checked={item.manuscript_received}
+                      onClick={() =>
+                        updateField(
+                          item.id,
+                          "manuscript_received",
+                          !item.manuscript_received
+                        )
+                      }
+                      icon={FileText}
+                    />
+                    <Toggle
+                      label="Contract Sent"
+                      checked={item.contract_sent}
+                      onClick={() =>
+                        updateField(
+                          item.id,
+                          "contract_sent",
+                          !item.contract_sent
+                        )
+                      }
+                      icon={Send}
+                    />
+                    <Toggle
+                      label="Contract Signed"
+                      checked={item.contract_signed}
+                      onClick={() =>
+                        updateField(
+                          item.id,
+                          "contract_signed",
+                          !item.contract_signed
+                        )
+                      }
+                    />
                   </div>
                 </div>
 
-                {/* COL 3: ACTIONS */}
-                <div className="flex flex-col gap-4 bg-white p-6 rounded-2xl border border-slate-200 h-fit">
-                  <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
-                    Project Actions
-                  </h4>
+                {/* COL 3: MONEY & ACTIONS */}
+                <div className="space-y-6">
+                  <SectionHeader title="Financials" icon={CreditCard} />
+                  <div className="space-y-2 mb-8">
+                    <Toggle
+                      label="Invoice Sent"
+                      checked={item.deposit_sent}
+                      onClick={() =>
+                        updateField(item.id, "deposit_sent", !item.deposit_sent)
+                      }
+                      icon={Send}
+                    />
+                    <Toggle
+                      label="Deposit Paid"
+                      checked={item.deposit_paid}
+                      onClick={() =>
+                        updateField(item.id, "deposit_paid", !item.deposit_paid)
+                      }
+                    />
+                    <Toggle
+                      label="Receipt Sent"
+                      checked={item.email_receipt_sent}
+                      onClick={() =>
+                        updateField(
+                          item.id,
+                          "email_receipt_sent",
+                          !item.email_receipt_sent
+                        )
+                      }
+                      icon={Send}
+                    />
+                  </div>
 
-                  <button
-                    onClick={() => handleNudge(item.id, item.strike_count)}
-                    className="w-full py-4 bg-orange-50 text-orange-600 rounded-xl font-bold uppercase text-xs tracking-widest hover:bg-orange-100 transition-colors flex items-center justify-center gap-2"
-                  >
-                    <AlertTriangle size={16} /> Send Nudge ({item.strike_count})
-                  </button>
-
-                  <div className="h-px bg-slate-100 my-2" />
-
-                  {isReady ? (
+                  {/* FINAL ACTION BUTTON */}
+                  <div className="pt-6 border-t border-slate-200">
                     <button
-                      onClick={() => moveToProduction(item.id)}
-                      className="w-full py-4 bg-indigo-600 text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-indigo-700 hover:scale-[1.02] transition-all flex items-center justify-center gap-2 shadow-xl shadow-indigo-200"
+                      disabled={!isReady}
+                      onClick={() => moveToF15(item)}
+                      className={`w-full py-4 rounded-xl font-black uppercase text-xs tracking-widest flex items-center justify-center gap-2 shadow-xl transition-all ${
+                        isReady
+                          ? "bg-indigo-600 text-white hover:bg-indigo-700 hover:scale-[1.02]"
+                          : "bg-slate-200 text-slate-400 cursor-not-allowed"
+                      }`}
                     >
-                      Move to F15 <ArrowRight size={16} />
+                      Move to First 15 <ArrowRight size={16} />
                     </button>
-                  ) : (
-                    <div className="text-center p-4 border-2 border-dashed border-slate-100 rounded-xl">
-                      <p className="text-[10px] font-bold uppercase text-slate-400">
-                        Complete Checklist to Proceed
+                    {!isReady && (
+                      <p className="text-center text-[10px] font-bold text-slate-400 mt-2 uppercase">
+                        Complete steps to proceed
                       </p>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
             )}

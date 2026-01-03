@@ -50,18 +50,18 @@ export default function SchedulerPage() {
     notes: "",
   });
 
-  // --- 3. FETCH DATABASE SCHEDULE ---
+  // --- 3. FETCH DATABASE SCHEDULE (UPDATED) ---
   useEffect(() => {
     const fetchSchedule = async () => {
       const [requests, bookouts] = await Promise.all([
-        // CRITICAL UPDATE: Filter out archived/rejected items.
-        // Only Pending and Approved should show up.
         supabase
           .from("2_booking_requests")
           .select("start_date, end_date, status")
           .neq("status", "archived"),
 
-        supabase.from("9_bookouts").select("start_date, end_date"),
+        supabase
+          .from("8_bookouts") // <--- CHANGED TO 8
+          .select("start_date, end_date"),
       ]);
 
       let allRanges = [];
@@ -71,17 +71,17 @@ export default function SchedulerPage() {
         const realRanges = requests.data.map((b) => ({
           start: new Date(b.start_date).setHours(0, 0, 0, 0),
           end: new Date(b.end_date).setHours(0, 0, 0, 0),
-          status: b.status, // 'pending' = yellow, 'approved' = red
+          status: b.status,
         }));
         allRanges = [...allRanges, ...realRanges];
       }
 
-      // Process Blockouts (Always Red)
+      // Process Blockouts
       if (bookouts.data) {
         const blockedRanges = bookouts.data.map((b) => ({
           start: new Date(b.start_date).setHours(0, 0, 0, 0),
           end: new Date(b.end_date).setHours(0, 0, 0, 0),
-          status: "blocked", // Force Red
+          status: "blocked",
         }));
         allRanges = [...allRanges, ...blockedRanges];
       }
@@ -143,9 +143,6 @@ export default function SchedulerPage() {
     const found = bookedRanges.find((r) => time >= r.start && time <= r.end);
     if (!found) return "free";
 
-    // LOGIC CHECK:
-    // Pending = Tentative (Yellow)
-    // Approved, Blocked, Ghost = Booked (Red)
     if (found.status === "pending") return "tentative";
     return "booked";
   };
@@ -311,8 +308,7 @@ export default function SchedulerPage() {
 
   return (
     <div className="min-h-screen w-full flex flex-col items-center pt-32 pb-16 px-4 bg-gradient-to-br from-[#FDFBF7] via-[#E8F3F1] to-[#E0E7FF] selection:bg-teal-200 selection:text-teal-900 overflow-x-hidden">
-      {/* Toast, Header, Steps 1-3 ... (Keep all existing render code exactly as is) */}
-
+      {/* Toast, Header, Steps... (Keep existing structure) */}
       {toast && (
         <div
           className={`fixed bottom-10 z-[100] px-8 py-4 rounded-2xl shadow-xl flex items-center gap-4 animate-fade-in-up backdrop-blur-xl border border-white/20 ${
@@ -332,7 +328,7 @@ export default function SchedulerPage() {
         </div>
       )}
 
-      {/* --- HEADER --- */}
+      {/* HEADER */}
       <div className="text-center max-w-4xl mx-auto mb-12 animate-fade-in relative z-10">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/60 backdrop-blur-md border border-white/60 shadow-sm mb-6">
           <Sparkles size={12} className="text-teal-500" />
