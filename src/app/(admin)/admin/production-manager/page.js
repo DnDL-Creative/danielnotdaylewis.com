@@ -1,14 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createClient } from "@/src/utils/supabase/client";
+import { createClient } from "@/src/utils/supabase/client"; // Check your relative path
 import { useRouter } from "next/navigation";
 
 // --- COMPONENTS ---
 import ResponsiveLeads from "@/src/components/production-manager/ResponsiveLeads";
-import BookingRequests from "@/src/components/production-manager/BookingRequests"; // <--- FIXED IMPORT NAME
+import BookingRequests from "@/src/components/production-manager/BookingRequests";
 import SchedulerDashboard from "@/src/components/production-manager/SchedulerDashboard";
 import OnboardingManager from "@/src/components/production-manager/OnboardingManager";
+import Archives from "@/src/components/production-manager/Archives"; // <--- 1. IMPORT THIS
 
 import {
   Inbox,
@@ -104,7 +105,7 @@ export default function ProductionManager() {
         {/* HEADER */}
         <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-6">
           <div>
-            <h1 className="text-4xl md:text-5xl font-black uppercase text-slate-900 tracking-tighter mb-2">
+            <h1 className="pt-10 text-4xl md:text-5xl font-black uppercase text-slate-900 tracking-tighter mb-2">
               Mission Control
             </h1>
             <p className="text-slate-500 font-medium flex items-center gap-2 text-xs uppercase tracking-widest">
@@ -157,18 +158,11 @@ export default function ProductionManager() {
 
         {/* CONTENT */}
         <div className="space-y-4">
-          {/* 1. LEADS */}
           {activeTab === "responsive" && <ResponsiveLeads />}
-
-          {/* 2. REQUESTS (Fixed Component Name) */}
           {activeTab === "requests" && (
             <BookingRequests onUpdate={fetchAllData} />
           )}
-
-          {/* 3. CALENDAR */}
           {activeTab === "calendar" && <SchedulerDashboard />}
-
-          {/* 4. ONBOARDING */}
           {activeTab === "onboarding" && <OnboardingManager />}
 
           {/* 5. PLACEHOLDERS */}
@@ -177,13 +171,11 @@ export default function ProductionManager() {
               First 15 Module
             </div>
           )}
-          {activeTab === "archive" && (
-            <div className="p-24 text-center text-slate-300 font-bold uppercase tracking-widest">
-              Archives Module
-            </div>
-          )}
 
-          {/* 6. SHARED LISTS */}
+          {/* 6. ARCHIVE (NOW ACTIVE) */}
+          {activeTab === "archive" && <Archives />}
+
+          {/* 7. SHARED LISTS */}
           {["production", "auditions"].includes(activeTab) && (
             <div className="grid grid-cols-1 gap-4">
               {filteredBookings.length === 0 ? (

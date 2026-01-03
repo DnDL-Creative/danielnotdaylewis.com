@@ -5,7 +5,6 @@ import { createClient } from "@/src/utils/supabase/client";
 import {
   Calendar as CalendarIcon,
   Ghost,
-  ShieldBan,
   Wand2,
   RefreshCw,
   ChevronLeft,
@@ -24,12 +23,30 @@ import {
   Tags,
   FileText,
   Clock,
+  Archive,
+  Save,
+  Ban,
+  CalendarDays,
 } from "lucide-react";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
+
+// --- HELPER: Fixes "Day Behind" Error ---
+const parseLocalDate = (dateString) => {
+  if (!dateString) return new Date();
+  try {
+    const str = String(dateString);
+    const [year, month, day] = str.split("T")[0].split("-").map(Number);
+    if (!year || !month || !day) return new Date(dateString);
+    return new Date(year, month - 1, day);
+  } catch (e) {
+    console.error("Date error:", e);
+    return new Date();
+  }
+};
 
 export default function SchedulerDashboard() {
   const [activeTab, setActiveTab] = useState("calendar");
@@ -40,12 +57,16 @@ export default function SchedulerDashboard() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [items, setItems] = useState([]);
 
-  // "Quick Add" Modal State
+  // Modals
   const [addModalOpen, setAddModalOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(null);
-  const [addType, setAddType] = useState("project"); // 'project' | 'block'
+  const [editModalOpen, setEditModalOpen] = useState(false);
 
-  // FULL PROJECT FORM DATA
+  // Selection
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [editingItem, setEditingItem] = useState(null);
+  const [addType, setAddType] = useState("project");
+
+  // Form Data
   const [newItemData, setNewItemData] = useState({
     title: "",
     client: "",
@@ -56,10 +77,10 @@ export default function SchedulerDashboard() {
     genre: "Fiction",
     notes: "",
     duration: 1,
-    reason: "Personal", // For blocks
+    reason: "Personal",
   });
 
-  // Ghost / Global Form State
+  // Ghost Settings
   const [ghostDensity, setGhostDensity] = useState("low");
   const [ghostMonths, setGhostMonths] = useState(3);
 
@@ -75,59 +96,64 @@ export default function SchedulerDashboard() {
   const showAlert = (title, message, type = "info", onConfirm = null) => {
     setModal({ isOpen: true, title, message, type, onConfirm });
   };
-
-  const closeModal = () => {
-    setModal({ ...modal, isOpen: false });
-  };
+  const closeModal = () => setModal({ ...modal, isOpen: false });
 
   // =========================================================================
-  // 1. DATA FETCHING
+  // 1. FETCH DATA
   // =========================================================================
   const fetchCalendar = async () => {
     setCalendarLoading(true);
+    try {
+      const [requests, bookouts] = await Promise.all([
+        supabase
+          .from("2_booking_requests")
+          .select("id, client_name, book_title, start_date, end_date, status")
+          .neq("status", "archived")
+          .neq("status", "postponed"),
+        supabase
+          .from("8_bookouts")
+          .select("id, reason, type, start_date, end_date"),
+      ]);
 
-    const [requests, bookouts] = await Promise.all([
-      supabase
-        .from("2_booking_requests")
-        .select("id, client_name, book_title, start_date, end_date, status")
-        .neq("status", "archived"),
-      supabase
-        .from("8_bookouts")
-        .select("id, reason, type, start_date, end_date"),
-    ]);
+      const merged = [];
 
-    const merged = [];
-
-    if (requests.data) {
-      requests.data.forEach((r) => {
-        merged.push({
-          id: r.id,
-          title: r.book_title || r.client_name || "Project",
-          start: new Date(r.start_date),
-          end: new Date(r.end_date),
-          type: "real",
-          status: r.status,
-          sourceTable: "2_booking_requests",
+      if (requests.data) {
+        requests.data.forEach((r) => {
+          merged.push({
+            id: r.id,
+            title: r.book_title || r.client_name || "Project",
+            start: parseLocalDate(r.start_date),
+            end: parseLocalDate(r.end_date),
+            type: "real",
+            status: r.status,
+            sourceTable: "2_booking_requests",
+            rawStart: r.start_date,
+            rawEnd: r.end_date,
+          });
         });
-      });
-    }
+      }
 
-    if (bookouts.data) {
-      bookouts.data.forEach((b) => {
-        merged.push({
-          id: b.id,
-          title: b.reason || "Block",
-          start: new Date(b.start_date),
-          end: new Date(b.end_date),
-          type: b.type === "ghost" ? "ghost" : "personal",
-          status: "blocked",
-          sourceTable: "8_bookouts",
+      if (bookouts.data) {
+        bookouts.data.forEach((b) => {
+          merged.push({
+            id: b.id,
+            title: b.reason || "Block",
+            start: parseLocalDate(b.start_date),
+            end: parseLocalDate(b.end_date),
+            type: b.type === "ghost" ? "ghost" : "personal",
+            status: "blocked",
+            sourceTable: "8_bookouts",
+            rawStart: b.start_date,
+            rawEnd: b.end_date,
+          });
         });
-      });
+      }
+      setItems(merged);
+    } catch (err) {
+      console.error("Fetch error:", err);
+    } finally {
+      setCalendarLoading(false);
     }
-
-    setItems(merged);
-    setCalendarLoading(false);
   };
 
   useEffect(() => {
@@ -135,11 +161,94 @@ export default function SchedulerDashboard() {
   }, []);
 
   // =========================================================================
-  // 2. QUICK ADD (FULL PROJECT SUPPORT)
+  // 2. EDIT ACTIONS
+  // =========================================================================
+  const handleItemClick = (e, item) => {
+    e.stopPropagation();
+    const sStr = item.rawStart
+      ? item.rawStart.split("T")[0]
+      : new Date().toISOString().split("T")[0];
+    const eStr = item.rawEnd
+      ? item.rawEnd.split("T")[0]
+      : new Date().toISOString().split("T")[0];
+
+    setEditingItem({
+      ...item,
+      startStr: sStr,
+      endStr: eStr,
+    });
+    setEditModalOpen(true);
+  };
+
+  const handleUpdateDates = async () => {
+    setLoading(true);
+    const { error } = await supabase
+      .from(editingItem.sourceTable)
+      .update({
+        start_date: editingItem.startStr,
+        end_date: editingItem.endStr,
+      })
+      .eq("id", editingItem.id);
+
+    setLoading(false);
+    if (error) {
+      showAlert("Error", "Could not update dates.", "error");
+    } else {
+      setEditModalOpen(false);
+      fetchCalendar();
+    }
+  };
+
+  const handleStatusChange = async (newStatus) => {
+    if (!editingItem) return;
+    if (
+      !window.confirm(
+        `Are you sure you want to ${
+          newStatus === "boot" ? "delete" : newStatus
+        } this?`
+      )
+    )
+      return;
+
+    setLoading(true);
+    let error = null;
+
+    if (newStatus === "boot") {
+      const { error: err } = await supabase
+        .from(editingItem.sourceTable)
+        .delete()
+        .eq("id", editingItem.id);
+      error = err;
+    } else {
+      if (editingItem.type === "real") {
+        const { error: err } = await supabase
+          .from("2_booking_requests")
+          .update({ status: newStatus })
+          .eq("id", editingItem.id);
+        error = err;
+      } else {
+        const { error: err } = await supabase
+          .from("8_bookouts")
+          .delete()
+          .eq("id", editingItem.id);
+        error = err;
+      }
+    }
+
+    setLoading(false);
+    if (error) {
+      showAlert("Error", "Action failed", "error");
+    } else {
+      setEditModalOpen(false);
+      fetchCalendar();
+    }
+  };
+
+  // =========================================================================
+  // 3. ADD LOGIC
   // =========================================================================
   const openAddModal = (date) => {
     setSelectedDate(date);
-    // Reset to defaults
     setNewItemData({
       title: "",
       client: "",
@@ -158,45 +267,35 @@ export default function SchedulerDashboard() {
   const handleQuickAdd = async () => {
     if (!newItemData.duration || newItemData.duration < 1)
       return alert("Duration needed");
-
     setLoading(true);
 
     const startDate = new Date(selectedDate);
     const endDate = new Date(startDate);
     endDate.setDate(startDate.getDate() + (parseInt(newItemData.duration) - 1));
 
-    let error = null;
-
     if (addType === "project") {
       if (!newItemData.title) {
         setLoading(false);
         return alert("Title required");
       }
-
-      // INSERT INTO 2_BOOKING_REQUESTS (The "Real" Table)
-      const { error: dbError } = await supabase
-        .from("2_booking_requests")
-        .insert([
-          {
-            book_title: newItemData.title,
-            client_name: newItemData.client || "Internal Entry",
-            email: newItemData.email,
-            client_type: newItemData.client_type,
-            is_returning: newItemData.is_returning,
-            narration_style: newItemData.style,
-            genre: newItemData.genre,
-            notes: newItemData.notes,
-            start_date: startDate.toISOString(),
-            end_date: endDate.toISOString(),
-            status: "approved", // Auto-approve manual entries
-            days_needed: newItemData.duration,
-            word_count: 0, // Placeholder
-          },
-        ]);
-      error = dbError;
+      await supabase.from("2_booking_requests").insert([
+        {
+          book_title: newItemData.title,
+          client_name: newItemData.client || "Internal",
+          email: newItemData.email,
+          client_type: newItemData.client_type,
+          narration_style: newItemData.style,
+          genre: newItemData.genre,
+          notes: newItemData.notes,
+          start_date: startDate.toISOString(),
+          end_date: endDate.toISOString(),
+          status: "approved",
+          days_needed: newItemData.duration,
+          word_count: 0,
+        },
+      ]);
     } else {
-      // Block (Vacation/Personal)
-      const { error: dbError } = await supabase.from("8_bookouts").insert([
+      await supabase.from("8_bookouts").insert([
         {
           reason: newItemData.reason,
           type: "personal",
@@ -204,31 +303,24 @@ export default function SchedulerDashboard() {
           end_date: endDate.toISOString(),
         },
       ]);
-      error = dbError;
     }
 
     setLoading(false);
-
-    if (error) {
-      console.error(error);
-      showAlert("Error", "Failed to create item.", "error");
-    } else {
-      setAddModalOpen(false);
-      fetchCalendar(); // Refresh calendar immediately
-    }
+    setAddModalOpen(false);
+    fetchCalendar();
   };
 
   // =========================================================================
-  // 3. GHOST MODE
+  // 4. GHOST MODE
   // =========================================================================
   const handleGhostMode = async () => {
     setLoading(true);
-    // ... (Keep existing logic)
     const [real, blocks] = await Promise.all([
       supabase
         .from("2_booking_requests")
         .select("start_date, end_date")
-        .neq("status", "archived"),
+        .neq("status", "archived")
+        .neq("status", "postponed"),
       supabase.from("8_bookouts").select("start_date, end_date"),
     ]);
 
@@ -294,25 +386,10 @@ export default function SchedulerDashboard() {
       cursor.setDate(cursor.getDate() + gapTolerance);
     }
 
-    if (newGhosts.length > 0) {
+    if (newGhosts.length > 0)
       await supabase.from("8_bookouts").insert(newGhosts);
-      fetchCalendar();
-      showAlert("Success", `Added ${newGhosts.length} ghosts.`);
-    } else {
-      showAlert("Full", "No gaps found.");
-    }
     setLoading(false);
-  };
-
-  // =========================================================================
-  // 4. DELETION
-  // =========================================================================
-  const deleteSingleItem = (id, table, title) => {
-    showAlert("Delete Item", `Delete "${title}"?`, "confirm", async () => {
-      await supabase.from(table).delete().eq("id", id);
-      fetchCalendar();
-      closeModal();
-    });
+    fetchCalendar();
   };
 
   // =========================================================================
@@ -334,8 +411,7 @@ export default function SchedulerDashboard() {
     };
 
     return (
-      <div className="animate-fade-in relative">
-        {/* Controls */}
+      <div className="md:px-20 animate-fade-in relative">
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
           <div className="flex flex-wrap gap-2">
             <div className="flex items-center gap-2 text-[10px] font-bold uppercase bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-100 text-emerald-700">
@@ -347,15 +423,15 @@ export default function SchedulerDashboard() {
             <div className="flex items-center gap-2 text-[10px] font-bold uppercase bg-purple-50 px-3 py-1 rounded-lg border border-purple-100 text-purple-700">
               <div className="w-2 h-2 rounded-full bg-purple-500" /> Ghost
             </div>
+            {/* ADDED BACK: Time Off Legend */}
             <div className="flex items-center gap-2 text-[10px] font-bold uppercase bg-slate-50 px-3 py-1 rounded-lg border border-slate-200 text-slate-500">
               <div className="w-2 h-2 rounded-full bg-slate-400" /> Time Off
             </div>
           </div>
-
           <div className="flex items-center bg-slate-50 rounded-xl p-1 border border-slate-100">
             <button
               onClick={() => changeMonth(-1)}
-              className="p-2 hover:bg-white rounded-lg text-slate-500 shadow-sm transition-all"
+              className="p-2 hover:bg-white rounded-lg text-slate-500 shadow-sm"
             >
               <ChevronLeft size={18} />
             </button>
@@ -367,14 +443,13 @@ export default function SchedulerDashboard() {
             </span>
             <button
               onClick={() => changeMonth(1)}
-              className="p-2 hover:bg-white rounded-lg text-slate-500 shadow-sm transition-all"
+              className="p-2 hover:bg-white rounded-lg text-slate-500 shadow-sm"
             >
               <ChevronRight size={18} />
             </button>
           </div>
         </div>
 
-        {/* Grid */}
         <div className="grid grid-cols-7 gap-1 select-none">
           {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
             <div
@@ -393,26 +468,25 @@ export default function SchedulerDashboard() {
 
           {days.map((day, i) => {
             const date = new Date(year, month, day);
-            date.setHours(0, 0, 0, 0);
+            const dateMid = new Date(date).setHours(0, 0, 0, 0);
             const isToday = date.toDateString() === today.toDateString();
 
-            const dayItems = items.filter((i) => {
-              const s = new Date(i.start).setHours(0, 0, 0, 0);
-              const e = new Date(i.end).setHours(0, 0, 0, 0);
-              return date >= s && date <= e;
+            const dayItems = items.filter((item) => {
+              if (!item.start || !item.end) return false;
+              const s = new Date(item.start).setHours(0, 0, 0, 0);
+              const e = new Date(item.end).setHours(0, 0, 0, 0);
+              return dateMid >= s && dateMid <= e;
             });
 
             return (
               <div
                 key={i}
                 onClick={() => openAddModal(date)}
-                className={`h-16 md:h-24 border rounded-xl p-1 relative overflow-hidden group transition-all cursor-pointer hover:border-blue-300 hover:shadow-md
-                    ${
-                      isToday
-                        ? "bg-blue-50/50 border-blue-200"
-                        : "bg-white border-slate-100"
-                    }
-                `}
+                className={`h-16 md:h-24 border rounded-xl p-1 relative overflow-hidden group transition-all cursor-pointer hover:border-blue-300 hover:shadow-md ${
+                  isToday
+                    ? "bg-blue-50/50 border-blue-200"
+                    : "bg-white border-slate-100"
+                }`}
               >
                 <span
                   className={`text-[10px] font-bold absolute top-1 right-2 flex items-center justify-center w-5 h-5 rounded-full ${
@@ -421,13 +495,14 @@ export default function SchedulerDashboard() {
                 >
                   {day}
                 </span>
-
                 <div className="mt-5 space-y-1 overflow-y-auto max-h-[50px] md:max-h-[70px] scrollbar-hide">
                   {dayItems.map((item, idx) => {
                     let color =
                       "bg-emerald-50 text-emerald-700 border-emerald-100";
                     if (item.status === "pending")
                       color = "bg-amber-50 text-amber-700 border-amber-100";
+                    if (item.status === "postponed")
+                      color = "bg-orange-50 text-orange-700 border-orange-100";
                     if (item.type === "ghost")
                       color = "bg-purple-50 text-purple-700 border-purple-100";
                     if (item.type === "personal")
@@ -436,14 +511,7 @@ export default function SchedulerDashboard() {
                     return (
                       <button
                         key={`${item.id}-${idx}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteSingleItem(
-                            item.id,
-                            item.sourceTable,
-                            item.title
-                          );
-                        }}
+                        onClick={(e) => handleItemClick(e, item)}
                         className={`w-full text-left text-[8px] md:text-[9px] px-1 py-0.5 rounded-md border ${color} font-bold truncate flex items-center gap-1 hover:opacity-75`}
                         title={item.title}
                       >
@@ -452,7 +520,6 @@ export default function SchedulerDashboard() {
                     );
                   })}
                 </div>
-
                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                   <Plus
                     className="text-slate-300 bg-white rounded-full shadow-sm p-1"
@@ -538,7 +605,118 @@ export default function SchedulerDashboard() {
 
   return (
     <div className="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden relative">
-      {/* --- ADD ITEM MODAL (EXPANDED) --- */}
+      {/* EDIT MODAL */}
+      {editModalOpen && editingItem && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            onClick={() => setEditModalOpen(false)}
+          />
+          <div className="relative bg-white rounded-[2rem] p-8 max-w-md w-full shadow-2xl animate-scale-up">
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">
+                  {editingItem.type === "real" ? "Project" : "Blocked Time"}
+                </span>
+                <h3 className="text-xl font-black text-slate-900 leading-tight">
+                  {editingItem.title}
+                </h3>
+              </div>
+              <button
+                onClick={() => setEditModalOpen(false)}
+                className="p-2 bg-slate-100 rounded-full"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="bg-slate-50 p-5 rounded-2xl mb-6 border border-slate-100">
+              <div className="flex items-center gap-2 mb-4 text-slate-400 text-[10px] font-black uppercase">
+                <CalendarDays size={14} /> Change Dates
+              </div>
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="text-[9px] font-bold uppercase text-slate-400 block mb-1">
+                    Start
+                  </label>
+                  <input
+                    type="date"
+                    className="w-full bg-white p-2 rounded-xl text-xs font-bold"
+                    value={editingItem.startStr}
+                    onChange={(e) =>
+                      setEditingItem({
+                        ...editingItem,
+                        startStr: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] font-bold uppercase text-slate-400 block mb-1">
+                    End
+                  </label>
+                  <input
+                    type="date"
+                    className="w-full bg-white p-2 rounded-xl text-xs font-bold"
+                    value={editingItem.endStr}
+                    onChange={(e) =>
+                      setEditingItem({ ...editingItem, endStr: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+              <button
+                onClick={handleUpdateDates}
+                className="w-full py-3 bg-white border border-slate-200 text-slate-700 rounded-xl text-[10px] font-black uppercase hover:border-emerald-500 hover:text-emerald-600 flex items-center justify-center gap-2"
+              >
+                <Save size={14} /> Update Dates
+              </button>
+            </div>
+
+            {editingItem.type === "real" ? (
+              <div className="grid grid-cols-3 gap-3">
+                <button
+                  onClick={() => handleStatusChange("postponed")}
+                  className="flex flex-col items-center gap-1 p-3 rounded-xl bg-orange-50 text-orange-600 border border-orange-100 hover:bg-orange-500 hover:text-white"
+                >
+                  <Clock size={18} />
+                  <span className="text-[9px] font-bold uppercase">
+                    Postpone
+                  </span>
+                </button>
+                <button
+                  onClick={() => handleStatusChange("archived")}
+                  className="flex flex-col items-center gap-1 p-3 rounded-xl bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-500 hover:text-white"
+                >
+                  <Archive size={18} />
+                  <span className="text-[9px] font-bold uppercase">
+                    Archive
+                  </span>
+                </button>
+                <button
+                  onClick={() => handleStatusChange("boot")}
+                  className="flex flex-col items-center gap-1 p-3 rounded-xl bg-red-50 text-red-600 border border-red-100 hover:bg-red-500 hover:text-white"
+                >
+                  <Ban size={18} />
+                  <span className="text-[9px] font-bold uppercase">Boot</span>
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => handleStatusChange("boot")}
+                className="w-full flex items-center justify-center gap-2 p-4 rounded-2xl bg-red-50 text-red-600 border border-red-100 hover:bg-red-500 hover:text-white"
+              >
+                <Trash2 size={16} />{" "}
+                <span className="text-xs font-black uppercase">
+                  Delete Block
+                </span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ADD MODAL */}
       {addModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div
@@ -561,47 +739,46 @@ export default function SchedulerDashboard() {
               </div>
               <button
                 onClick={() => setAddModalOpen(false)}
-                className="p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"
+                className="p-2 bg-slate-100 rounded-full"
               >
                 <X size={16} />
               </button>
             </div>
 
-            {/* Type Toggle */}
-            <div className="flex p-1 bg-slate-100 rounded-xl mb-8">
-              <button
-                onClick={() => setAddType("project")}
-                className={`flex-1 py-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
-                  addType === "project"
-                    ? "bg-white shadow-sm text-slate-900"
-                    : "text-slate-400 hover:text-slate-600"
-                }`}
-              >
-                Project
-              </button>
-              <button
-                onClick={() => setAddType("block")}
-                className={`flex-1 py-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
-                  addType === "block"
-                    ? "bg-white shadow-sm text-slate-900"
-                    : "text-slate-400 hover:text-slate-600"
-                }`}
-              >
-                Block
-              </button>
-            </div>
+            <div className="space-y-4">
+              {/* --- FIXED SELECTOR TOGGLE --- */}
+              <div className="flex p-1 bg-slate-100 rounded-xl mb-4">
+                <button
+                  onClick={() => setAddType("project")}
+                  className={`flex-1 py-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                    addType === "project"
+                      ? "bg-white shadow-sm text-slate-900"
+                      : "text-slate-400 hover:text-slate-600"
+                  }`}
+                >
+                  Project
+                </button>
+                <button
+                  onClick={() => setAddType("block")}
+                  className={`flex-1 py-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                    addType === "block"
+                      ? "bg-white shadow-sm text-slate-900"
+                      : "text-slate-400 hover:text-slate-600"
+                  }`}
+                >
+                  Block
+                </button>
+              </div>
 
-            <div className="space-y-6 mb-8">
-              {/* --- PROJECT FORM --- */}
               {addType === "project" ? (
                 <>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="text-[10px] font-bold uppercase text-slate-400 block mb-2 flex items-center gap-2">
-                        <BookOpen size={12} /> Title
+                      <label className="text-[9px] font-bold uppercase text-slate-400 block mb-1">
+                        Title
                       </label>
                       <input
-                        className="w-full bg-slate-50 p-3 rounded-xl text-sm font-bold border border-slate-200 focus:border-slate-400 outline-none"
+                        className="w-full bg-slate-50 p-3 rounded-xl text-sm font-bold"
                         value={newItemData.title}
                         onChange={(e) =>
                           setNewItemData({
@@ -613,11 +790,11 @@ export default function SchedulerDashboard() {
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] font-bold uppercase text-slate-400 block mb-2 flex items-center gap-2">
-                        <User size={12} /> Client
+                      <label className="text-[9px] font-bold uppercase text-slate-400 block mb-1">
+                        Client
                       </label>
                       <input
-                        className="w-full bg-slate-50 p-3 rounded-xl text-sm font-bold border border-slate-200 focus:border-slate-400 outline-none"
+                        className="w-full bg-slate-50 p-3 rounded-xl text-sm font-bold"
                         value={newItemData.client}
                         onChange={(e) =>
                           setNewItemData({
@@ -629,13 +806,12 @@ export default function SchedulerDashboard() {
                       />
                     </div>
                   </div>
-
                   <div>
-                    <label className="text-[10px] font-bold uppercase text-slate-400 block mb-2 flex items-center gap-2">
-                      <Mail size={12} /> Email
+                    <label className="text-[9px] font-bold uppercase text-slate-400 block mb-1">
+                      Email
                     </label>
                     <input
-                      className="w-full bg-slate-50 p-3 rounded-xl text-sm font-bold border border-slate-200 focus:border-slate-400 outline-none"
+                      className="w-full bg-slate-50 p-3 rounded-xl text-sm font-bold"
                       value={newItemData.email}
                       onChange={(e) =>
                         setNewItemData({
@@ -646,14 +822,13 @@ export default function SchedulerDashboard() {
                       placeholder="client@example.com"
                     />
                   </div>
-
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="text-[10px] font-bold uppercase text-slate-400 block mb-2 flex items-center gap-2">
-                        <Briefcase size={12} /> Type
+                      <label className="text-[9px] font-bold uppercase text-slate-400 block mb-1">
+                        Type
                       </label>
                       <select
-                        className="w-full bg-slate-50 p-3 rounded-xl text-sm font-bold border border-slate-200 outline-none"
+                        className="w-full bg-slate-50 p-3 rounded-xl text-sm font-bold"
                         value={newItemData.client_type}
                         onChange={(e) =>
                           setNewItemData({
@@ -669,11 +844,11 @@ export default function SchedulerDashboard() {
                       </select>
                     </div>
                     <div>
-                      <label className="text-[10px] font-bold uppercase text-slate-400 block mb-2 flex items-center gap-2">
-                        <Tags size={12} /> Genre
+                      <label className="text-[9px] font-bold uppercase text-slate-400 block mb-1">
+                        Genre
                       </label>
                       <select
-                        className="w-full bg-slate-50 p-3 rounded-xl text-sm font-bold border border-slate-200 outline-none"
+                        className="w-full bg-slate-50 p-3 rounded-xl text-sm font-bold"
                         value={newItemData.genre}
                         onChange={(e) =>
                           setNewItemData({
@@ -690,14 +865,13 @@ export default function SchedulerDashboard() {
                       </select>
                     </div>
                   </div>
-
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="text-[10px] font-bold uppercase text-slate-400 block mb-2 flex items-center gap-2">
-                        <Mic2 size={12} /> Style
+                      <label className="text-[9px] font-bold uppercase text-slate-400 block mb-1">
+                        Style
                       </label>
                       <select
-                        className="w-full bg-slate-50 p-3 rounded-xl text-sm font-bold border border-slate-200 outline-none"
+                        className="w-full bg-slate-50 p-3 rounded-xl text-sm font-bold"
                         value={newItemData.style}
                         onChange={(e) =>
                           setNewItemData({
@@ -713,13 +887,13 @@ export default function SchedulerDashboard() {
                       </select>
                     </div>
                     <div>
-                      <label className="text-[10px] font-bold uppercase text-slate-400 block mb-2 flex items-center gap-2">
-                        <Clock size={12} /> Days
+                      <label className="text-[9px] font-bold uppercase text-slate-400 block mb-1">
+                        Days
                       </label>
                       <input
                         type="number"
                         min="1"
-                        className="w-full bg-slate-50 p-3 rounded-xl text-sm font-bold border border-slate-200 outline-none"
+                        className="w-full bg-slate-50 p-3 rounded-xl text-sm font-bold"
                         value={newItemData.duration}
                         onChange={(e) =>
                           setNewItemData({
@@ -730,13 +904,12 @@ export default function SchedulerDashboard() {
                       />
                     </div>
                   </div>
-
                   <div>
-                    <label className="text-[10px] font-bold uppercase text-slate-400 block mb-2 flex items-center gap-2">
-                      <FileText size={12} /> Notes
+                    <label className="text-[9px] font-bold uppercase text-slate-400 block mb-1">
+                      Notes
                     </label>
                     <textarea
-                      className="w-full bg-slate-50 p-3 rounded-xl text-sm font-medium border border-slate-200 focus:border-slate-400 outline-none resize-none h-20"
+                      className="w-full bg-slate-50 p-3 rounded-xl text-sm font-medium resize-none h-20"
                       value={newItemData.notes}
                       onChange={(e) =>
                         setNewItemData({
@@ -749,14 +922,13 @@ export default function SchedulerDashboard() {
                   </div>
                 </>
               ) : (
-                /* --- BLOCK FORM --- */
                 <>
                   <div>
-                    <label className="text-[10px] font-bold uppercase text-slate-400 block mb-2">
+                    <label className="text-[9px] font-bold uppercase text-slate-400 block mb-1">
                       Reason
                     </label>
                     <select
-                      className="w-full bg-slate-50 p-3 rounded-xl text-sm font-bold border border-slate-200 outline-none"
+                      className="w-full bg-slate-50 p-3 rounded-xl text-sm font-bold"
                       value={newItemData.reason}
                       onChange={(e) =>
                         setNewItemData({
@@ -772,13 +944,13 @@ export default function SchedulerDashboard() {
                     </select>
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold uppercase text-slate-400 block mb-2">
+                    <label className="text-[9px] font-bold uppercase text-slate-400 block mb-1">
                       Duration (Days)
                     </label>
                     <input
                       type="number"
                       min="1"
-                      className="w-full bg-slate-50 p-3 rounded-xl text-sm font-bold border border-slate-200 outline-none"
+                      className="w-full bg-slate-50 p-3 rounded-xl text-sm font-bold"
                       value={newItemData.duration}
                       onChange={(e) =>
                         setNewItemData({
@@ -790,71 +962,25 @@ export default function SchedulerDashboard() {
                   </div>
                 </>
               )}
-            </div>
 
-            <button
-              onClick={handleQuickAdd}
-              disabled={loading}
-              className="w-full py-4 bg-slate-900 text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-emerald-500 transition-all flex items-center justify-center gap-2 shadow-xl shadow-slate-900/10"
-            >
-              {loading ? (
-                <Loader2 className="animate-spin" size={16} />
-              ) : (
-                <>
-                  <CheckCircle2 size={16} /> Save to Schedule
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* --- ALERT MODAL --- */}
-      {modal.isOpen && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-white/80 backdrop-blur-sm"
-            onClick={closeModal}
-          />
-          <div className="relative bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl animate-scale-up border border-slate-100 ring-1 ring-slate-100">
-            <div className="flex items-center gap-4 mb-4">
-              <div
-                className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
-                  modal.type === "error"
-                    ? "bg-red-50 text-red-500"
-                    : "bg-indigo-50 text-indigo-500"
-                }`}
-              >
-                {modal.type === "error" ? <AlertTriangle /> : <CheckCircle2 />}
-              </div>
-              <h3 className="text-lg font-black uppercase text-slate-900">
-                {modal.title}
-              </h3>
-            </div>
-            <p className="text-slate-500 font-medium mb-8 leading-relaxed">
-              {modal.message}
-            </p>
-            <div className="flex gap-3">
               <button
-                onClick={closeModal}
-                className="flex-1 py-3 bg-slate-50 rounded-xl text-slate-500 font-bold uppercase text-xs hover:bg-slate-100"
+                onClick={handleQuickAdd}
+                disabled={loading}
+                className="w-full py-4 bg-slate-900 text-white rounded-xl font-black uppercase flex items-center justify-center gap-2"
               >
-                Cancel
+                {loading ? (
+                  <Loader2 className="animate-spin" size={16} />
+                ) : (
+                  <CheckCircle2 size={16} />
+                )}{" "}
+                Save
               </button>
-              {modal.type === "confirm" && (
-                <button
-                  onClick={modal.onConfirm}
-                  className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-bold uppercase text-xs hover:bg-indigo-600"
-                >
-                  Confirm
-                </button>
-              )}
             </div>
           </div>
         </div>
       )}
 
-      {/* HEADER */}
+      {/* HEADER & TABS */}
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
         <div>
           <h2 className="text-2xl font-black uppercase text-slate-900">
@@ -866,7 +992,7 @@ export default function SchedulerDashboard() {
         </div>
         <button
           onClick={fetchCalendar}
-          className="p-3 bg-slate-50 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-900 transition-colors w-fit"
+          className="p-3 bg-slate-50 rounded-xl hover:bg-slate-100"
         >
           <RefreshCw
             size={20}
@@ -874,8 +1000,6 @@ export default function SchedulerDashboard() {
           />
         </button>
       </div>
-
-      {/* TABS */}
       <div className="flex p-1 bg-slate-50 rounded-2xl mb-8 border border-slate-100 overflow-x-auto">
         {[
           { id: "calendar", label: "Calendar", icon: CalendarIcon },
@@ -884,10 +1008,10 @@ export default function SchedulerDashboard() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex-1 flex items-center justify-center gap-2 py-4 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+            className={`flex-1 flex items-center justify-center gap-2 py-4 px-4 rounded-xl text-xs font-black uppercase ${
               activeTab === tab.id
                 ? "bg-white text-slate-900 shadow-sm"
-                : "text-slate-400 hover:text-slate-600"
+                : "text-slate-400"
             }`}
           >
             <tab.icon size={16} /> {tab.label}

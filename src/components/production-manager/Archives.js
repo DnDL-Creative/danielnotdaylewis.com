@@ -5,16 +5,16 @@ import { createClient } from "@/src/utils/supabase/client";
 import {
   Skull,
   Ban,
-  DollarSign,
   Undo2,
   Trash2,
-  FileX,
   ShieldAlert,
   AlertOctagon,
   Trophy,
   Star,
   CheckCircle2,
   Clock,
+  Loader2,
+  AlertTriangle,
 } from "lucide-react";
 
 const supabase = createClient(
@@ -23,295 +23,290 @@ const supabase = createClient(
 );
 
 export default function Archives() {
-  const [items, setItems] = useState([]);
+  const [bootedItems, setBootedItems] = useState([]);
+  const [completedItems, setCompletedItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState("completed"); // Default to the positive view
+  const [view, setView] = useState("completed");
+
+  // --- MODAL STATE ---
+  const [modal, setModal] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    type: "info",
+    onConfirm: null,
+  });
+
+  const showAlert = (title, message, type = "info", onConfirm = null) => {
+    setModal({ isOpen: true, title, message, type, onConfirm });
+  };
+
+  const closeModal = () => {
+    setModal({ ...modal, isOpen: false });
+  };
 
   // --- FETCH ---
-  const fetchItems = async () => {
+  const fetchArchives = async () => {
     setLoading(true);
-    // Fetch both 'booted' (Bad) and 'archive' (Good/Completed)
-    const { data, error } = await supabase
-      .from("bookings")
-      .select("*")
-      .in("status", ["booted", "archive"])
-      .order("end_date", { ascending: false });
+    try {
+      // 1. GET BOOTED
+      const { data: bootedData } = await supabase
+        .from("7_archive")
+        .select("*")
+        .order("archived_at", { ascending: false });
 
-    if (error) console.error(error);
-    else setItems(data || []);
-    setLoading(false);
+      const mappedBooted = (bootedData || []).map((row) => {
+        const details = row.original_data?.request || row.original_data || {};
+        return {
+          ...row,
+          ...details,
+          archive_id: row.id,
+          request_id: details.id,
+        };
+      });
+      setBootedItems(mappedBooted);
+
+      // 2. GET COMPLETED
+      const { data: completedData } = await supabase
+        .from("2_booking_requests")
+        .select("*")
+        .eq("status", "archived")
+        .order("end_date", { ascending: false });
+
+      const bootedIds = mappedBooted.map((b) => b.request_id);
+      const cleanCompleted = (completedData || []).filter(
+        (c) => !bootedIds.includes(c.id)
+      );
+
+      setCompletedItems(cleanCompleted);
+    } catch (error) {
+      console.error("Error fetching archives:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    fetchItems();
+    fetchArchives();
   }, []);
 
   // --- ACTIONS ---
-  const updateField = async (id, field, value) => {
-    setItems(items.map((i) => (i.id === id ? { ...i, [field]: value } : i)));
+  const toggleBlacklist = async (item) => {
+    const newVal = !item.is_blacklisted;
+    const updatedOriginal = { ...item.original_data, is_blacklisted: newVal };
+
     await supabase
-      .from("bookings")
-      .update({ [field]: value })
-      .eq("id", id);
+      .from("7_archive")
+      .update({ original_data: updatedOriginal })
+      .eq("id", item.archive_id);
+
+    fetchArchives();
+
+    if (newVal)
+      showAlert("Blacklisted", `Client marked as persona non grata.`, "error");
   };
 
-  const toggleBlacklist = async (id, currentVal) => {
-    const newVal = !currentVal;
-    setItems(
-      items.map((i) => (i.id === id ? { ...i, is_blacklisted: newVal } : i))
+  const reviveProject = (item) => {
+    showAlert(
+      "Revive Project",
+      `Restore "${item.book_title}" to active status?`,
+      "confirm",
+      async () => {
+        // Reset status in Table 2
+        await supabase
+          .from("2_booking_requests")
+          .update({ status: "pending" })
+          .eq("id", item.request_id || item.id);
+        // If booted, delete from graveyard
+        if (view === "booted") {
+          await supabase.from("7_archive").delete().eq("id", item.archive_id);
+        }
+        fetchArchives();
+        closeModal();
+      }
     );
-    await supabase
-      .from("bookings")
-      .update({ is_blacklisted: newVal })
-      .eq("id", id);
   };
 
-  const reviveProject = async (id) => {
-    if (!confirm("Bring this project back to Active Production?")) return;
-    await supabase
-      .from("bookings")
-      .update({ status: "production", boot_date: null })
-      .eq("id", id);
-    fetchItems();
+  const deleteForever = (id, table) => {
+    showAlert(
+      "Delete Forever",
+      "This action cannot be undone. Are you sure?",
+      "confirm",
+      async () => {
+        await supabase.from(table).delete().eq("id", id);
+        fetchArchives();
+        closeModal();
+      }
+    );
   };
 
-  const deleteForever = async (id) => {
-    if (!confirm("PERMANENTLY DELETE? This cannot be undone.")) return;
-    await supabase.from("bookings").delete().eq("id", id);
-    fetchItems();
-  };
-
-  // --- FILTERS ---
-  const bootedItems = items.filter((i) => i.status === "booted");
-  const completedItems = items.filter((i) => i.status === "archive");
+  // --- RENDER ---
   const displayedItems = view === "booted" ? bootedItems : completedItems;
 
   if (loading)
     return (
-      <div className="text-center py-24 text-slate-400 font-bold uppercase tracking-widest animate-pulse">
-        Loading History...
+      <div className="text-center py-24 text-slate-400 font-bold uppercase tracking-widest animate-pulse flex flex-col items-center gap-4">
+        <Loader2 className="animate-spin" size={32} /> Syncing History...
       </div>
     );
 
   return (
     <div className="space-y-6">
-      {/* TOGGLE HEADER */}
-      <div className="flex gap-4 border-b border-slate-200 pb-4">
+      {/* --- CUSTOM MODAL --- */}
+      {modal.isOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm"
+            onClick={closeModal}
+          />
+          <div className="relative bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl animate-scale-up border border-slate-100 ring-1 ring-slate-100">
+            <div className="flex items-center gap-4 mb-4">
+              <div
+                className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+                  modal.type === "error"
+                    ? "bg-red-50 text-red-500"
+                    : "bg-indigo-50 text-indigo-500"
+                }`}
+              >
+                {modal.type === "error" ? <AlertTriangle /> : <CheckCircle2 />}
+              </div>
+              <h3 className="text-lg font-black uppercase text-slate-900">
+                {modal.title}
+              </h3>
+            </div>
+            <p className="text-slate-500 font-medium mb-8 leading-relaxed">
+              {modal.message}
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={closeModal}
+                className="flex-1 py-3 bg-slate-50 rounded-xl text-slate-500 font-bold uppercase text-xs hover:bg-slate-100"
+              >
+                Cancel
+              </button>
+              {modal.type === "confirm" && (
+                <button
+                  onClick={modal.onConfirm}
+                  className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-bold uppercase text-xs hover:bg-indigo-600"
+                >
+                  Confirm
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TABS */}
+      <div className="flex gap-4 border-b border-slate-200 pb-6">
         <button
           onClick={() => setView("completed")}
-          className={`flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+          className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
             view === "completed"
-              ? "bg-indigo-600 text-white shadow-lg shadow-indigo-200"
-              : "bg-white text-slate-400 hover:bg-slate-50 border border-slate-200"
+              ? "bg-indigo-600 text-white shadow-lg shadow-indigo-200 ring-2 ring-indigo-600 ring-offset-2"
+              : "bg-white text-slate-400 border border-slate-200"
           }`}
         >
           <Trophy
             size={16}
             className={view === "completed" ? "text-yellow-300" : ""}
-          />
-          Completed({completedItems.length})
+          />{" "}
+          Completed ({completedItems.length})
         </button>
-
         <button
           onClick={() => setView("booted")}
-          className={`flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+          className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
             view === "booted"
-              ? "bg-red-600 text-white shadow-lg shadow-red-200"
-              : "bg-white text-slate-400 hover:bg-slate-50 border border-slate-200"
+              ? "bg-red-600 text-white shadow-lg shadow-red-200 ring-2 ring-red-600 ring-offset-2"
+              : "bg-white text-slate-400 border border-slate-200"
           }`}
         >
-          <Skull size={16} />
-          Booted ({bootedItems.length})
+          <Skull size={16} /> Booted ({bootedItems.length})
         </button>
       </div>
 
+      {/* LIST */}
       {displayedItems.length === 0 ? (
-        <div className="text-center py-24 bg-white rounded-[2.5rem] border border-slate-200 text-slate-400 font-bold uppercase tracking-widest">
-          No {view === "booted" ? "booted" : "completed"} projects found
+        <div className="text-center py-32 bg-white rounded-[3rem] border border-dashed border-slate-200">
+          <p className="text-slate-300 font-bold uppercase tracking-widest text-xs">
+            No {view} projects
+          </p>
         </div>
       ) : (
-        displayedItems.map((item) => {
-          const isBooted = item.status === "booted";
-          const needsRefund = item.checklist_deposit_paid && isBooted;
-
-          return (
-            <div
-              key={item.id}
-              className={`bg-white border rounded-[2rem] p-6 shadow-sm transition-all group ${
-                isBooted
-                  ? "border-red-100 hover:border-red-200"
-                  : "border-slate-100 hover:border-indigo-100 hover:shadow-md"
-              }`}
-            >
-              <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center">
-                {/* ICON & INFO */}
-                <div className="flex items-center gap-4 w-full lg:w-1/3">
-                  <div
-                    className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-inner ${
-                      isBooted
-                        ? "bg-red-50 text-red-600"
-                        : "bg-indigo-50 text-indigo-500"
-                    }`}
-                  >
-                    {item.is_blacklisted ? (
-                      <AlertOctagon size={28} />
-                    ) : isBooted ? (
-                      <Skull size={28} />
-                    ) : (
-                      <CheckCircle2 size={28} />
-                    )}
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-black text-slate-900 leading-none mb-1">
-                      {item.book_title}
-                    </h3>
-                    <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                      {item.client_name}
-                    </p>
-
-                    {/* TAGS */}
-                    <div className="flex gap-2 mt-2">
-                      {isBooted ? (
-                        <>
-                          <span className="bg-red-100 text-red-600 text-[9px] font-black uppercase px-2 py-0.5 rounded-full">
-                            Booted
-                          </span>
-                          {item.is_blacklisted && (
-                            <span className="bg-slate-900 text-white text-[9px] font-black uppercase px-2 py-0.5 rounded-full flex items-center gap-1">
-                              <Ban size={8} /> Blacklisted
-                            </span>
-                          )}
-                        </>
-                      ) : (
-                        <span className="bg-emerald-100 text-emerald-700 text-[9px] font-black uppercase px-2 py-0.5 rounded-full flex items-center gap-1">
-                          <Star size={8} fill="currentColor" /> Completed
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* MIDDLE SECTION: REFUNDS OR DATES */}
-                <div className="flex-grow w-full border-t lg:border-t-0 lg:border-l border-slate-100 pt-4 lg:pt-0 lg:pl-6">
+        <div className="grid grid-cols-1 gap-4">
+          {displayedItems.map((item) => {
+            const isBooted = view === "booted";
+            return (
+              <div
+                key={item.id || item.archive_id}
+                className={`bg-white border rounded-[2.5rem] p-6 shadow-sm transition-all hover:shadow-md flex flex-col md:flex-row gap-6 items-center ${
+                  isBooted ? "border-red-100" : "border-slate-100"
+                }`}
+              >
+                <div
+                  className={`w-16 h-16 shrink-0 rounded-2xl flex items-center justify-center font-black text-2xl shadow-inner ${
+                    isBooted
+                      ? "bg-red-50 text-red-500"
+                      : "bg-emerald-50 text-emerald-500"
+                  }`}
+                >
                   {isBooted ? (
-                    needsRefund ? (
-                      <div className="flex flex-col gap-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-black uppercase tracking-widest text-red-400 flex items-center gap-2">
-                            <DollarSign size={12} /> Refund Required
-                          </span>
-                          <select
-                            className={`border-none text-xs font-bold uppercase rounded-lg p-1 outline-none cursor-pointer ${
-                              item.refund_status === "completed"
-                                ? "bg-emerald-100 text-emerald-600"
-                                : "bg-red-50 text-red-600"
-                            }`}
-                            value={item.refund_status || "needed"}
-                            onChange={(e) =>
-                              updateField(
-                                item.id,
-                                "refund_status",
-                                e.target.value
-                              )
-                            }
-                          >
-                            <option value="needed">Refund Needed</option>
-                            <option value="processing">Processing</option>
-                            <option value="completed">Refunded</option>
-                          </select>
-                        </div>
-                        {item.refund_status !== "completed" && (
-                          <div className="flex gap-2">
-                            <input
-                              placeholder="$$$"
-                              className="w-20 bg-slate-50 p-2 rounded-lg text-xs font-bold outline-none"
-                              value={item.refund_amount || ""}
-                              onChange={(e) =>
-                                updateField(
-                                  item.id,
-                                  "refund_amount",
-                                  e.target.value
-                                )
-                              }
-                            />
-                            <input
-                              placeholder="Link/Notes"
-                              className="flex-grow bg-slate-50 p-2 rounded-lg text-xs font-bold outline-none"
-                              value={item.refund_link || ""}
-                              onChange={(e) =>
-                                updateField(
-                                  item.id,
-                                  "refund_link",
-                                  e.target.value
-                                )
-                              }
-                            />
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="h-full flex items-center text-slate-300 text-xs font-bold uppercase tracking-widest">
-                        No Refund Owed
-                      </div>
-                    )
+                    <Ban size={24} />
                   ) : (
-                    // COMPLETED VIEW DETAILS
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">
-                        Finished On
-                      </p>
-                      <p className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                        <Clock size={14} className="text-indigo-400" />
-                        {item.end_date
-                          ? new Date(item.end_date).toLocaleDateString()
-                          : "Unknown"}
-                      </p>
-                      <p className="text-xs text-slate-400 italic">
-                        "{item.notes || "No project notes"}"
-                      </p>
-                    </div>
+                    <Star fill="currentColor" size={24} />
                   )}
                 </div>
 
-                {/* ACTIONS */}
-                <div className="w-full lg:w-auto flex lg:flex-col gap-2 justify-end min-w-[120px]">
+                <div className="flex-grow">
+                  <h3 className="text-lg font-black text-slate-900 leading-tight mb-1">
+                    {item.book_title || "Untitled"}
+                  </h3>
+                  <p className="text-xs font-bold uppercase text-slate-400 tracking-wide mb-2">
+                    {item.client_name}
+                  </p>
+                  {isBooted && item.is_blacklisted && (
+                    <span className="bg-black text-white text-[9px] font-black uppercase px-2 py-1 rounded-md flex items-center gap-1 w-fit">
+                      <AlertOctagon size={10} /> Blacklisted
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
                   {isBooted && (
                     <button
-                      onClick={() =>
-                        toggleBlacklist(item.id, item.is_blacklisted)
-                      }
-                      className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                      onClick={() => toggleBlacklist(item)}
+                      className={`p-3 rounded-xl border transition-all ${
                         item.is_blacklisted
-                          ? "bg-slate-900 text-white"
-                          : "bg-slate-100 text-slate-400 hover:bg-red-100 hover:text-red-500"
+                          ? "bg-slate-900 text-white border-slate-900"
+                          : "bg-white text-slate-300 border-slate-200 hover:border-red-400 hover:text-red-500"
                       }`}
+                      title="Toggle Blacklist"
                     >
-                      <ShieldAlert size={14} />{" "}
-                      {item.is_blacklisted ? "Blacklisted" : "Blacklist"}
+                      <ShieldAlert size={18} />
                     </button>
                   )}
-
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => reviveProject(item.id)}
-                      className="flex-1 p-2 bg-indigo-50 text-indigo-500 rounded-lg hover:bg-indigo-100 flex justify-center"
-                      title="Reactivate Project"
-                    >
-                      <Undo2 size={16} />
-                    </button>
-                    <button
-                      onClick={() => deleteForever(item.id)}
-                      className="flex-1 p-2 bg-red-50 text-red-500 rounded-lg hover:bg-red-100 flex justify-center"
-                      title="Delete Data Forever"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => reviveProject(item)}
+                    className="p-3 rounded-xl bg-slate-50 text-slate-400 hover:bg-indigo-500 hover:text-white transition-all"
+                  >
+                    <Undo2 size={18} />
+                  </button>
+                  <button
+                    onClick={() =>
+                      deleteForever(
+                        item.id || item.archive_id,
+                        isBooted ? "7_archive" : "2_booking_requests"
+                      )
+                    }
+                    className="p-3 rounded-xl bg-slate-50 text-slate-400 hover:bg-red-500 hover:text-white transition-all"
+                  >
+                    <Trash2 size={18} />
+                  </button>
                 </div>
               </div>
-            </div>
-          );
-        })
+            );
+          })}
+        </div>
       )}
     </div>
   );
