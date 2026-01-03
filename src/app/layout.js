@@ -32,18 +32,11 @@ export default function RootLayout({ children }) {
           min-h-screen 
           flex flex-col 
           
-          /* --- DREAMY GLOBAL BACKGROUND --- */
-          /* 1. Base color is Stone-50 (Warm/Creamy White) to kill the harshness */
-          /* 2. Gradient flows to soft Teal and Indigo hints */
-          bg-gradient-to-br from-stone-50 via-teal-50/30 to-indigo-50/30
+          /* --- STAGNANT MUTED GRADIENT --- */
+          /* Muted theme colors: Stone (base) -> Teal (hint) -> Indigo (hint) */
+          bg-[linear-gradient(to_bottom_right,#fafaf9,#f0f9f9,#eef2ff)]
           
-          /* Ensures the gradient covers the whole viewport and doesn't scroll away */
-          bg-fixed
-          
-          /* Dark Slate Text for crisp contrast against the dreamy background */
           text-slate-800
-          
-          /* Teal Selection Highlight */
           selection:bg-teal-200 selection:text-teal-900
         `}
         suppressHydrationWarning
@@ -53,20 +46,11 @@ export default function RootLayout({ children }) {
           defaultTheme="light"
           enableSystem={false}
         >
-          {/* Note on z-index: 
-            This container ensures content sits above the fixed background 
-            but keeps the layout flexible.
-          */}
           <div className="flex flex-col min-h-screen relative z-10">
             <Navbar />
-
-            {/* The children (Pages) are now responsible for their own top padding 
-               (e.g., pt-32) to clear the fixed Navbar. 
-            */}
             <main className="flex-grow w-full max-w-[100vw] overflow-x-hidden">
               {children}
             </main>
-
             <Footer />
           </div>
         </ThemeProvider>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   Copy,
@@ -9,7 +9,6 @@ import {
   Lock,
   Key,
   Terminal,
-  FileText,
   Image as ImageIcon,
   Tag,
   Calendar,
@@ -19,20 +18,20 @@ import {
   AlertCircle,
   ArrowLeft,
   Layout,
-  ExternalLink,
+  Type,
+  Bold,
+  Italic,
+  List,
+  Quote,
+  Languages,
 } from "lucide-react";
 
-// --- CONFIGURATION ---
-const SECRET_CODE = "1425"; // 🔴 CHANGE THIS TO YOUR PASSWORD
+const SECRET_CODE = "1425";
 
-// ==========================================
-// MAIN COMPONENT (The Default Export)
-// ==========================================
 export default function WritePage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isClient, setIsClient] = useState(false);
 
-  // Prevent hydration mismatch
   useEffect(() => {
     setIsClient(true);
     const isLogged = sessionStorage.getItem("admin_logged_in");
@@ -52,14 +51,11 @@ export default function WritePage() {
 
   return (
     <div className="min-h-screen bg-slate-50 relative overflow-x-hidden font-sans text-slate-900 selection:bg-teal-200 selection:text-teal-900">
-      {/* Background Decor */}
       <div className="fixed top-0 left-0 w-full h-full pointer-events-none z-0">
-        <div className="absolute top-[-20%] right-[-10%] w-[300px] md:w-[600px] h-[300px] md:h-[600px] bg-teal-400/20 rounded-full blur-[120px]" />
-        <div className="absolute bottom-[-20%] left-[-10%] w-[300px] md:w-[500px] h-[300px] md:h-[500px] bg-indigo-400/20 rounded-full blur-[120px]" />
+        <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] bg-teal-400/20 rounded-full blur-[120px]" />
+        <div className="absolute bottom-[-20%] left-[-10%] w-[500px] h-[500px] bg-indigo-400/20 rounded-full blur-[120px]" />
       </div>
-
-      {/* MAIN CONTAINER */}
-      <div className="relative z-10 pt-24 md:pt-32 pb-20 px-4 md:px-8 max-w-7xl mx-auto">
+      <div className="relative z-10 pt-24 pb-20 px-4 md:px-8 max-w-7xl mx-auto">
         {!isAuthenticated ? (
           <LoginGate onLogin={handleLogin} />
         ) : (
@@ -70,9 +66,6 @@ export default function WritePage() {
   );
 }
 
-// ==========================================
-// SUB-COMPONENT: LOGIN GATE
-// ==========================================
 function LoginGate({ onLogin }) {
   const [input, setInput] = useState("");
   const [error, setError] = useState(false);
@@ -80,132 +73,60 @@ function LoginGate({ onLogin }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const success = onLogin(input);
-    if (!success) {
-      setError(true);
-      setShake(true);
-      setInput(""); // Clear input on fail
-      setTimeout(() => setShake(false), 500);
-    }
+    if (onLogin(input)) return;
+    setError(true);
+    setShake(true);
+    setInput("");
+    setTimeout(() => setShake(false), 500);
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] md:min-h-[70vh] w-full">
+    <div className="flex flex-col items-center justify-center min-h-[60vh] w-full">
       <div
-        className={`w-full max-w-sm md:max-w-md bg-white/80 backdrop-blur-2xl border border-white/60 rounded-3xl p-8 md:p-12 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] transition-transform duration-100 ${
+        className={`w-full max-w-sm bg-white/80 backdrop-blur-2xl border border-white/60 rounded-3xl p-12 shadow-xl ${
           shake ? "translate-x-[-10px]" : ""
         }`}
-        style={{
-          animation: shake
-            ? "shake 0.4s cubic-bezier(.36,.07,.19,.97) both"
-            : "none",
-        }}
       >
         <div className="flex flex-col items-center text-center space-y-6">
-          {/* Icon Circle */}
           <div
-            className={`w-20 h-20 rounded-2xl flex items-center justify-center shadow-inner transition-colors duration-500 ${
+            className={`w-20 h-20 rounded-2xl flex items-center justify-center ${
               error ? "bg-red-50 text-red-500" : "bg-teal-50 text-teal-600"
             }`}
           >
             {error ? <AlertCircle size={40} /> : <Lock size={40} />}
           </div>
-
-          <div className="space-y-2">
-            <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-slate-800">
-              Restricted Area
-            </h1>
-            <p className="text-slate-500 font-medium text-sm">
-              Enter admin passcode to access.
-            </p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="w-full space-y-4 pt-4">
-            <div className="relative group">
-              <Key
-                size={18}
-                className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${
-                  error
-                    ? "text-red-400"
-                    : "text-slate-400 group-focus-within:text-teal-500"
-                }`}
-              />
-              <input
-                type="password"
-                value={input}
-                onChange={(e) => {
-                  setInput(e.target.value);
-                  setError(false);
-                }}
-                placeholder="Passcode"
-                className={`w-full bg-slate-50 border-2 rounded-xl py-4 pl-12 pr-4 outline-none font-bold tracking-widest text-base md:text-lg transition-all
-                ${
-                  error
-                    ? "border-red-200 focus:border-red-500 text-red-900 placeholder:text-red-300"
-                    : "border-slate-200 focus:border-teal-500 text-slate-800 placeholder:text-slate-400 focus:bg-white"
-                }`}
-                autoFocus
-              />
-            </div>
-
+          <h1 className="text-2xl font-black uppercase tracking-tight text-slate-800">
+            Restricted Area
+          </h1>
+          <form onSubmit={handleSubmit} className="w-full space-y-4">
+            <input
+              type="password"
+              value={input}
+              onChange={(e) => {
+                setInput(e.target.value);
+                setError(false);
+              }}
+              placeholder="Passcode"
+              className="w-full bg-slate-50 border-2 rounded-xl py-4 px-6 text-center font-bold tracking-widest outline-none focus:border-teal-500"
+              autoFocus
+            />
             <button
               type="submit"
-              className="w-full py-4 bg-slate-900 text-white font-black uppercase tracking-widest text-sm md:text-base rounded-xl hover:bg-teal-600 hover:shadow-lg hover:shadow-teal-600/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 group"
+              className="w-full py-4 bg-slate-900 text-white font-black uppercase rounded-xl hover:bg-teal-600 transition-all"
             >
-              <span>Unlock Studio</span>
-              <Unlock
-                size={18}
-                className="text-slate-400 group-hover:text-white transition-colors"
-              />
+              Unlock Studio
             </button>
           </form>
         </div>
       </div>
-
-      <Link
-        href="/"
-        className="mt-8 text-slate-400 font-bold uppercase text-xs tracking-widest hover:text-teal-600 transition-colors flex items-center gap-2"
-      >
-        <ArrowLeft size={14} /> Back to Homepage
-      </Link>
-
-      <style jsx>{`
-        @keyframes shake {
-          10%,
-          90% {
-            transform: translate3d(-1px, 0, 0);
-          }
-          20%,
-          80% {
-            transform: translate3d(2px, 0, 0);
-          }
-          30%,
-          50%,
-          70% {
-            transform: translate3d(-4px, 0, 0);
-          }
-          40%,
-          60% {
-            transform: translate3d(4px, 0, 0);
-          }
-        }
-      `}</style>
     </div>
   );
 }
 
-// ==========================================
-// SUB-COMPONENT: STUDIO CONTENT
-// ==========================================
-// ==========================================
-// 2. STUDIO CONTENT (Editor + Terminal)
-// ==========================================
 function StudioContent() {
+  const editorRef = useRef(null);
   const [copied, setCopied] = useState(false);
-
-  // Ref for the textarea so we can grab cursor position
-  const [contentRef, setContentRef] = useState(null);
-
+  const [spellCheckEnabled, setSpellCheckEnabled] = useState(true);
   const [formData, setFormData] = useState({
     title: "",
     slug: "",
@@ -220,370 +141,216 @@ function StudioContent() {
     content: "",
   });
 
+  // FIX: Capture innerHTML safely BEFORE state update
+  const handleEditorInput = (e) => {
+    const html = e.currentTarget.innerHTML;
+    setFormData((prev) => ({ ...prev, content: html }));
+  };
+
+  const execCommand = (command, value = null) => {
+    document.execCommand(command, false, value);
+    if (editorRef.current) {
+      setFormData((prev) => ({
+        ...prev,
+        content: editorRef.current.innerHTML,
+      }));
+    }
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     if (name === "title") {
-      const autoSlug = value
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "");
-      setFormData((prev) => ({ ...prev, title: value, slug: autoSlug }));
+      setFormData((prev) => ({
+        ...prev,
+        title: value,
+        slug: value
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, ""),
+      }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
   };
 
-  // --- NEW: TEXT FORMATTING LOGIC ---
-  const insertFormat = (startTag, endTag) => {
-    const textarea = document.getElementById("content-editor");
-    if (!textarea) return;
-
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const text = formData.content;
-    const selectedText = text.substring(start, end);
-
-    // Insert the tags around the selected text
-    const newText =
-      text.substring(0, start) +
-      startTag +
-      selectedText +
-      endTag +
-      text.substring(end);
-
-    // Update state
-    setFormData((prev) => ({ ...prev, content: newText }));
-
-    // Restore focus and cursor (optional, but nice UX)
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(
-        start + startTag.length,
-        end + startTag.length
-      );
-    }, 0);
-  };
-
-  const handleDropdownChange = (e) => {
-    const value = e.target.value;
-    if (!value) return;
-
-    // Define the tags based on selection
-    const formats = {
-      h1: ["<h1>", "</h1>"],
-      h2: ["<h2>", "</h2>"],
-      h3: ["<h3>", "</h3>"],
-      h4: ["<h4>", "</h4>"],
-      h5: ["<h5>", "</h5>"],
-    };
-
-    if (formats[value]) {
-      insertFormat(formats[value][0], formats[value][1]);
-    }
-    // Reset dropdown to default
-    e.target.value = "";
-  };
-
   const generateSQL = () => {
-    // 1. Wrap paragraphs (Only if they don't start with HTML tags)
-    const formattedContent = formData.content
-      .split("\n\n")
-      .map((para) => para.trim())
-      .filter((para) => para.length > 0)
-      .map((para) => (para.startsWith("<") ? para : `<p>${para}</p>`))
-      .join("\n      ");
-
-    const finalHTML = `<div class="content-flow">
-      ${formattedContent}
-    </div>`;
-
     const safeTitle = formData.title.replace(/'/g, "''");
     const safeCaption = formData.image_caption.replace(/'/g, "''");
+    const safeContent = formData.content.replace(/'/g, "''");
 
     return `INSERT INTO public.posts (slug, title, date, tag, image, image_caption, content)
 VALUES (
-  '${formData.slug}',
-  '${safeTitle}',
-  '${formData.date}',
-  '${formData.tag}',
-  '${formData.image}',
-  '${safeCaption}', 
-  $$
-    ${finalHTML}
-  $$
+  '${formData.slug}', '${safeTitle}', '${formData.date}', '${formData.tag}',
+  '${formData.image}', '${safeCaption}', 
+  $$<div class="content-flow">${safeContent}</div>$$
 );`;
-  };
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(generateSQL());
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
     <>
-      {/* HEADER */}
-      <header className="mb-8 md:mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-slate-200 pb-6">
-        <div className="space-y-2 text-center md:text-left">
-          <h2 className="text-3xl md:text-5xl font-black text-slate-900 tracking-tighter uppercase">
+      <header className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6 border-b pb-6">
+        <div className="space-y-2">
+          <h2 className="text-5xl font-black text-slate-900 tracking-tighter uppercase">
             The Studio
           </h2>
-          <div className="flex items-center justify-center md:justify-start gap-2 text-slate-500 font-bold text-[10px] md:text-xs uppercase tracking-widest">
+          <div className="flex items-center gap-2 text-slate-500 font-bold text-xs uppercase tracking-widest">
             <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="hidden md:inline">Database Connection Active</span>
-            <span className="md:hidden">DB Active</span>
+            <span>Database Connection Active</span>
           </div>
         </div>
-
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
+        <div className="flex gap-3">
           <Link
             href="/blog"
             target="_blank"
-            className="flex items-center justify-center gap-2 font-bold text-slate-500 hover:text-slate-900 transition-colors text-xs md:text-sm uppercase tracking-wider px-4 py-3 rounded-lg border border-slate-200 hover:bg-white bg-white/50"
+            className="px-4 py-3 rounded-lg border font-bold text-xs uppercase tracking-wider bg-white/50 hover:bg-white transition-all"
           >
-            <Layout size={16} /> View Blog
+            <Layout size={16} className="inline mr-2" /> View Blog
           </Link>
           <a
             href="https://supabase.com/dashboard"
             target="_blank"
-            className="flex items-center justify-center gap-2 font-bold text-teal-700 hover:text-teal-800 transition-colors text-xs md:text-sm uppercase tracking-wider bg-teal-100 hover:bg-teal-200 px-4 py-3 rounded-lg"
+            className="bg-teal-100 text-teal-700 px-4 py-3 rounded-lg font-bold text-xs uppercase"
           >
-            Supabase <ChevronRight size={16} />
+            Supabase <ChevronRight size={16} className="inline" />
           </a>
         </div>
       </header>
 
-      {/* MAIN GRID */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16">
-        {/* --- LEFT: WRITER UI --- */}
-        <div className="space-y-8 animate-fade-in-up">
-          {/* META DATA CARD */}
-          <div className="bg-white p-5 md:p-8 rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 space-y-6">
-            <h3 className="font-black text-slate-400 text-xs uppercase tracking-widest flex items-center gap-2 mb-6 border-b border-slate-50 pb-2">
-              <Sparkles size={14} className="text-teal-500" /> Meta Data
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
+        <div className="space-y-8">
+          <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-100 space-y-6">
+            <h3 className="font-black text-slate-400 text-[10px] uppercase tracking-widest border-b border-slate-50 pb-2">
+              <Sparkles size={14} className="inline text-teal-500 mr-1" /> Meta
+              Data
             </h3>
-
-            <div className="space-y-4">
-              {/* Title Input */}
-              <div>
-                <label className="text-xs font-bold uppercase text-slate-400 mb-1 block">
-                  Blog Title
-                </label>
-                <input
-                  name="title"
-                  value={formData.title}
-                  onChange={handleChange}
-                  placeholder="The Great American Novel..."
-                  className="w-full text-xl md:text-2xl font-bold text-slate-900 placeholder:text-slate-300 border-b-2 border-slate-100 focus:border-teal-500 bg-transparent py-2 outline-none transition-colors"
-                />
-              </div>
-
-              {/* Slug Input */}
-              <div className="flex items-center gap-2 bg-slate-50 p-3 rounded-lg border border-slate-200">
-                <span className="text-slate-400 font-mono text-xs md:text-sm">
-                  /blog/
-                </span>
-                <input
-                  name="slug"
-                  value={formData.slug}
-                  onChange={handleChange}
-                  className="bg-transparent w-full font-mono text-xs md:text-sm text-slate-600 outline-none"
-                />
-              </div>
-
-              {/* Tags & Date */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold uppercase text-slate-400 mb-2 flex items-center gap-1">
-                    <Tag size={12} /> Tag
-                  </label>
-                  <div className="relative">
-                    <select
-                      name="tag"
-                      value={formData.tag}
-                      onChange={handleChange}
-                      className="w-full appearance-none bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 font-bold text-sm text-slate-700 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/10 transition-all cursor-pointer"
-                    >
-                      <option>Life</option>
-                      <option>Acting</option>
-                      <option>Travel & Language</option>
-                      <option>Esotericism</option>
-                      <option>Tech</option>
-                    </select>
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                      <ChevronRight
-                        size={14}
-                        className="rotate-90 text-slate-400"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold uppercase text-slate-400 mb-2 flex items-center gap-1">
-                    <Calendar size={12} /> Date
-                  </label>
-                  <input
-                    name="date"
-                    value={formData.date}
-                    onChange={handleChange}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 font-bold text-sm text-slate-700 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/10 transition-all"
-                  />
-                </div>
-              </div>
-
-              {/* Image & Caption */}
-              <div>
-                <label className="text-xs font-bold uppercase text-slate-400 mb-2 flex items-center gap-1">
-                  <ImageIcon size={12} /> Image Path
-                </label>
-                <input
-                  name="image"
-                  value={formData.image}
-                  onChange={handleChange}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 font-mono text-xs text-slate-600 outline-none focus:border-teal-500"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-bold uppercase text-slate-400 mb-2 block">
-                  Image Caption
-                </label>
-                <input
-                  name="image_caption"
-                  value={formData.image_caption}
-                  onChange={handleChange}
-                  placeholder="Optional..."
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 font-medium text-sm text-slate-600 outline-none focus:border-teal-500"
-                />
-              </div>
+            <input
+              name="title"
+              value={formData.title}
+              onChange={handleChange}
+              placeholder="Blog Title..."
+              className="w-full text-2xl font-bold border-b-2 outline-none focus:border-teal-500 py-2 transition-all"
+            />
+            <div className="grid grid-cols-2 gap-4">
+              <select
+                name="tag"
+                value={formData.tag}
+                onChange={handleChange}
+                className="bg-slate-50 border p-3 rounded-xl font-bold text-sm outline-none focus:border-teal-500"
+              >
+                <option>Life</option>
+                <option>Acting</option>
+                <option>Travel & Language</option>
+                <option>Tech</option>
+              </select>
+              <input
+                name="date"
+                value={formData.date}
+                onChange={handleChange}
+                className="bg-slate-50 border p-3 rounded-xl font-bold text-sm outline-none focus:border-teal-500"
+              />
             </div>
+            <input
+              name="image"
+              value={formData.image}
+              onChange={handleChange}
+              className="w-full bg-slate-50 border p-3 rounded-xl font-mono text-xs outline-none focus:border-teal-500"
+            />
+            <input
+              name="image_caption"
+              value={formData.image_caption}
+              onChange={handleChange}
+              placeholder="Image Caption..."
+              className="w-full bg-slate-50 border p-3 rounded-xl font-medium text-sm outline-none focus:border-teal-500"
+            />
           </div>
 
-          {/* CONTENT EDITOR WITH TOOLBAR */}
-          <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden h-full flex flex-col">
-            {/* --- NEW TOOLBAR --- */}
-            <div className="bg-slate-50 border-b border-slate-100 p-3 flex flex-wrap items-center gap-2">
-              {/* Heading Dropdown */}
-              <div className="relative group">
-                <select
-                  onChange={handleDropdownChange}
-                  className="appearance-none bg-white border border-slate-200 text-slate-600 text-xs font-bold uppercase tracking-wide rounded-lg pl-3 pr-8 py-2 hover:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-500/20 cursor-pointer"
-                >
-                  <option value="h1">Heading 1</option>
-                  <option value="h2">Heading 2</option>
-                  <option value="h3">Heading 3</option>
-                  <option value="h4">Heading 4</option>
-                </select>
-                <ChevronRight
-                  size={12}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none"
-                />
-              </div>
-
-              <div className="w-[1px] h-6 bg-slate-200 mx-1"></div>
-
-              {/* Quick Action Buttons */}
-              <button
-                onClick={() => insertFormat("<strong>", "</strong>")}
-                className="p-2 text-slate-500 hover:text-teal-600 hover:bg-white hover:shadow-sm rounded transition-all font-bold text-xs uppercase"
-                title="Bold"
+          <div className="bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden flex flex-col min-h-[600px]">
+            <div className="bg-slate-50 border-b p-3 flex flex-wrap items-center gap-1">
+              <select
+                onChange={(e) => execCommand("formatBlock", e.target.value)}
+                className="bg-white border rounded-lg text-[10px] font-black uppercase px-2 py-1.5 outline-none cursor-pointer"
               >
-                B
-              </button>
+                <option value="p">Normal</option>
+                <option value="h1">Heading 1</option>
+                <option value="h2">Heading 2</option>
+                <option value="h3">Heading 3</option>
+              </select>
+              <ToolbarButton
+                icon={<Bold size={14} />}
+                onClick={() => execCommand("bold")}
+              />
+              <ToolbarButton
+                icon={<Italic size={14} />}
+                onClick={() => execCommand("italic")}
+              />
+              <ToolbarButton
+                icon={<List size={14} />}
+                onClick={() => execCommand("insertUnorderedList")}
+              />
+              <ToolbarButton
+                icon={<Quote size={14} />}
+                onClick={() => execCommand("formatBlock", "blockquote")}
+              />
+              <div className="flex-grow" />
               <button
-                onClick={() => insertFormat("<em>", "</em>")}
-                className="p-2 text-slate-500 hover:text-teal-600 hover:bg-white hover:shadow-sm rounded transition-all italic text-xs font-serif"
-                title="Italic"
+                onClick={() => setSpellCheckEnabled(!spellCheckEnabled)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-all ${
+                  spellCheckEnabled
+                    ? "bg-teal-50 border-teal-200 text-teal-600 shadow-sm"
+                    : "bg-white text-slate-400"
+                }`}
               >
-                I
-              </button>
-
-              <div className="w-[1px] h-6 bg-slate-200 mx-1"></div>
-
-              <button
-                onClick={() => insertFormat("<ul>\n  <li>", "</li>\n</ul>")}
-                className="flex items-center gap-1 px-3 py-2 text-slate-500 hover:text-teal-600 hover:bg-white hover:shadow-sm rounded transition-all text-[10px] font-bold uppercase tracking-wider"
-              >
-                List
-              </button>
-
-              <button
-                onClick={() => insertFormat("<blockquote>", "</blockquote>")}
-                className="flex items-center gap-1 px-3 py-2 text-slate-500 hover:text-teal-600 hover:bg-white hover:shadow-sm rounded transition-all text-[10px] font-bold uppercase tracking-wider"
-              >
-                Quote
+                <Languages size={14} />{" "}
+                {spellCheckEnabled ? "Spell Check On" : "Spell Check Off"}
               </button>
             </div>
-
-            {/* The Text Area */}
-            <div className="p-5 md:p-8 flex-grow">
-              <textarea
-                id="content-editor"
-                name="content"
-                value={formData.content}
-                onChange={handleChange}
-                placeholder="Write your masterpiece here... (Use the toolbar to format)"
-                className="w-full h-full min-h-[400px] border-none outline-none text-base md:text-lg leading-loose font-serif text-slate-800 placeholder:text-slate-300 placeholder:italic resize-y"
+            <div className="p-8 md:p-12 flex-grow overflow-y-auto">
+              <div
+                ref={editorRef}
+                contentEditable
+                suppressContentEditableWarning={true}
+                spellCheck={spellCheckEnabled}
+                onInput={handleEditorInput}
+                className="editor-canvas w-full h-full outline-none text-slate-800 text-lg leading-relaxed font-serif"
+                data-placeholder="Start your story..."
               />
             </div>
           </div>
         </div>
 
-        {/* --- RIGHT: TERMINAL GENERATOR --- */}
-        <div
-          className="lg:sticky lg:top-32 h-fit space-y-6 animate-fade-in-up"
-          style={{ animationDelay: "0.1s" }}
-        >
-          {/* TERMINAL BOX */}
-          <div className="bg-[#1e1e1e] rounded-3xl overflow-hidden shadow-2xl shadow-slate-900/20 border border-slate-800">
-            {/* Terminal Header */}
+        <div className="lg:sticky lg:top-32 h-fit space-y-6">
+          <div className="bg-[#1e1e1e] rounded-3xl overflow-hidden shadow-2xl border border-slate-800">
             <div className="bg-[#2d2d2d] px-4 py-3 flex items-center justify-between border-b border-white/5">
-              <div className="flex gap-2">
-                <div className="w-3 h-3 rounded-full bg-red-500/80" />
-                <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
-                <div className="w-3 h-3 rounded-full bg-green-500/80" />
+              <div className="flex gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full bg-red-500/80" />
+                <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/80" />
+                <div className="w-2.5 h-2.5 rounded-full bg-green-500/80" />
               </div>
-              <div className="text-[10px] font-mono text-slate-400 font-bold flex items-center gap-2">
-                <Terminal size={12} /> SQL_GENERATOR.exe
+              <div className="text-[10px] font-mono text-slate-400 font-bold tracking-widest uppercase flex items-center gap-2">
+                <Terminal size={12} /> SQL_GEN.exe
               </div>
-              <div className="w-10" />
             </div>
-
-            {/* Code Output */}
-            <div className="p-6 relative group">
-              <div className="absolute top-2 right-2 md:top-4 md:right-4 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity z-10">
-                <button
-                  onClick={handleCopy}
-                  className="bg-white/10 hover:bg-white/20 text-white p-2 rounded-lg backdrop-blur-sm transition-all border border-white/10"
-                  title="Copy Code"
-                >
-                  {copied ? (
-                    <Check size={16} className="text-green-400" />
-                  ) : (
-                    <Copy size={16} />
-                  )}
-                </button>
-              </div>
-
-              <pre className="font-mono text-xs md:text-sm leading-relaxed text-teal-300 overflow-x-auto whitespace-pre-wrap max-h-[50vh] overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/20">
+            <div className="p-6">
+              <pre className="font-mono text-[11px] md:text-xs leading-relaxed text-teal-300 overflow-x-auto whitespace-pre-wrap max-h-[50vh] overflow-y-auto">
                 <code>{generateSQL()}</code>
               </pre>
             </div>
-
-            {/* Footer Action */}
             <div className="p-4 bg-[#252525] border-t border-white/5">
               <button
-                onClick={handleCopy}
-                className={`w-full py-4 rounded-xl font-black uppercase tracking-widest text-xs md:text-sm transition-all flex items-center justify-center gap-2
-                      ${
-                        copied
-                          ? "bg-green-500 text-white shadow-lg shadow-green-500/20"
-                          : "bg-white text-black hover:bg-teal-400 hover:scale-[1.01] active:scale-[0.99]"
-                      }`}
+                onClick={() => {
+                  navigator.clipboard.writeText(generateSQL());
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                }}
+                className={`w-full py-4 rounded-xl font-black uppercase tracking-widest text-xs transition-all flex items-center justify-center gap-2 ${
+                  copied
+                    ? "bg-green-500 text-white shadow-lg shadow-green-500/20"
+                    : "bg-white text-black hover:bg-teal-400"
+                }`}
               >
                 {copied ? (
                   <>
-                    <Check size={18} /> Copied!
+                    <Check size={18} /> Copied to Clipboard
                   </>
                 ) : (
                   <>
@@ -593,17 +360,64 @@ VALUES (
               </button>
             </div>
           </div>
-
-          {/* INSTRUCTIONS */}
-          <div className="bg-white/60 backdrop-blur-sm p-6 rounded-2xl border border-white/50 text-slate-500 text-xs font-medium leading-relaxed">
-            <p>
-              <strong className="text-slate-900">Pro Tip:</strong> You can see
-              your formatting tags right in the editor. The SQL Generator will
-              prioritize those tags over default paragraph spacing.
-            </p>
-          </div>
         </div>
       </div>
+
+      <style jsx global>{`
+        .editor-canvas:empty:before {
+          content: attr(data-placeholder);
+          color: #cbd5e1;
+          font-style: italic;
+        }
+        .editor-canvas h1 {
+          font-size: 2.5rem;
+          font-weight: 900;
+          line-height: 1.2;
+          margin-bottom: 1.5rem;
+          color: #0f172a;
+          text-transform: uppercase;
+        }
+        .editor-canvas h2 {
+          font-size: 1.8rem;
+          font-weight: 800;
+          margin-top: 2rem;
+          margin-bottom: 1rem;
+          color: #1e293b;
+        }
+        .editor-canvas h3 {
+          font-size: 1.4rem;
+          font-weight: 700;
+          margin-top: 1.5rem;
+          color: #334155;
+        }
+        .editor-canvas blockquote {
+          border-left: 4px solid #2dd4bf;
+          padding-left: 1.5rem;
+          font-style: italic;
+          color: #475569;
+          margin: 2rem 0;
+        }
+        .editor-canvas ul {
+          list-style-type: disc;
+          padding-left: 2rem;
+          margin-bottom: 1.25rem;
+        }
+      `}</style>
     </>
+  );
+}
+
+function ToolbarButton({ icon, onClick, title }) {
+  return (
+    <button
+      onMouseDown={(e) => {
+        e.preventDefault();
+        onClick();
+      }}
+      className="p-2 text-slate-500 hover:text-teal-600 hover:bg-white hover:shadow-sm rounded-lg transition-all"
+      title={title}
+    >
+      {icon}
+    </button>
   );
 }

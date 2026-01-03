@@ -92,15 +92,15 @@ export default function ActorPage() {
                   "You know acting school doesn’t mean anything, right?"
                 </p>
                 <div className="mt-2 text-xs font-black uppercase tracking-widest text-teal-400">
-                  — Some battle-scarred, but also really jaded and perpetually
-                  pissed off actor I met at a gym in East LA one time (He was
-                  70% right, tho)
+                  — Some really jaded and perpetually pissed off quasi-failed
+                  actor I met at a gym in West Hollywood one time (He was 70%
+                  right, tho)
                 </div>
               </div>
 
               <p>
-                Regardless, I hit the professional scene hard. I signed with
-                Chicago’s leading talent agency and earned my SAG card doing
+                Regardless, I hit the professional scene hard. Signed with
+                Chicago’s leading talent agency. And earned my SAG card doing
                 national theatrical tours, some primetime recurring roles, and
                 delivering the "hahas" ala a KFC spot. But the industry had
                 other plans.
