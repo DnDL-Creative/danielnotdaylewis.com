@@ -1,388 +1,787 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { createClient } from "@/src/utils/supabase/client";
 import {
-  Check,
-  X,
+  Loader2,
+  CheckSquare,
+  CreditCard,
+  Mail,
   BookOpen,
   User,
-  Mail,
-  Undo2,
-  CalendarDays,
-  FileText,
   Clock,
-  Trash2,
-  Pencil,
-  Save,
   Ban,
-  Image as ImageIcon,
-  UploadCloud,
-  Loader2,
+  Calendar,
+  FolderInput,
+  PenTool,
+  FileCheck,
+  DollarSign,
+  List,
+  ArrowRightCircle,
+  ShieldAlert,
+  Headphones,
   CheckCircle2,
-  Archive,
-  ThumbsDown,
-  Globe,
-  UserCheck,
-  Users,
-  Copy,
+  Zap,
   ExternalLink,
-  PlayCircle,
-  AlertCircle,
-  XCircle,
+  Send,
+  AlertTriangle,
+  ThumbsUp,
+  X,
+  MessageSquare,
+  Repeat,
+  Megaphone,
+  UserPlus,
+  RotateCcw,
+  Tag,
+  Mic2,
+  CalendarRange,
+  StickyNote,
+  Hash,
+  PauseCircle,
+  Search,
+  ArrowUpDown,
+  CalendarClock,
+  Play,
+  Percent,
 } from "lucide-react";
+
+// --- CUSTOM ICONS ---
+const BootIcon = ({ size = 16, className = "" }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M4 22h10c2 0 2-2 2-2v-4l5-5-5-5H8a2 2 0 0 0-2 2v12z" />
+    <path d="M4 12h5" />
+    <path d="M10 2v10" />
+  </svg>
+);
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
-// --- CONFIG ---
-// The combined table from your schema
-const TRACKER_TABLE = "3_onboarding_first_15";
+const TABLE_NAME = "3_onboarding_first_15";
+const PRODUCTION_TABLE = "4_production";
 
-// --- HELPERS ---
-const parseLocalDate = (dateString) => {
-  if (!dateString) return new Date();
-  try {
-    const str = String(dateString);
-    const [year, month, day] = str.split("T")[0].split("-").map(Number);
-    if (!year || !month || !day) return new Date(dateString);
-    return new Date(year, month - 1, day);
-  } catch (e) {
-    return new Date();
-  }
-};
-
-const formatDateForInput = (date) => {
-  if (!date) return "";
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
-const formatNumberWithCommas = (value) => {
-  if (!value) return "";
-  return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-};
-
-const cleanNumber = (value) => {
-  if (!value) return 0;
-  return parseInt(String(value).replace(/,/g, ""), 10);
-};
-
-const TABS = [
-  { id: "pending", label: "Pending" },
-  { id: "approved", label: "In Production" },
-  { id: "postponed", label: "Postponed" },
-  { id: "completed", label: "Completed" },
-  { id: "rejected", label: "Rejected" },
-  { id: "archived", label: "Archive" },
+// --- CONFIGURATION ---
+const ONBOARDING_STEPS = [
+  { key: "contract_sent", label: "Email 1: Kickoff Sent", icon: Mail },
+  { key: "esig_sent", label: "E-Sig Request Sent", icon: PenTool },
+  { key: "contract_signed", label: "Contract Signed", icon: FileCheck },
+  { key: "deposit_sent", label: "Email 2: Invoice Sent", icon: CreditCard },
+  { key: "deposit_paid", label: "Deposit Paid (15%)", icon: DollarSign },
+  {
+    key: "email_receipt_sent",
+    label: "Email 3: Folder Link",
+    icon: FolderInput,
+  },
+  { key: "breakdown_received", label: "Breakdown Sheet Rcvd", icon: List },
+  { key: "manuscript_received", label: "Manuscript Rcvd", icon: BookOpen },
+  { key: "added_to_contacts", label: "Added to Contacts", icon: UserPlus },
+  { key: "backend_folder", label: "Backend Folder Setup", icon: FolderInput },
+  {
+    key: "moved_to_f15",
+    label: "Graduate to First 15",
+    icon: ArrowRightCircle,
+  },
 ];
 
-export default function BookingRequests({ onUpdate }) {
-  const [allRequests, setAllRequests] = useState([]);
+const F15_STEPS = [
+  { key: "f15_sent", label: "F15 Sent to Client", icon: Send },
+  {
+    key: "f15_feedback_rcvd",
+    label: "Feedback/Notes Rcvd",
+    icon: MessageSquare,
+  },
+  { key: "f15_revision_req", label: "Revision Required?", icon: AlertTriangle },
+  { key: "f15_r2_sent", label: "Revision Sent", icon: Repeat },
+  { key: "f15_approved", label: "Approved & Locked", icon: ThumbsUp },
+];
+
+// --- DB MAPPING ---
+const DB_MAPPING = {
+  added_to_contacts: { type: "bool", col: "added_to_contacts" },
+  backend_folder: { type: "bool", col: "backend_folder" },
+  docs_customized: { type: "bool", col: "docs_customized" },
+  production_folder: { type: "bool", col: "production_folder" },
+  contract_sent: { type: "bool", col: "contract_sent" },
+  esig_sent: { type: "bool", col: "esig_sent" },
+  deposit_sent: { type: "bool", col: "deposit_sent" },
+  email_receipt_sent: { type: "bool", col: "email_receipt_sent" },
+  manuscript_received: { type: "bool", col: "manuscript_received" },
+  contract_signed: {
+    type: "mixed",
+    boolCol: "contract_signed",
+    dateCol: "contract_signed_date",
+  },
+  deposit_paid: {
+    type: "mixed",
+    boolCol: "deposit_paid",
+    dateCol: "deposit_paid_date",
+  },
+  breakdown_received: {
+    type: "mixed",
+    boolCol: "breakdown_received",
+    dateCol: "breakdown_received_date",
+  },
+  f15_sent: { type: "date", col: "f15_sent_date" },
+  f15_feedback_rcvd: { type: "date", col: "f15_feedback_received_date" },
+  f15_r2_sent: { type: "date", col: "f15_r2_sent_date" },
+  f15_revision_req: { type: "bool", col: "f15_revision_req" },
+  f15_approved: { type: "bool", col: "f15_approved" },
+  moved_to_f15: { type: "special" },
+};
+
+// --- HELPER: FORMATTERS ---
+const formatNumber = (num) => (num ? num.toLocaleString() : "0");
+const formatDate = (str) => {
+  if (!str) return "";
+  const d = new Date(str);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+};
+const getDaysUntil = (dateStr) => {
+  if (!dateStr) return 0;
+  const start = new Date(dateStr);
+  const today = new Date();
+  const diffTime = start - today;
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+};
+
+// --- COMPONENT: SAFETY MODAL ---
+const SafetyCheckModal = ({ isOpen, title, message, onConfirm, onCancel }) => {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full border border-slate-100 scale-100 animate-in zoom-in-95 duration-200">
+        <h3 className="text-xl font-black text-slate-900 mb-2">{title}</h3>
+        <p className="text-sm text-slate-500 font-medium mb-6 leading-relaxed">
+          {message}
+        </p>
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-200"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 py-3 bg-red-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-red-700 shadow-lg"
+          >
+            Yes, Undo
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- COMPONENT: REFUND MODAL ---
+const RefundModal = ({ isOpen, onConfirm, onCancel }) => {
+  const [refundAmount, setRefundAmount] = useState(0); // 0, 50, 100
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-red-900/60 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-sm w-full border border-red-100 scale-100 animate-in zoom-in-95 duration-200 relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-2 bg-red-500" />
+
+        <div className="flex justify-center mb-6">
+          <div className="p-4 bg-red-50 rounded-full text-red-600 border border-red-100">
+            <DollarSign size={32} />
+          </div>
+        </div>
+
+        <h3 className="text-2xl font-black text-center text-slate-900 mb-2">
+          Issue Refund?
+        </h3>
+        <p className="text-sm text-center text-slate-500 font-medium mb-8">
+          Is a deposit return required for this cancellation?
+        </p>
+
+        <div className="grid grid-cols-3 gap-3 mb-8">
+          <button
+            onClick={() => setRefundAmount(0)}
+            className={`py-3 rounded-xl text-xs font-bold border-2 transition-all ${
+              refundAmount === 0
+                ? "border-slate-900 bg-slate-900 text-white"
+                : "border-slate-100 text-slate-400 hover:border-slate-300"
+            }`}
+          >
+            No Refund
+          </button>
+          <button
+            onClick={() => setRefundAmount(50)}
+            className={`py-3 rounded-xl text-xs font-bold border-2 transition-all ${
+              refundAmount === 50
+                ? "border-slate-900 bg-slate-900 text-white"
+                : "border-slate-100 text-slate-400 hover:border-slate-300"
+            }`}
+          >
+            50%
+          </button>
+          <button
+            onClick={() => setRefundAmount(100)}
+            className={`py-3 rounded-xl text-xs font-bold border-2 transition-all ${
+              refundAmount === 100
+                ? "border-slate-900 bg-slate-900 text-white"
+                : "border-slate-100 text-slate-400 hover:border-slate-300"
+            }`}
+          >
+            100%
+          </button>
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-200"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => onConfirm(refundAmount)}
+            className="flex-1 py-4 bg-red-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-red-700 shadow-xl shadow-red-200 flex items-center justify-center gap-2"
+          >
+            <BootIcon size={16} /> Boot Project
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- COMPONENT: DATE CONFIRM MODAL ---
+const DateConfirmModal = ({
+  isOpen,
+  title,
+  dateValue,
+  setDateValue,
+  onConfirm,
+  onCancel,
+  isHolding = false,
+  isProduction = false,
+}) => {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full border border-slate-100 scale-100 animate-in zoom-in-95 duration-200">
+        <div className="flex justify-center mb-4">
+          <div
+            className={`p-3 rounded-full ${
+              isHolding
+                ? "bg-blue-100 text-blue-600"
+                : isProduction
+                ? "bg-emerald-100 text-emerald-600"
+                : "bg-slate-100 text-slate-500"
+            }`}
+          >
+            {isHolding ? (
+              <CalendarClock size={32} />
+            ) : isProduction ? (
+              <Rocket size={32} />
+            ) : (
+              <CheckSquare size={32} />
+            )}
+          </div>
+        </div>
+
+        <h3 className="text-lg font-black text-slate-900 mb-1 text-center">
+          {title}
+        </h3>
+
+        {isHolding && (
+          <p className="text-xs text-blue-600 font-bold text-center mb-4 bg-blue-50 py-2 rounded-lg">
+            Moving to Holding Tank until Start Date.
+          </p>
+        )}
+        {isProduction && (
+          <p className="text-xs text-emerald-600 font-bold text-center mb-4 bg-emerald-50 py-2 rounded-lg">
+            Launching directly to Production.
+          </p>
+        )}
+
+        {!isHolding && !isProduction && (
+          <p className="text-xs text-slate-400 font-bold uppercase tracking-wide mb-4 text-center">
+            Confirm Date
+          </p>
+        )}
+
+        <input
+          type="date"
+          value={dateValue}
+          onChange={(e) => setDateValue(e.target.value)}
+          className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-slate-900 mb-6"
+        />
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 py-3 bg-slate-100 text-slate-500 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-200"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className={`flex-1 py-3 text-white rounded-xl text-xs font-bold uppercase tracking-widest shadow-lg ${
+              isHolding
+                ? "bg-blue-600 hover:bg-blue-700"
+                : isProduction
+                ? "bg-emerald-600 hover:bg-emerald-700"
+                : "bg-slate-900 hover:bg-slate-800"
+            }`}
+          >
+            {isHolding
+              ? "Move to Holding"
+              : isProduction
+              ? "Start Production"
+              : "Confirm"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default function OnboardingManager() {
+  const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeSubTab, setActiveSubTab] = useState("pending");
+  const [subTab, setSubTab] = useState("checklist");
 
-  // EDITING & UPLOAD STATE
-  const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState({});
-  const [uploading, setUploading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortOrder, setSortOrder] = useState("newest");
 
-  // UI NOTIFICATIONS
   const [toast, setToast] = useState({
     show: false,
     message: "",
     type: "success",
   });
-  const [modal, setModal] = useState({
-    show: false,
-    title: "",
-    message: "",
-    action: null,
-  });
 
-  // --- TOAST HELPER ---
+  // Modals
+  const [dateModal, setDateModal] = useState({
+    isOpen: false,
+    item: null,
+    stepKey: null,
+    date: "",
+  });
+  const [safetyModal, setSafetyModal] = useState({
+    isOpen: false,
+    onConfirm: null,
+  });
+  const [refundModal, setRefundModal] = useState({ isOpen: false, item: null });
+
+  // --- HELPERS ---
   const showToast = (message, type = "success") => {
     setToast({ show: true, message, type });
     setTimeout(() => setToast({ ...toast, show: false }), 3000);
   };
 
-  // --- MODAL HELPER ---
-  const triggerConfirm = (title, message, action) => {
-    setModal({ show: true, title, message, action });
-  };
-
-  const closeModal = () => {
-    setModal({ show: false, title: "", message: "", action: null });
-  };
-
-  // --- FETCH ---
-  const fetchRequests = async () => {
+  const fetchPipeline = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("2_booking_requests")
-      .select("*")
-      .order("created_at", { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from(TABLE_NAME)
+        .select(
+          `
+          *,
+          request:2_booking_requests!inner (
+            id, book_title, client_name, client_type, cover_image_url, 
+            status, start_date, end_date, days_needed, ref_number, email, email_thread_link,
+            word_count, genre, narration_style, notes, is_returning
+          )
+        `
+        )
+        .in("request.status", ["approved", "f15_production", "f15_holding"])
+        .order("id", { ascending: false });
 
-    if (error) {
-      console.error("Error fetching requests:", error);
+      if (error) throw error;
+      setItems(data || []);
+    } catch (error) {
+      console.error("Pipeline Error:", error);
       showToast("Sync failed", "error");
-    } else {
-      setAllRequests(data || []);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
-    fetchRequests();
+    fetchPipeline();
   }, []);
 
-  // =========================================================================
-  // CORE LOGIC: UNIFIED ROUTING (FIXED SCHEMA)
-  // =========================================================================
-
-  const handleApprove = async (item) => {
-    // 1. Determine Status based on Client Type
-    const isRoster = item.client_type === "Roster";
-    const targetStatus = isRoster ? "f15_production" : "approved";
-
-    triggerConfirm(
-      `Approve "${item.book_title}"?`,
-      `Client Type: ${item.client_type}\nDestination: ${
-        isRoster ? "First 15 Pipeline" : "Onboarding Checklist"
-      }`,
-      async () => {
-        try {
-          setLoading(true);
-
-          // A. Check if tracker row exists already (e.g. if it was rejected before)
-          const { data: existing } = await supabase
-            .from(TRACKER_TABLE)
-            .select("id")
-            .eq("request_id", item.id)
-            .single();
-
-          // B. Insert only if missing
-          if (!existing) {
-            const { error: insertError } = await supabase
-              .from(TRACKER_TABLE)
-              .insert([{ request_id: item.id }]);
-            if (insertError) throw insertError;
-          }
-
-          // C. Update Request Status in Parent Table
-          const { error: updateError } = await supabase
-            .from("2_booking_requests")
-            .update({ status: targetStatus })
-            .eq("id", item.id);
-
-          if (updateError) throw updateError;
-
-          if (onUpdate) setTimeout(onUpdate, 100);
-          fetchRequests();
-          showToast(`Project moved to ${isRoster ? "First 15" : "Onboarding"}`);
-        } catch (error) {
-          showToast(error.message, "error");
-        } finally {
-          setLoading(false);
-          closeModal();
-        }
-      }
-    );
+  const checkIsDone = (item, stepKey) => {
+    const config = DB_MAPPING[stepKey];
+    if (!config) return false;
+    if (config.type === "bool") return item[config.col] === true;
+    if (config.type === "date") return !!item[config.col];
+    if (config.type === "mixed") return item[config.boolCol] === true;
+    return false;
   };
 
-  const updateGenericStatus = async (item, newStatus) => {
-    const doUpdate = async () => {
-      try {
-        setLoading(true);
-        const { error } = await supabase
-          .from("2_booking_requests")
-          .update({ status: newStatus })
-          .eq("id", item.id);
-
-        if (error) throw error;
-
-        // If restarting to pending, we optionally clear the tracker row
-        // OR we keep it to preserve history. Let's keep it for safety unless you want to wipe it.
-        // For now, we just move the card back.
-
-        if (onUpdate) setTimeout(onUpdate, 100);
-        fetchRequests();
-        showToast(`Project marked as ${newStatus}`);
-      } catch (error) {
-        showToast(error.message, "error");
-      } finally {
-        setLoading(false);
-        closeModal();
-      }
-    };
-
-    if (newStatus === "rejected") {
-      triggerConfirm(
-        "Reject Request?",
-        "This will move the project to the Rejected tab.",
-        doUpdate
-      );
-    } else if (newStatus === "pending") {
-      triggerConfirm(
-        "Restart Project?",
-        "This will move the project back to the Pending queue.",
-        doUpdate
-      );
-    } else {
-      doUpdate();
-    }
+  const getDisplayDate = (item, stepKey) => {
+    const config = DB_MAPPING[stepKey];
+    if (!config) return null;
+    let dateVal = null;
+    if (config.type === "date") dateVal = item[config.col];
+    if (config.type === "mixed") dateVal = item[config.dateCol];
+    if (item.step_dates && item.step_dates[stepKey])
+      return formatDate(item.step_dates[stepKey]);
+    if (!dateVal) return null;
+    return formatDate(dateVal);
   };
 
-  const toggleClientType = async (item) => {
-    const newType = item.client_type === "Roster" ? "Direct" : "Roster";
-
-    // Optimistic Update
-    setAllRequests((prev) =>
-      prev.map((r) => (r.id === item.id ? { ...r, client_type: newType } : r))
+  // --- ADVANCED BOOKING TOGGLE ---
+  const toggleAdvancedBooking = async (item) => {
+    const currentStatus = item.step_dates?.is_advanced_booking || false;
+    const newStatus = !currentStatus;
+    const updatedDates = { ...item.step_dates, is_advanced_booking: newStatus };
+    setItems((prev) =>
+      prev.map((i) =>
+        i.id === item.id ? { ...i, step_dates: updatedDates } : i
+      )
     );
-
-    const { error } = await supabase
-      .from("2_booking_requests")
-      .update({ client_type: newType })
+    await supabase
+      .from(TABLE_NAME)
+      .update({ step_dates: updatedDates })
       .eq("id", item.id);
-
-    if (error) {
-      showToast("Failed to update client type", "error");
-      fetchRequests(); // Revert
-    } else {
-      showToast(`Switched to ${newType}`);
-    }
   };
 
-  // =========================================================================
-  // UTILS & UI HELPERS
-  // =========================================================================
+  // --- ACTIONS ---
+  const initiateStepToggle = (item, stepKey) => {
+    const isDone = checkIsDone(item, stepKey);
+    if (isDone) {
+      setSafetyModal({
+        isOpen: true,
+        onConfirm: () => {
+          performBatchUpdate(item, {
+            [stepKey]: { isDone: false, date: null },
+          });
+          setSafetyModal({ isOpen: false, onConfirm: null });
+        },
+      });
+      return;
+    }
+    const today = new Date().toISOString().split("T")[0];
+    setDateModal({ isOpen: true, item, stepKey, date: today });
+  };
 
-  const deleteRequest = async (id) => {
-    triggerConfirm(
-      "Delete Permanently?",
-      "This action cannot be undone.",
-      async () => {
-        const { error } = await supabase
-          .from("2_booking_requests")
-          .update({ status: "deleted" }) // Soft delete based on your status list
-          .eq("id", id);
+  const confirmDateStep = () => {
+    const { item, stepKey, date } = dateModal;
+    const currentSteps = subTab === "checklist" ? ONBOARDING_STEPS : F15_STEPS;
 
-        if (!error) {
-          fetchRequests();
-          showToast("Project deleted");
-        } else {
-          showToast("Delete failed", "error");
-        }
-        closeModal();
+    // Waterfall
+    const targetIndex = currentSteps.findIndex((s) => s.key === stepKey);
+    const stepsToUpdate = currentSteps.slice(0, targetIndex + 1);
+    const batchUpdates = {};
+
+    stepsToUpdate.forEach((step) => {
+      if (step.key === stepKey || !checkIsDone(item, step.key)) {
+        batchUpdates[step.key] = { isDone: true, date: date };
       }
-    );
-  };
-
-  const handleImageUpload = async (e) => {
-    try {
-      setUploading(true);
-      const file = e.target.files[0];
-      if (!file) return;
-      const fileExt = file.name.split(".").pop();
-      const fileName = `${Date.now()}-${Math.random()
-        .toString(36)
-        .substring(7)}.${fileExt}`;
-      const filePath = `${fileName}`;
-      const { error: uploadError } = await supabase.storage
-        .from("book-covers")
-        .upload(filePath, file);
-      if (uploadError) throw uploadError;
-      const { data } = supabase.storage
-        .from("book-covers")
-        .getPublicUrl(filePath);
-      setEditForm((prev) => ({ ...prev, cover_image_url: data.publicUrl }));
-      showToast("Cover uploaded");
-    } catch (error) {
-      console.error("Error uploading image:", error);
-      showToast("Upload failed", "error");
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const startEditing = (request) => {
-    setEditingId(request.id);
-    const s = parseLocalDate(request.start_date);
-    const e = parseLocalDate(request.end_date);
-    setEditForm({
-      ...request,
-      word_count_display: formatNumberWithCommas(request.word_count || ""),
-      startStr: formatDateForInput(s),
-      endStr: formatDateForInput(e),
-      client_type: request.client_type || "Direct",
     });
+
+    if (stepKey === "moved_to_f15") {
+      graduateToF15(item, batchUpdates);
+    } else if (stepKey === "f15_approved") {
+      const isAdvanced = item.step_dates?.is_advanced_booking;
+      if (isAdvanced) graduateToHolding(item, batchUpdates);
+      else graduateToFullProduction(item, batchUpdates, date);
+    } else {
+      performBatchUpdate(item, batchUpdates);
+    }
+    setDateModal({ isOpen: false, item: null, stepKey: null, date: "" });
   };
 
-  const saveEdits = async () => {
-    const updates = {
-      book_title: editForm.book_title,
-      client_name: editForm.client_name,
-      email: editForm.email,
-      email_secondary: editForm.email_secondary,
-      email_tertiary: editForm.email_tertiary,
-      email_thread_link: editForm.email_thread_link,
-      client_type: editForm.client_type,
-      genre: editForm.genre,
-      word_count: cleanNumber(editForm.word_count_display),
-      narration_style: editForm.narration_style,
-      notes: editForm.notes,
-      start_date: editForm.startStr,
-      end_date: editForm.endStr,
-      cover_image_url: editForm.cover_image_url,
-    };
-
-    setAllRequests((prev) =>
-      prev.map((r) => (r.id === editingId ? { ...r, ...updates } : r))
+  const performBatchUpdate = async (item, updatesObj) => {
+    const payload = { step_dates: { ...(item.step_dates || {}) } };
+    Object.keys(updatesObj).forEach((key) => {
+      const { isDone, date } = updatesObj[key];
+      const config = DB_MAPPING[key];
+      if (!config) return;
+      if (config.type === "bool") payload[config.col] = isDone;
+      else if (config.type === "date")
+        payload[config.col] = isDone ? date : null;
+      else if (config.type === "mixed") {
+        payload[config.boolCol] = isDone;
+        payload[config.dateCol] = isDone ? date : null;
+      }
+      if (isDone) payload.step_dates[key] = date;
+      else delete payload.step_dates[key];
+    });
+    setItems((prev) =>
+      prev.map((i) => (i.id !== item.id ? i : { ...i, ...payload }))
     );
-
     const { error } = await supabase
-      .from("2_booking_requests")
-      .update(updates)
-      .eq("id", editingId);
-
+      .from(TABLE_NAME)
+      .update(payload)
+      .eq("id", item.id);
     if (error) {
       showToast("Save failed", "error");
-      fetchRequests();
-    } else {
-      showToast("Changes saved");
+      fetchPipeline();
     }
-    setEditingId(null);
   };
 
-  const copyToClipboard = (text) => {
-    if (!text) return;
-    navigator.clipboard.writeText(text);
-    showToast("Copied to clipboard");
+  const graduateToF15 = async (item, batchUpdates) => {
+    await performBatchUpdate(item, batchUpdates);
+    setItems((prev) =>
+      prev.map((i) =>
+        i.id === item.id
+          ? { ...i, request: { ...i.request, status: "f15_production" } }
+          : i
+      )
+    );
+    await supabase
+      .from("2_booking_requests")
+      .update({ status: "f15_production" })
+      .eq("id", item.request.id);
+    showToast("Moved to First 15 Tab!");
   };
 
-  // --- FILTER ---
-  const getCount = (tabId) => {
-    return allRequests.filter((r) => {
-      if (tabId === "approved")
-        return ["approved", "f15_production", "production"].includes(r.status);
-      return r.status === tabId;
-    }).length;
+  const graduateToHolding = async (item, batchUpdates) => {
+    await performBatchUpdate(item, batchUpdates);
+    setItems((prev) =>
+      prev.map((i) =>
+        i.id === item.id
+          ? { ...i, request: { ...i.request, status: "f15_holding" } }
+          : i
+      )
+    );
+    await supabase
+      .from("2_booking_requests")
+      .update({ status: "f15_holding" })
+      .eq("id", item.request.id);
+    showToast("Moved to Holding Tank");
   };
 
-  const displayedRequests = allRequests.filter((r) => {
-    if (activeSubTab === "approved")
-      return ["approved", "f15_production", "production"].includes(r.status);
-    return r.status === activeSubTab;
-  });
+  const graduateToFullProduction = async (item, batchUpdates) => {
+    await performBatchUpdate(item, batchUpdates);
+    setItems((prev) => prev.filter((i) => i.id !== item.id));
+    await supabase
+      .from(PRODUCTION_TABLE)
+      .insert([{ request_id: item.request.id, status: "pre_production" }]);
+    await supabase
+      .from("2_booking_requests")
+      .update({ status: "production" })
+      .eq("id", item.request.id);
+    showToast("Moved to Production Pipeline.");
+  };
+
+  const activateFromHolding = async (item) => {
+    setItems((prev) => prev.filter((i) => i.id !== item.id));
+    await supabase
+      .from(PRODUCTION_TABLE)
+      .insert([{ request_id: item.request.id, status: "pre_production" }]);
+    await supabase
+      .from("2_booking_requests")
+      .update({ status: "production" })
+      .eq("id", item.request.id);
+    showToast("Activated to Production!");
+  };
+
+  // --- NUDGE ---
+  const handleNudge = async (item) => {
+    const now = new Date().toISOString().split("T")[0];
+    const newStrikes = Math.min((item.strike_count || 0) + 1, 3);
+    setItems((prev) =>
+      prev.map((i) =>
+        i.id === item.id
+          ? { ...i, last_nudge_date: now, strike_count: newStrikes }
+          : i
+      )
+    );
+    await supabase
+      .from(TABLE_NAME)
+      .update({ last_nudge_date: now, strike_count: newStrikes })
+      .eq("id", item.id);
+    if (newStrikes === 1) showToast("Gentle nudge recorded.");
+    else if (newStrikes === 2) showToast("Firm nudge recorded!", "warning");
+    else if (newStrikes === 3)
+      showToast("RED ALERT: Strike 3 Recorded.", "error");
+  };
+
+  const handleUndoNudge = async (item) => {
+    const newStrikes = Math.max(0, (item.strike_count || 0) - 1);
+    setItems((prev) =>
+      prev.map((i) =>
+        i.id === item.id ? { ...i, strike_count: newStrikes } : i
+      )
+    );
+    await supabase
+      .from(TABLE_NAME)
+      .update({ strike_count: newStrikes })
+      .eq("id", item.id);
+    showToast("Nudge count decreased.");
+  };
+
+  // --- STATUS CHANGE (BOOT/POSTPONE) ---
+  const initiateStatusChange = (item, type) => {
+    if (type === "rejected") {
+      setRefundModal({ isOpen: true, item }); // Open refund modal first
+    } else {
+      executeStatusChange(item, type); // Direct postpone
+    }
+  };
+
+  const executeStatusChange = async (item, newStatus, refundData = null) => {
+    // Optimistic Remove
+    setItems((prev) => prev.filter((i) => i.id !== item.id));
+
+    // Update Parent Status
+    await supabase
+      .from("2_booking_requests")
+      .update({ status: newStatus })
+      .eq("id", item.request.id);
+
+    // If booting (rejected), we DON'T delete anymore, we update the tracker with refund info so we have a paper trail
+    if (newStatus === "rejected" && refundData) {
+      await supabase
+        .from(TABLE_NAME)
+        .update({
+          refund_percentage: refundData.percentage,
+          refund_date: new Date().toISOString().split("T")[0],
+          current_status: "Rejected",
+        })
+        .eq("id", item.id);
+    }
+
+    showToast(
+      newStatus === "postponed"
+        ? "Project Postponed"
+        : "Project Booted & Refund Logged"
+    );
+    setRefundModal({ isOpen: false, item: null });
+  };
+
+  const getNudgeStyles = (count) => {
+    if (!count || count === 0)
+      return {
+        label: "Send Nudge",
+        style:
+          "bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50",
+        icon: Send,
+      };
+    if (count === 1)
+      return {
+        label: "Nudge Again (1)",
+        style: "bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100",
+        icon: Megaphone,
+      };
+    if (count === 2)
+      return {
+        label: "Firm Nudge (2)",
+        style:
+          "bg-orange-50 border-orange-200 text-orange-600 hover:bg-orange-100",
+        icon: AlertTriangle,
+      };
+    return {
+      label: "RED ALERT (3)",
+      style:
+        "bg-red-50 border-red-200 text-red-600 hover:bg-red-100 animate-pulse",
+      icon: ShieldAlert,
+    };
+  };
+
+  // --- FILTER & SORT ---
+  const onboardingItems = items.filter((i) => i.request.status === "approved");
+  const f15Items = items.filter((i) => i.request.status === "f15_production");
+  const holdingItems = items.filter((i) => i.request.status === "f15_holding");
+
+  let activeItems = [];
+  if (subTab === "checklist") activeItems = onboardingItems;
+  if (subTab === "f15") activeItems = f15Items;
+  if (subTab === "holding") activeItems = holdingItems;
+
+  const filteredAndSortedItems = useMemo(() => {
+    let result = [...activeItems];
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (item) =>
+          item.request.book_title?.toLowerCase().includes(q) ||
+          item.request.client_name?.toLowerCase().includes(q)
+      );
+    }
+    result.sort((a, b) => {
+      if (sortOrder === "newest") return b.id.localeCompare(a.id);
+      if (sortOrder === "oldest") return a.id.localeCompare(b.id);
+      if (sortOrder === "title")
+        return (a.request.book_title || "").localeCompare(
+          b.request.book_title || ""
+        );
+      if (sortOrder === "start_date")
+        return (
+          new Date(a.request.start_date || 0) -
+          new Date(b.request.start_date || 0)
+        );
+      return 0;
+    });
+    return result;
+  }, [activeItems, searchQuery, sortOrder]);
+
+  const currentSteps = subTab === "checklist" ? ONBOARDING_STEPS : F15_STEPS;
+
+  if (loading)
+    return (
+      <div className="flex flex-col items-center justify-center h-96 text-slate-300 font-bold uppercase tracking-widest gap-4 animate-pulse">
+        <Loader2 className="animate-spin" size={32} />
+        Loading Pipeline...
+      </div>
+    );
 
   return (
-    <div className="space-y-8 relative">
-      {/* --- CUSTOM TOAST NOTIFICATION --- */}
+    <div className="relative w-full space-y-12 pb-24">
+      {/* Modals & Toasts */}
+      <DateConfirmModal
+        isOpen={dateModal.isOpen}
+        title={
+          dateModal.stepKey === "moved_to_f15"
+            ? "Graduate to First 15?"
+            : dateModal.stepKey === "f15_approved"
+            ? dateModal.item?.step_dates?.is_advanced_booking
+              ? "Move to Holding Tank?"
+              : "Start Production?"
+            : "Mark Step Complete"
+        }
+        isHolding={
+          dateModal.stepKey === "f15_approved" &&
+          dateModal.item?.step_dates?.is_advanced_booking
+        }
+        isProduction={
+          dateModal.stepKey === "f15_approved" &&
+          !dateModal.item?.step_dates?.is_advanced_booking
+        }
+        dateValue={dateModal.date}
+        setDateValue={(d) => setDateModal({ ...dateModal, date: d })}
+        onConfirm={confirmDateStep}
+        onCancel={() =>
+          setDateModal({ isOpen: false, item: null, stepKey: null, date: "" })
+        }
+      />
+      <SafetyCheckModal
+        isOpen={safetyModal.isOpen}
+        title="Undo Completed Step?"
+        message="This will remove the completion date and mark this step as pending. Proceed?"
+        onConfirm={safetyModal.onConfirm}
+        onCancel={() => setSafetyModal({ isOpen: false, onConfirm: null })}
+      />
+      <RefundModal
+        isOpen={refundModal.isOpen}
+        onCancel={() => setRefundModal({ isOpen: false, item: null })}
+        onConfirm={(amount) =>
+          executeStatusChange(refundModal.item, "rejected", {
+            percentage: amount,
+          })
+        }
+      />
       <div
         className={`fixed top-6 right-6 z-50 transition-all duration-300 transform ${
           toast.show
@@ -391,658 +790,471 @@ export default function BookingRequests({ onUpdate }) {
         }`}
       >
         <div
-          className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl border backdrop-blur-md ${
+          className={`flex items-center gap-3 px-6 py-4 rounded-xl shadow-2xl border backdrop-blur-md ${
             toast.type === "error"
               ? "bg-red-50/90 border-red-200 text-red-600"
+              : toast.type === "warning"
+              ? "bg-orange-50/90 border-orange-200 text-orange-600"
               : "bg-slate-900/90 border-slate-800 text-white"
           }`}
         >
           {toast.type === "error" ? (
-            <AlertCircle size={18} />
+            <ShieldAlert size={20} />
+          ) : toast.type === "warning" ? (
+            <AlertTriangle size={20} />
           ) : (
-            <CheckCircle2 size={18} />
+            <CheckCircle2 size={20} />
           )}
           <span className="text-sm font-bold">{toast.message}</span>
         </div>
       </div>
 
-      {/* --- CUSTOM CONFIRM MODAL --- */}
-      {modal.show && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/20 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full border border-slate-100 scale-100 animate-in zoom-in-95 duration-200">
-            <h3 className="text-lg font-black text-slate-900 mb-2">
-              {modal.title}
-            </h3>
-            <p className="text-sm text-slate-500 font-medium mb-6 whitespace-pre-line">
-              {modal.message}
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={closeModal}
-                className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-200"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={modal.action}
-                className="flex-1 py-3 bg-slate-900 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-800 shadow-lg"
-              >
-                Confirm
-              </button>
-            </div>
+      <div className="sticky top-4 z-40 space-y-4">
+        {/* TABS */}
+        <div className="flex justify-center">
+          <div className="bg-white/80 backdrop-blur-md p-1.5 rounded-full border border-slate-200 shadow-xl flex">
+            <button
+              onClick={() => setSubTab("checklist")}
+              className={`flex items-center gap-2 px-8 py-3 rounded-full text-xs font-black uppercase tracking-widest transition-all ${
+                subTab === "checklist"
+                  ? "bg-slate-900 text-white shadow-lg scale-105"
+                  : "text-slate-400 hover:text-slate-600"
+              }`}
+            >
+              <BookOpen size={16} /> Onboarding{" "}
+              <span className="opacity-40 ml-1">
+                | {onboardingItems.length}
+              </span>
+            </button>
+            <button
+              onClick={() => setSubTab("f15")}
+              className={`flex items-center gap-2 px-8 py-3 rounded-full text-xs font-black uppercase tracking-widest transition-all ${
+                subTab === "f15"
+                  ? "bg-purple-600 text-white shadow-lg scale-105"
+                  : "text-slate-400 hover:text-slate-600"
+              }`}
+            >
+              <Headphones size={16} /> First 15{" "}
+              <span className="opacity-40 ml-1">| {f15Items.length}</span>
+            </button>
+            <button
+              onClick={() => setSubTab("holding")}
+              className={`flex items-center gap-2 px-8 py-3 rounded-full text-xs font-black uppercase tracking-widest transition-all ${
+                subTab === "holding"
+                  ? "bg-blue-600 text-white shadow-lg scale-105"
+                  : "text-slate-400 hover:text-slate-600"
+              }`}
+            >
+              <CalendarClock size={16} /> Holding{" "}
+              <span className="opacity-40 ml-1">| {holdingItems.length}</span>
+            </button>
           </div>
         </div>
-      )}
 
-      {/* TABS */}
-      <div className="flex items-center justify-between bg-white p-1.5 rounded-full border border-slate-200 shadow-sm overflow-hidden">
-        <div className="flex gap-1 overflow-x-auto no-scrollbar">
-          {TABS.map((tab) => {
-            const count = getCount(tab.id);
-            const isActive = activeSubTab === tab.id;
-            if (tab.id === "archived" && count === 0 && !isActive) return null;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveSubTab(tab.id)}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
-                  isActive
-                    ? "bg-slate-900 text-white shadow-md"
-                    : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
-                }`}
+        {/* SORT & FILTER BAR */}
+        {(onboardingItems.length > 0 ||
+          f15Items.length > 0 ||
+          holdingItems.length > 0) && (
+          <div className="flex flex-col md:flex-row justify-center gap-3 animate-in fade-in slide-in-from-top-4 duration-500">
+            <div className="flex items-center bg-white/90 backdrop-blur-sm p-1.5 rounded-xl border border-slate-200 shadow-sm focus-within:ring-2 focus-within:ring-slate-200 transition-all">
+              <Search className="text-slate-400 ml-2" size={16} />
+              <input
+                type="text"
+                placeholder="Filter projects..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="bg-transparent border-none outline-none text-xs font-bold text-slate-700 placeholder:text-slate-400 w-48 px-2"
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery("")}>
+                  <X
+                    size={14}
+                    className="text-slate-400 hover:text-slate-600 mr-1"
+                  />
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm gap-2">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                <ArrowUpDown size={12} /> Sort:
+              </span>
+              <select
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value)}
+                className="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer"
               >
-                {tab.label}{" "}
-                {count > 0 && (
-                  <span
-                    className={`flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[9px] ${
-                      isActive
-                        ? "bg-white text-slate-900"
-                        : "bg-slate-200 text-slate-500"
-                    }`}
-                  >
-                    {count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="title">Title (A-Z)</option>
+                <option value="start_date">Start Date</option>
+              </select>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* LIST */}
-      {loading ? (
-        <div className="text-center py-24 text-slate-300 animate-pulse font-bold uppercase tracking-widest text-xs">
-          Syncing Database...
-        </div>
-      ) : displayedRequests.length === 0 ? (
-        <div className="text-center py-24 bg-white/50 rounded-[2rem] border border-dashed border-slate-200">
+      {filteredAndSortedItems.length === 0 ? (
+        <div className="text-center py-32 bg-white/50 rounded-[3rem] border-2 border-dashed border-slate-200 mx-auto max-w-2xl">
           <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">
-            No {activeSubTab} projects found
+            {searchQuery
+              ? "No matches found"
+              : `No projects in ${
+                  subTab === "checklist"
+                    ? "Onboarding"
+                    : subTab === "f15"
+                    ? "First 15"
+                    : "Holding Tank"
+                }`}
           </p>
         </div>
       ) : (
-        <div className="flex flex-col gap-6">
-          {displayedRequests.map((r) => {
-            const isEditing = editingId === r.id;
-            const startDate = parseLocalDate(r.start_date);
-            const endDate = parseLocalDate(r.end_date);
-            const coverImage = isEditing
-              ? editForm.cover_image_url
-              : r.cover_image_url;
+        <div className="grid grid-cols-1 gap-12">
+          {filteredAndSortedItems.map((item) => {
+            const isRoster = item.request.client_type === "Roster";
+            const completedCount = currentSteps.filter((s) =>
+              checkIsDone(item, s.key)
+            ).length;
+            const progress = Math.round(
+              (completedCount / currentSteps.length) * 100
+            );
 
-            // Resolve Client Type from Row or Edit Form
-            const currentClientType = isEditing
-              ? editForm.client_type || r.client_type || "Direct"
-              : r.client_type || "Direct";
-            const isRoster = currentClientType === "Roster";
+            const strikes = item.strike_count || 0;
+            const nudgeConfig = getNudgeStyles(strikes);
+            const NudgeIcon = nudgeConfig.icon;
 
-            // Status Styling
-            let statusColor = "border-slate-200 hover:border-slate-300";
-            let bgTint = "bg-white";
-            if (
-              ["approved", "f15_production", "production"].includes(r.status)
-            ) {
-              statusColor = "border-emerald-200 hover:border-emerald-300";
-              bgTint = "bg-emerald-50/20";
-            } else if (r.status === "postponed") {
-              statusColor = "border-orange-200 hover:border-orange-300";
-              bgTint = "bg-orange-50/20";
-            } else if (r.status === "completed") {
-              statusColor = "border-blue-200 hover:border-blue-300";
-              bgTint = "bg-blue-50/20";
-            } else if (r.status === "rejected") {
-              statusColor = "border-red-100 hover:border-red-200";
-              bgTint = "bg-red-50/10";
-            } else if (r.status === "archived") {
-              statusColor = "border-slate-200 hover:border-slate-300";
-              bgTint = "bg-slate-50";
-            }
-            if (isEditing) {
-              bgTint =
-                "bg-white ring-4 ring-slate-100 shadow-2xl z-10 scale-[1.01]";
-              statusColor = "border-slate-300";
-            }
+            const isAdvanced = item.step_dates?.is_advanced_booking;
+            const daysUntilStart = getDaysUntil(item.request.start_date);
 
             return (
               <div
-                key={r.id}
-                className={`group relative rounded-[2rem] border ${statusColor} ${bgTint} shadow-sm transition-all duration-300 overflow-hidden`}
+                key={item.id}
+                className={`bg-white rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/50 border relative overflow-hidden group transition-colors duration-500 ${
+                  strikes >= 3
+                    ? "border-red-100 bg-red-50/30"
+                    : "border-slate-100"
+                }`}
               >
-                <div className="flex flex-col lg:flex-row min-h-[180px]">
-                  {/* --- LEFT: COVER/DATE --- */}
-                  <div className="w-full lg:w-48 relative flex flex-col items-center justify-center bg-slate-100 border-b lg:border-b-0 lg:border-r border-slate-200 shrink-0 overflow-hidden">
-                    {isEditing && (
-                      <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/50 opacity-0 hover:opacity-100 transition-opacity cursor-pointer">
-                        <label className="cursor-pointer flex flex-col items-center text-white">
-                          {uploading ? (
-                            <Loader2 className="animate-spin" />
-                          ) : (
-                            <UploadCloud size={24} />
-                          )}
-                          <span className="text-[10px] font-bold uppercase mt-1">
-                            Change Cover
-                          </span>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={handleImageUpload}
-                            disabled={uploading}
-                          />
-                        </label>
-                      </div>
-                    )}
-                    {coverImage ? (
+                {/* --- HEADER --- */}
+                <div className="flex flex-col lg:flex-row gap-8 mb-8 pb-8 border-b border-slate-100">
+                  <div className="w-32 h-48 lg:w-40 lg:h-60 bg-slate-100 rounded-xl shrink-0 shadow-md relative overflow-hidden mx-auto lg:mx-0">
+                    {item.request.cover_image_url ? (
                       <img
-                        src={coverImage}
-                        alt="Cover"
+                        src={item.request.cover_image_url}
                         className="w-full h-full object-cover"
                       />
-                    ) : isEditing ? (
-                      <div className="flex flex-col items-center text-slate-300">
-                        <ImageIcon size={32} className="mb-2" />
-                        <span className="text-[10px] font-black uppercase">
-                          No Cover
-                        </span>
-                      </div>
                     ) : (
-                      <div className="flex flex-col items-center justify-center p-6">
-                        <span className="text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">
-                          {startDate.toLocaleDateString("en-US", {
-                            month: "short",
-                          })}
-                        </span>
-                        <span className="text-5xl font-black text-slate-900 leading-none mb-3">
-                          {startDate.getDate()}
-                        </span>
-                        <span className="px-3 py-1 rounded-full bg-white border border-slate-200 text-[9px] font-bold text-slate-500 uppercase tracking-wide">
-                          {r.days_needed} Days
-                        </span>
+                      <div className="w-full h-full flex items-center justify-center text-slate-300">
+                        <BookOpen size={32} />
                       </div>
                     )}
                   </div>
 
-                  {/* --- MIDDLE: CONTENT --- */}
-                  <div className="flex-grow p-6 lg:p-8 flex flex-col justify-center">
-                    {isEditing ? (
-                      <div className="space-y-8 animate-in fade-in duration-300">
-                        {/* EDIT FORM */}
-                        <div className="w-full space-y-4">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                            Project Title
-                          </label>
-                          <input
-                            className="w-full text-3xl font-black text-slate-900 bg-transparent border-b-2 border-slate-100 focus:border-slate-900 outline-none pb-2"
-                            value={editForm.book_title || ""}
-                            onChange={(e) =>
-                              setEditForm({
-                                ...editForm,
-                                book_title: e.target.value,
-                              })
-                            }
-                            placeholder="UNTITLED PROJECT"
-                            autoFocus
-                          />
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                          <div className="space-y-6">
-                            <div className="space-y-2">
-                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                Client & Emails
-                              </label>
-                              <input
-                                className="w-full p-4 bg-slate-50 rounded-xl text-sm font-bold outline-none"
-                                value={editForm.client_name || ""}
-                                onChange={(e) =>
-                                  setEditForm({
-                                    ...editForm,
-                                    client_name: e.target.value,
-                                  })
-                                }
-                                placeholder="Client Name"
-                              />
-                              <input
-                                className="w-full p-3 bg-slate-50 rounded-xl text-sm font-medium outline-none"
-                                value={editForm.email || ""}
-                                onChange={(e) =>
-                                  setEditForm({
-                                    ...editForm,
-                                    email: e.target.value,
-                                  })
-                                }
-                                placeholder="Primary Email"
-                              />
-                              <div className="grid grid-cols-2 gap-2">
-                                <input
-                                  className="p-3 bg-slate-50 rounded-xl text-xs font-medium outline-none"
-                                  value={editForm.email_secondary || ""}
-                                  onChange={(e) =>
-                                    setEditForm({
-                                      ...editForm,
-                                      email_secondary: e.target.value,
-                                    })
-                                  }
-                                  placeholder="CC Email"
-                                />
-                                <input
-                                  className="p-3 bg-slate-50 rounded-xl text-xs font-medium outline-none"
-                                  value={editForm.email_tertiary || ""}
-                                  onChange={(e) =>
-                                    setEditForm({
-                                      ...editForm,
-                                      email_tertiary: e.target.value,
-                                    })
-                                  }
-                                  placeholder="BCC Email"
-                                />
-                              </div>
-                              <input
-                                className="w-full p-2 bg-transparent border-b border-slate-200 text-xs text-blue-600 outline-none"
-                                value={editForm.email_thread_link || ""}
-                                onChange={(e) =>
-                                  setEditForm({
-                                    ...editForm,
-                                    email_thread_link: e.target.value,
-                                  })
-                                }
-                                placeholder="Gmail Thread Link"
-                              />
-                            </div>
-                            <div className="flex gap-2">
-                              <input
-                                type="date"
-                                className="flex-1 p-3 bg-slate-50 rounded-xl text-xs font-bold outline-none"
-                                value={editForm.startStr}
-                                onChange={(e) =>
-                                  setEditForm({
-                                    ...editForm,
-                                    startStr: e.target.value,
-                                  })
-                                }
-                              />
-                              <input
-                                type="date"
-                                className="flex-1 p-3 bg-slate-50 rounded-xl text-xs font-bold outline-none"
-                                value={editForm.endStr}
-                                onChange={(e) =>
-                                  setEditForm({
-                                    ...editForm,
-                                    endStr: e.target.value,
-                                  })
-                                }
-                              />
-                            </div>
-                          </div>
-                          <div className="space-y-6">
-                            <div>
-                              <label className="text-[9px] font-bold text-slate-400 block mb-1">
-                                Source
-                              </label>
-                              <select
-                                className="w-full p-3 bg-slate-50 rounded-xl text-sm font-bold text-slate-700 outline-none"
-                                value={editForm.client_type}
-                                onChange={(e) =>
-                                  setEditForm({
-                                    ...editForm,
-                                    client_type: e.target.value,
-                                  })
-                                }
-                              >
-                                <option value="Direct">
-                                  Direct Client (Needs Onboarding)
-                                </option>
-                                <option value="Roster">
-                                  Roster (Skips Onboarding)
-                                </option>
-                              </select>
-                            </div>
-                            <input
-                              className="w-full p-4 bg-slate-50 rounded-xl text-lg font-bold text-slate-900 outline-none font-mono"
-                              value={editForm.word_count_display || ""}
-                              onChange={(e) => {
-                                const val = e.target.value.replace(
-                                  /[^0-9,]/g,
-                                  ""
-                                );
-                                const raw = val.replace(/,/g, "");
-                                const formatted = formatNumberWithCommas(raw);
-                                setEditForm({
-                                  ...editForm,
-                                  word_count_display: formatted,
-                                });
-                              }}
-                              placeholder="Word Count"
-                            />
-                            <div className="grid grid-cols-2 gap-2">
-                              <select
-                                className="p-3 bg-slate-50 rounded-xl text-xs font-bold outline-none"
-                                value={editForm.narration_style}
-                                onChange={(e) =>
-                                  setEditForm({
-                                    ...editForm,
-                                    narration_style: e.target.value,
-                                  })
-                                }
-                              >
-                                <option>Solo</option>
-                                <option>Duet</option>
-                                <option>Dual</option>
-                                <option>Multi-Cast</option>
-                              </select>
-                              <select
-                                className="p-3 bg-slate-50 rounded-xl text-xs font-bold outline-none"
-                                value={editForm.genre}
-                                onChange={(e) =>
-                                  setEditForm({
-                                    ...editForm,
-                                    genre: e.target.value,
-                                  })
-                                }
-                              >
-                                <option>Fiction</option>
-                                <option>Non-Fic</option>
-                                <option>Sci-Fi</option>
-                                <option>Romance</option>
-                              </select>
-                            </div>
-                          </div>
-                        </div>
-                        <textarea
-                          className="w-full bg-slate-50 rounded-xl p-6 text-sm outline-none resize-none h-32"
-                          value={editForm.notes || ""}
-                          onChange={(e) =>
-                            setEditForm({ ...editForm, notes: e.target.value })
-                          }
-                          placeholder="Notes..."
-                        />
-                        <div className="flex gap-4 pt-4">
-                          <button
-                            onClick={() => saveEdits()}
-                            className="flex-1 py-3 bg-emerald-500 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-emerald-600 shadow-md flex items-center justify-center gap-2"
-                          >
-                            <Save size={16} /> Save Changes
-                          </button>
-                          <button
-                            onClick={cancelEditing}
-                            className="px-8 py-4 bg-white border border-slate-200 text-slate-500 rounded-xl font-bold uppercase tracking-widest hover:bg-slate-50"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        {/* VIEW MODE */}
-                        <div className="flex justify-between items-start mb-6">
-                          <div>
-                            <h3 className="text-2xl font-black text-slate-900 leading-tight mb-2">
-                              {r.book_title || "Untitled Project"}
-                            </h3>
-                            <button
-                              onClick={() => toggleClientType(r)}
-                              disabled={activeSubTab !== "pending"}
-                              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all ${
+                  <div className="flex-grow flex flex-col justify-between">
+                    <div>
+                      <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
+                        <div>
+                          <div className="flex gap-2 mb-1">
+                            <span
+                              className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest ${
                                 isRoster
-                                  ? "bg-purple-100 border-purple-200 text-purple-700 hover:bg-purple-200"
-                                  : "bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200"
+                                  ? "bg-purple-100 text-purple-700"
+                                  : "bg-emerald-100 text-emerald-700"
                               }`}
                             >
-                              {isRoster ? (
-                                <Globe size={14} />
-                              ) : (
-                                <UserCheck size={14} />
-                              )}
-                              <span className="text-[10px] font-black uppercase tracking-wider">
-                                {isRoster ? "Roster Client" : "Direct Client"}
+                              {item.request.client_type}
+                            </span>
+                            {item.request.is_returning && (
+                              <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest bg-blue-100 text-blue-700 flex items-center gap-1">
+                                <RotateCcw size={8} /> Returning
                               </span>
-                              {activeSubTab === "pending" && (
-                                <span className="text-[9px] opacity-50 ml-1">
-                                  (Click to Swap)
-                                </span>
-                              )}
-                            </button>
+                            )}
                           </div>
+                          <h3 className="text-3xl font-black text-slate-900 leading-tight">
+                            {item.request.book_title}
+                          </h3>
+                          <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wide mt-1">
+                            <User size={14} /> {item.request.client_name}
+                          </div>
+                        </div>
+
+                        <div className="flex gap-1 items-center bg-slate-50 px-3 py-2 rounded-xl border border-slate-100">
+                          {[...Array(3)].map((_, i) => (
+                            <div
+                              key={i}
+                              className={`w-2.5 h-2.5 rounded-full ${
+                                i < strikes
+                                  ? strikes === 1
+                                    ? "bg-blue-500"
+                                    : strikes === 2
+                                    ? "bg-orange-500"
+                                    : "bg-red-600"
+                                  : "bg-slate-200"
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                          <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                            <Hash size={10} /> Word Count
+                          </div>
+                          <div className="text-xs font-black text-slate-700">
+                            {formatNumber(item.request.word_count)}
+                          </div>
+                        </div>
+                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                          <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                            <Tag size={10} /> Genre
+                          </div>
+                          <div className="text-xs font-black text-slate-700 truncate">
+                            {item.request.genre || "-"}
+                          </div>
+                        </div>
+                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                          <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                            <Mic2 size={10} /> Style
+                          </div>
+                          <div className="text-xs font-black text-slate-700 truncate">
+                            {item.request.narration_style || "-"}
+                          </div>
+                        </div>
+                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                          <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                            <CalendarRange size={10} /> Timeline
+                          </div>
+                          <div className="text-xs font-black text-slate-700 truncate">
+                            {formatDate(item.request.start_date)} -{" "}
+                            {formatDate(item.request.end_date)}
+                          </div>
+                        </div>
+                      </div>
+
+                      {item.request.notes && (
+                        <div className="p-3 bg-amber-50 rounded-xl border border-amber-100 mb-4 flex gap-3">
+                          <StickyNote
+                            size={14}
+                            className="text-amber-400 shrink-0 mt-0.5"
+                          />
+                          <p className="text-[10px] font-medium text-amber-900 leading-relaxed line-clamp-2">
+                            {item.request.notes}
+                          </p>
+                        </div>
+                      )}
+
+                      {isRoster && subTab === "checklist" && (
+                        <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-xl border border-purple-100 flex-grow">
+                          <Zap size={16} className="text-purple-600" />
+                          <span className="text-xs font-bold text-purple-800">
+                            Roster Client Detected.
+                          </span>
                           <button
-                            onClick={() => startEditing(r)}
-                            className="p-3 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
+                            onClick={() => graduateToF15(item, {})}
+                            className="ml-auto px-4 py-1.5 bg-purple-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-purple-700"
                           >
-                            <Pencil size={18} />
+                            Skip to F15
                           </button>
                         </div>
+                      )}
 
-                        {/* INFO GRID */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4 text-xs font-medium text-slate-500">
-                          <div className="space-y-3">
-                            <div className="flex items-center gap-3">
-                              <div className="w-6 flex justify-center">
-                                <User size={16} className="text-slate-300" />
-                              </div>
-                              <span className="font-bold text-slate-700 uppercase tracking-wide">
-                                {r.client_name || "Unknown"}
-                              </span>
-                            </div>
-                            <div className="flex flex-col gap-1.5 pl-9">
-                              {r.email && (
-                                <div
-                                  className="flex items-center gap-2 cursor-pointer"
-                                  onClick={() => copyToClipboard(r.email)}
-                                >
-                                  <Mail size={12} className="text-slate-400" />
-                                  <span className="text-slate-600">
-                                    {r.email}
-                                  </span>
-                                </div>
-                              )}
-                              {r.email_thread_link && (
-                                <a
-                                  href={r.email_thread_link}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-1.5 text-[10px] font-bold text-blue-500 hover:underline w-fit mt-1"
-                                >
-                                  <ExternalLink size={10} /> Open Thread
-                                </a>
-                              )}
-                            </div>
-                          </div>
-                          <div className="space-y-3">
-                            <div className="flex items-center gap-3">
-                              <div className="w-6 flex justify-center">
-                                <CalendarDays
-                                  size={16}
-                                  className="text-slate-300"
-                                />
-                              </div>
-                              <span className="font-mono text-slate-600">
-                                {startDate.toLocaleDateString()} —{" "}
-                                {endDate.toLocaleDateString()}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <div className="w-6 flex justify-center">
-                                <BookOpen
-                                  size={16}
-                                  className="text-slate-300"
-                                />
-                              </div>
-                              <span>
-                                <span className="font-bold text-slate-700">
-                                  {r.word_count
-                                    ? Number(r.word_count).toLocaleString()
-                                    : 0}
-                                </span>{" "}
-                                Words • {r.narration_style} • {r.genre}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        {r.notes && (
-                          <div className="mt-5 pt-4 border-t border-slate-100 flex gap-3">
-                            <div className="w-6 flex justify-center pt-1">
-                              <FileText size={14} className="text-slate-300" />
-                            </div>
-                            <p className="text-xs text-slate-500 italic leading-relaxed line-clamp-2">
-                              {r.notes}
-                            </p>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-
-                  {/* --- RIGHT: ACTIONS (UNIFIED BUTTON) --- */}
-                  <div className="w-full lg:w-72 shrink-0 p-6 bg-white border-t lg:border-t-0 lg:border-l border-slate-100 flex flex-col gap-3 justify-center">
-                    {activeSubTab === "pending" && (
-                      <>
-                        <button
-                          onClick={() => handleApprove(r)}
-                          className={`w-full py-4 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg transition-all flex items-center justify-center gap-2 ${
-                            isRoster
-                              ? "bg-purple-600 text-white hover:bg-purple-700 hover:shadow-purple-200"
-                              : "bg-slate-900 text-white hover:bg-emerald-500 hover:shadow-emerald-200"
-                          }`}
-                        >
-                          <PlayCircle size={16} /> Approve & Start
-                        </button>
-
-                        <button
-                          onClick={() => updateGenericStatus(r, "postponed")}
-                          className="w-full py-4 bg-white border border-slate-200 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:border-orange-300 hover:text-orange-500 hover:bg-orange-50 transition-all flex items-center justify-center gap-2"
-                        >
-                          <Clock size={16} /> Postpone
-                        </button>
-                        <button
-                          onClick={() => updateGenericStatus(r, "rejected")}
-                          className="w-full py-4 bg-white border border-slate-200 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-all flex items-center justify-center gap-2"
-                        >
-                          <Ban size={16} /> Reject
-                        </button>
-                      </>
-                    )}
-
-                    {activeSubTab === "postponed" && (
-                      <>
-                        <button
-                          onClick={() => updateGenericStatus(r, "pending")}
-                          className="w-full py-4 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-500 shadow-lg transition-all flex items-center justify-center gap-2"
-                        >
-                          <Undo2 size={16} /> Revive
-                        </button>
-                        <button
-                          onClick={() => updateGenericStatus(r, "rejected")}
-                          className="w-full py-4 bg-white border border-slate-200 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-all flex items-center justify-center gap-2"
-                        >
-                          <Ban size={16} /> Reject
-                        </button>
-                      </>
-                    )}
-
-                    {activeSubTab === "approved" && (
-                      <>
-                        <div className="flex flex-col items-center gap-2 text-center">
-                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                            Currently In:
-                          </span>
-                          <div
-                            className={`text-xs font-bold px-3 py-1 rounded-full ${
-                              isRoster
-                                ? "text-purple-600 bg-purple-50"
-                                : "text-slate-600 bg-slate-100"
+                      {subTab === "f15" && (
+                        <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl border border-blue-100 flex-grow">
+                          <button
+                            onClick={() => toggleAdvancedBooking(item)}
+                            className={`transition-all ${
+                              isAdvanced ? "text-blue-600" : "text-blue-300"
                             }`}
                           >
-                            {isRoster ? "First 15 (Prod)" : "Onboarding"}
-                          </div>
+                            {isAdvanced ? (
+                              <CheckSquare size={20} />
+                            ) : (
+                              <Square size={20} />
+                            )}
+                          </button>
+                          <span className="text-xs font-bold text-blue-800 uppercase tracking-wider">
+                            Advanced Booking?
+                          </span>
+                          <span className="text-[9px] text-blue-400 ml-auto font-medium hidden md:block">
+                            Moves to Holding if checked
+                          </span>
                         </div>
-                        <button
-                          onClick={() => updateGenericStatus(r, "pending")}
-                          className="w-full py-4 bg-white border-2 border-slate-100 text-slate-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:border-orange-300 hover:text-orange-500 hover:bg-orange-50 transition-all flex items-center justify-center gap-2 mt-2"
-                        >
-                          <Undo2 size={16} /> Restart
-                        </button>
-                      </>
-                    )}
+                      )}
+                    </div>
 
-                    {activeSubTab === "completed" && (
-                      <>
-                        <button
-                          onClick={() => updateGenericStatus(r, "approved")}
-                          className="w-full py-4 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-500 transition-all flex items-center justify-center gap-2"
-                        >
-                          <Undo2 size={16} /> Re-Open
-                        </button>
-                        <button
-                          onClick={() => updateGenericStatus(r, "archived")}
-                          className="w-full py-4 bg-white border border-slate-200 text-slate-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
-                        >
-                          <Archive size={16} /> Archive
-                        </button>
-                      </>
-                    )}
-
-                    {activeSubTab === "rejected" && (
-                      <>
-                        <button
-                          onClick={() => updateGenericStatus(r, "pending")}
-                          className="w-full py-4 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-500 transition-all flex items-center justify-center gap-2"
-                        >
-                          <Undo2 size={16} /> Reconsider
-                        </button>
-                        <button
-                          onClick={() => deleteRequest(r.id)}
-                          className="w-full py-4 bg-red-50 border border-red-100 text-red-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all flex items-center justify-center gap-2"
-                        >
-                          <Trash2 size={16} /> Delete
-                        </button>
-                      </>
-                    )}
-
-                    {activeSubTab === "archived" && (
-                      <>
-                        <div className="text-[9px] font-black text-center text-slate-300 uppercase tracking-widest mb-1">
-                          Sort to:
+                    {subTab !== "holding" && (
+                      <div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden mt-auto relative">
+                        <div
+                          className={`h-full transition-all duration-700 ${
+                            subTab === "f15" ? "bg-purple-600" : "bg-slate-900"
+                          }`}
+                          style={{ width: `${progress}%` }}
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span
+                            className={`text-[9px] font-black uppercase tracking-wider ${
+                              progress > 50 ? "text-white" : "text-slate-500"
+                            }`}
+                          >
+                            {progress}% Complete
+                          </span>
                         </div>
-                        <button
-                          onClick={() => updateGenericStatus(r, "completed")}
-                          className="w-full py-3 bg-blue-50 text-blue-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-100 transition-all flex items-center justify-center gap-2"
-                        >
-                          <CheckCircle2 size={14} /> Completed
-                        </button>
-                        <button
-                          onClick={() => updateGenericStatus(r, "rejected")}
-                          className="w-full py-3 bg-red-50 text-red-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-100 transition-all flex items-center justify-center gap-2"
-                        >
-                          <ThumbsDown size={14} /> Rejected
-                        </button>
-                        <button
-                          onClick={() => deleteRequest(r.id)}
-                          className="w-full py-3 mt-1 bg-white border border-slate-100 text-slate-300 rounded-xl text-[10px] font-black uppercase tracking-widest hover:text-red-500 hover:border-red-200 transition-all flex items-center justify-center gap-2"
-                        >
-                          <Trash2 size={14} /> Delete
-                        </button>
-                      </>
+                      </div>
                     )}
                   </div>
+
+                  {/* --- ACTION TOOLBAR --- */}
+                  <div className="lg:w-48 shrink-0 flex flex-col gap-2">
+                    <a
+                      href={item.request.email_thread_link || "#"}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={`w-full py-3 px-4 rounded-xl border flex items-center justify-between text-[10px] font-black uppercase tracking-widest transition-all ${
+                        item.request.email_thread_link
+                          ? "bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100"
+                          : "bg-slate-50 border-slate-100 text-slate-300 cursor-not-allowed"
+                      }`}
+                      onClick={(e) =>
+                        !item.request.email_thread_link && e.preventDefault()
+                      }
+                    >
+                      Open Thread <ExternalLink size={14} />
+                    </a>
+
+                    {subTab === "holding" ? (
+                      <div className="space-y-2">
+                        <div className="p-4 bg-slate-900 rounded-xl text-center">
+                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">
+                            Starts In
+                          </span>
+                          <span className="text-2xl font-black text-white">
+                            {daysUntilStart} Days
+                          </span>
+                          <span className="text-[9px] font-bold text-slate-500 block mt-1">
+                            {formatDate(item.request.start_date)}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => activateFromHolding(item)}
+                          className="w-full py-4 bg-emerald-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 shadow-lg flex items-center justify-center gap-2"
+                        >
+                          <Play size={16} /> Activate
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => handleNudge(item)}
+                          className={`flex-grow py-3 px-4 border rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-between transition-all ${nudgeConfig.style}`}
+                        >
+                          {nudgeConfig.label} <NudgeIcon size={14} />
+                        </button>
+                        {strikes > 0 && (
+                          <button
+                            onClick={() => handleUndoNudge(item)}
+                            className="w-10 flex items-center justify-center bg-slate-100 text-slate-400 rounded-xl hover:bg-slate-200 hover:text-slate-600"
+                            title="Undo Last Nudge"
+                          >
+                            <RotateCcw size={14} />
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* BOOT / POSTPONE ROW (Available in ALL tabs including Holding) */}
+                    <div className="flex gap-2 mt-auto">
+                      <button
+                        onClick={() => initiateStatusChange(item, "postponed")}
+                        className="flex-1 py-3 bg-amber-50 border border-amber-200 text-amber-700 rounded-xl hover:bg-amber-100 hover:border-amber-300 transition-all flex items-center justify-center gap-1"
+                        title="Postpone Project"
+                      >
+                        <PauseCircle size={16} />{" "}
+                        <span className="text-[10px] font-black uppercase">
+                          Hold
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => initiateStatusChange(item, "rejected")}
+                        className={`flex-1 py-3 border rounded-xl transition-all flex items-center justify-center gap-1 ${
+                          strikes >= 3
+                            ? "bg-red-600 text-white border-red-600 hover:bg-red-700 shadow-lg animate-pulse"
+                            : "bg-white border-red-200 text-red-500 hover:bg-red-50 hover:border-red-300"
+                        }`}
+                        title="Boot Project"
+                      >
+                        <BootIcon size={16} />{" "}
+                        <span className="text-[10px] font-black uppercase">
+                          Boot
+                        </span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
+
+                {/* --- STEPS GRID (Hidden in Holding Tank) --- */}
+                {subTab !== "holding" && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                    {currentSteps.map((step, index) => {
+                      const isDone = checkIsDone(item, step.key);
+                      const dateStamp = getDisplayDate(item, step.key);
+                      const Icon = step.icon;
+
+                      return (
+                        <button
+                          key={step.key}
+                          onClick={() => initiateStepToggle(item, step.key)}
+                          className={`relative flex items-center gap-3 p-4 rounded-xl border text-left transition-all ${
+                            isDone
+                              ? "bg-slate-900 border-slate-900 shadow-lg scale-[1.01]"
+                              : "bg-white border-slate-100 hover:border-slate-300 hover:bg-slate-50"
+                          }`}
+                        >
+                          <div
+                            className={`p-2 rounded-lg shrink-0 ${
+                              isDone
+                                ? "bg-white/10 text-emerald-400"
+                                : "bg-slate-100 text-slate-300"
+                            }`}
+                          >
+                            <Icon size={18} />
+                          </div>
+
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`text-[10px] font-black opacity-30 ${
+                                  isDone ? "text-white" : "text-slate-400"
+                                }`}
+                              >
+                                {String(index + 1).padStart(2, "0")}
+                              </span>
+                            </div>
+                            <span
+                              className={`text-[11px] font-bold uppercase tracking-wide truncate block ${
+                                isDone ? "text-white" : "text-slate-600"
+                              }`}
+                            >
+                              {step.label}
+                            </span>
+                            {isDone && dateStamp && (
+                              <span className="text-[9px] font-bold text-slate-400 flex items-center gap-1 mt-0.5">
+                                <Calendar size={10} /> {dateStamp}
+                              </span>
+                            )}
+                          </div>
+
+                          {isDone && (
+                            <CheckCircle2
+                              size={16}
+                              className="absolute top-2 right-2 text-emerald-500"
+                            />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             );
           })}
