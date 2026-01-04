@@ -232,7 +232,7 @@ export default function InvoicesAndPayments({ initialProject }) {
             alt="Logo"
           />
           <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">
-            DnDL Creative LLC
+            Daniel (not Day) Lewis: Audiobook Actor
           </p>
         </div>
         <div className="bg-white rounded-[2rem] border flex flex-col overflow-hidden shadow-sm">

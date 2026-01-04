@@ -12,7 +12,6 @@ import SchedulerDashboard from "@/src/components/production-manager/SchedulerDas
 import OnboardingManager from "@/src/components/production-manager/OnboardingManager";
 import ProductionBoard from "@/src/components/production-manager/ProductionBoard";
 import InvoicesAndPayments from "@/src/components/production-manager/InvoicesAndPayments";
-// 1. ADDED HOURS LOG IMPORT
 import HoursLog from "@/src/components/production-manager/HoursLog";
 import Archives from "@/src/components/production-manager/Archives";
 
@@ -25,7 +24,7 @@ import {
   CalendarRange,
   MessageCircle,
   DollarSign,
-  Clock, // 2. ADDED CLOCK ICON
+  Clock,
 } from "lucide-react";
 
 const supabase = createClient(
@@ -41,9 +40,9 @@ const TABS = [
   { id: "calendar", label: "Calendar Ops", icon: CalendarRange },
   { id: "onboarding", label: "Onboarding & First 15", icon: Kanban },
   { id: "production", label: "Production", icon: Briefcase },
-  { id: "financials", label: "Payments & Contracts", icon: DollarSign },
-  // 3. ADDED HOURS TAB BEFORE ARCHIVE
+  // HOURS & ROI MOVED BEFORE FINANCIALS
   { id: "hours", label: "Hours & ROI", icon: Clock },
+  { id: "financials", label: "Payments & Contracts", icon: DollarSign },
   { id: "archive", label: "Archive", icon: Archive },
 ];
 
@@ -181,12 +180,12 @@ export default function ProductionManager() {
           {/* Production Board */}
           {activeTab === "production" && <ProductionBoard />}
 
+          {/* HOURS LOG RENDERED BEFORE FINANCIALS */}
+          {activeTab === "hours" && <HoursLog initialProject={null} />}
+
           {activeTab === "financials" && (
             <InvoicesAndPayments initialProject={null} />
           )}
-
-          {/* 4. RENDER NEW HOURS LOG COMPONENT */}
-          {activeTab === "hours" && <HoursLog initialProject={null} />}
 
           {activeTab === "archive" && <Archives />}
         </div>
