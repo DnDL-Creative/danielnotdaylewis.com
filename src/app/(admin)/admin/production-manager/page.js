@@ -40,7 +40,7 @@ const TABS = [
   { id: "onboarding", label: "Onboarding & First 15", icon: Kanban },
   { id: "production", label: "Production", icon: Briefcase },
   // ADDED FINANCIALS BEFORE ARCHIVE
-  { id: "financials", label: "Financials", icon: DollarSign },
+  { id: "financials", label: "Payment", icon: DollarSign },
   { id: "archive", label: "Archive", icon: Archive },
 ];
 

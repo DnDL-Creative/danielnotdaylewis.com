@@ -7,24 +7,25 @@ import {
   FileText,
   ExternalLink,
   Save,
-  Search,
   Loader2,
   Hash,
   Calculator,
   TrendingUp,
-  BookOpen,
   Layers,
   Calendar,
-  Clock,
   AlertTriangle,
-  Bell,
   CheckCircle,
   RotateCcw,
   Percent,
-  CreditCard,
   PlusCircle,
   Copy,
-  Download,
+  Receipt,
+  FileCheck,
+  Skull,
+  Bomb,
+  ShieldAlert,
+  Flame,
+  Zap,
 } from "lucide-react";
 
 const supabase = createClient(
@@ -38,12 +39,10 @@ const parseLocalDate = (dateStr) => {
   return new Date(year, month - 1, day);
 };
 
-const formatCurrency = (amount) => {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(amount || 0);
-};
+const formatCurrency = (amount) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
+    amount || 0
+  );
 
 export default function InvoicesAndPayments({ initialProject }) {
   const [projects, setProjects] = useState([]);
@@ -53,17 +52,18 @@ export default function InvoicesAndPayments({ initialProject }) {
     initialProject || null
   );
   const [loading, setLoading] = useState(false);
-  const [invoice, setInvoice] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [copyFeedback, setCopyFeedback] = useState(false);
 
   const [formData, setFormData] = useState({
     pfh_count: 0,
     pfh_rate: 0,
     sag_ph_percent: 0,
-    convenience_fee: 100,
+    convenience_fee: 0,
     total_amount: 0,
     invoice_pdf_link: "",
     tracker_sheet_link: "",
+    contract_link: "",
     invoiced_date: "",
     due_date: "",
     reminders_sent: 0,
@@ -85,14 +85,6 @@ export default function InvoicesAndPayments({ initialProject }) {
     fetchData();
   }, []);
 
-  const filteredProjects = useMemo(() => {
-    return projects.filter((p) => {
-      const inv = invoices.find((i) => i.project_id === p.id);
-      const currentStatus = inv?.ledger_tab || "open";
-      return currentStatus === activeTab;
-    });
-  }, [projects, invoices, activeTab]);
-
   useEffect(() => {
     const fetchInvoice = async () => {
       if (!selectedProject?.id) return;
@@ -103,7 +95,6 @@ export default function InvoicesAndPayments({ initialProject }) {
         .eq("project_id", selectedProject.id)
         .single();
       if (data) {
-        setInvoice(data);
         setFormData({ ...data });
         setIsEditing(false);
       } else {
@@ -114,10 +105,11 @@ export default function InvoicesAndPayments({ initialProject }) {
           pfh_count: estimatedPFH,
           pfh_rate: 0,
           sag_ph_percent: 0,
-          convenience_fee: 100,
+          convenience_fee: 0,
           total_amount: 0,
           invoice_pdf_link: "",
           tracker_sheet_link: "",
+          contract_link: "",
           invoiced_date: new Date().toISOString().split("T")[0],
           due_date: "",
           reminders_sent: 0,
@@ -130,17 +122,11 @@ export default function InvoicesAndPayments({ initialProject }) {
     fetchInvoice();
   }, [selectedProject]);
 
-  // CALCULATION ENGINE
-  const calculations = useMemo(() => {
+  const calcs = useMemo(() => {
     const base = Number(formData.pfh_count) * Number(formData.pfh_rate);
-    const sagAmount = base * (Number(formData.sag_ph_percent) / 100);
-    const fee = Number(formData.convenience_fee);
-    const total = base + sagAmount + fee;
-    const net = total - fee;
-    const tax = net * 0.25;
-    const incomeAfterTax = net - tax;
-
-    return { base, sagAmount, fee, total, net, tax, incomeAfterTax };
+    const sag = base * (Number(formData.sag_ph_percent) / 100);
+    const total = base + sag + Number(formData.convenience_fee);
+    return { base, sag, total };
   }, [
     formData.pfh_count,
     formData.pfh_rate,
@@ -148,328 +134,286 @@ export default function InvoicesAndPayments({ initialProject }) {
     formData.convenience_fee,
   ]);
 
+  // FIX: Restore overdueDays logic
+  const overdueDays = useMemo(() => {
+    if (!formData.due_date || formData.ledger_tab === "paid") return 0;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const due = parseLocalDate(formData.due_date);
+    return due ? Math.ceil((today - due) / (1000 * 60 * 60 * 24)) : 0;
+  }, [formData.due_date, formData.ledger_tab]);
+
+  // FIX: Restore 5-Business-Day Payment Term
   useEffect(() => {
-    setFormData((prev) => ({
-      ...prev,
-      total_amount: calculations.total.toFixed(2),
-    }));
-  }, [calculations.total]);
+    if (formData.invoiced_date && isEditing) {
+      let date = new Date(formData.invoiced_date);
+      let count = 0;
+      while (count < 5) {
+        date.setDate(date.getDate() + 1);
+        if (date.getDay() !== 0 && date.getDay() !== 6) count++;
+      }
+      setFormData((prev) => ({
+        ...prev,
+        due_date: date.toISOString().split("T")[0],
+      }));
+    }
+  }, [formData.invoiced_date, isEditing]);
 
   const handleSave = async () => {
     if (!selectedProject) return;
     setLoading(true);
     const payload = {
       ...formData,
+      total_amount: calcs.total,
       project_id: selectedProject.id,
-      reminders_sent: Math.min(formData.reminders_sent, 3),
     };
-    let result = invoice?.id
+    const inv = invoices.find((i) => i.project_id === selectedProject.id);
+    let result = inv?.id
       ? await supabase
           .from("9_invoices")
           .update(payload)
-          .eq("id", invoice.id)
+          .eq("id", inv.id)
           .select()
           .single()
       : await supabase.from("9_invoices").insert([payload]).select().single();
     if (!result.error) {
-      setInvoice(result.data);
-      setFormData(result.data);
       fetchData();
       setIsEditing(false);
     }
     setLoading(false);
   };
 
-  // CSV EXPORT LOGIC
-  const downloadRowCSV = () => {
-    const headers = [
-      "Project Reference",
-      "Title / Project",
-      "Timesheet & Invoice(s)",
-      "Gross",
-      "Overhead",
-      "Net",
-      "25% Tax",
-      "P&H",
-      "Income After Tax",
-      "Payment Status",
-    ];
-    const row = [
-      selectedProject.ref_number || "",
-      selectedProject.book_title || "",
-      formData.invoice_pdf_link || "",
-      calculations.total.toFixed(2),
-      calculations.fee.toFixed(2),
-      calculations.net.toFixed(2),
-      calculations.tax.toFixed(2),
-      calculations.sagAmount.toFixed(2),
-      calculations.incomeAfterTax.toFixed(2),
-      formData.ledger_tab,
-    ];
-
-    const csvContent = [headers.join(","), row.join(",")].join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute(
-      "download",
-      `Ledger_Entry_${selectedProject.ref_number || "Draft"}.csv`
-    );
-    link.click();
+  const copyToTSVTemplate = () => {
+    const t = "\t";
+    const n = "\n";
+    const template = [
+      `"DnDL Creative LLC\nDBA Daniel (not Day) Lewis: Audiobook Actor\n6809 Main St. #1118\nCincinnati, Ohio 45244"${t}${t}${t}${t}${t}`,
+      `Invoice Received By:${t}Invoice Payable To:${t}Project(s) & Details${t}${t}Payment Terms${t}`,
+      `${t}"Daniel (not Day) Lewis: Audiobook Actor"${t}${t}${t}${t}`,
+      `Invoice Submission Date${t}Payment Gateway (linked to payment)${t}${t}${t}Invoice Reference #${t}`,
+      `${formData.invoiced_date}${t}${t}${t}${t}${
+        selectedProject.ref_number || ""
+      }${t}`,
+      `Itemized List of Charges${t}${t}Date Principal Recording Completed${t}Total Finished Hours${t}PFH Rate${t}Total`,
+      `Audiobook Production${t}${t}${t}${
+        formData.pfh_count
+      }${t}${formatCurrency(formData.pfh_rate)}${t}${formatCurrency(
+        calcs.base
+      )}`,
+      `SAG-AFTRA P&H (${
+        formData.sag_ph_percent
+      }%)${t}${t}${t}-${t}-${t}${formatCurrency(calcs.sag)}`,
+      `Add. Fee / Overhead${t}${t}${t}-${t}-${t}${formatCurrency(
+        formData.convenience_fee
+      )}`,
+      `${t}${t}${t}${t}${t}${t}`,
+      `${t}${t}${t}${t}${t}${t}`,
+      `Actual Audio Runtime: ~${
+        formData.pfh_count
+      }${t}${t}${t}${t}Subtotal${t}${formatCurrency(calcs.total)}`,
+      `Note(s): ${selectedProject.book_title}. // Invoice due within 5 business days.${t}${t}${t}${t}Deductions${t}$0.00`,
+      `${t}${t}${t}${t}${t}Total Due${t}${formatCurrency(calcs.total)}`,
+    ].join(n);
+    navigator.clipboard.writeText(template);
+    setCopyFeedback(true);
+    setTimeout(() => setCopyFeedback(false), 2000);
   };
 
-  const overdueDays = (() => {
-    if (!formData.due_date || formData.ledger_tab === "paid") return 0;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const due = parseLocalDate(formData.due_date);
-    return due ? Math.ceil((today - due) / (1000 * 60 * 60 * 24)) : 0;
-  })();
+  const status = useMemo(() => {
+    switch (formData.reminders_sent) {
+      case 1:
+        return {
+          label: "DEFCON 3: REMINDER",
+          color: "text-orange-500",
+          icon: <ShieldAlert size={18} />,
+        };
+      case 2:
+        return {
+          label: "DEFCON 2: WARNING",
+          color: "text-red-500",
+          icon: <Bomb size={18} />,
+        };
+      case 3:
+        return {
+          label: "DEFCON 1: FUCKING PAY ME",
+          color: "text-red-700 animate-pulse",
+          icon: <Skull size={18} />,
+        };
+      default:
+        return {
+          label: "SECURE: NO STRIKES",
+          color: "text-slate-400",
+          icon: <CheckCircle size={18} />,
+        };
+    }
+  }, [formData.reminders_sent]);
 
   return (
-    <div className="flex gap-6 h-[calc(100vh-250px)]">
-      {/* SIDEBAR */}
-      <div className="w-80 bg-white rounded-[2rem] border border-slate-200 flex flex-col overflow-hidden shadow-sm">
-        <div className="p-2 flex border-b border-slate-100 bg-slate-50">
-          {["open", "waiting", "paid"].map((tab) => (
+    <div className="flex gap-8 items-start pb-20">
+      <div className="w-80 bg-white rounded-[2rem] border border-slate-200 flex flex-col overflow-hidden sticky top-8 self-start shadow-sm">
+        <div className="p-2 flex border-b bg-slate-50">
+          {["open", "waiting", "paid"].map((t) => (
             <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest transition-all ${
-                activeTab === tab
+              key={t}
+              onClick={() => setActiveTab(t)}
+              className={`flex-1 py-3 text-[10px] font-black uppercase transition-all ${
+                activeTab === t
                   ? "bg-white text-slate-900 shadow-sm"
-                  : "text-slate-400 hover:text-slate-600"
+                  : "text-slate-400"
               }`}
             >
-              {tab}
+              {t}
             </button>
           ))}
         </div>
-        <div className="flex-1 overflow-y-auto p-4 space-y-2">
-          {filteredProjects.map((p) => (
-            <button
-              key={p.id}
-              onClick={() => setSelectedProject(p)}
-              className={`w-full text-left p-4 rounded-2xl transition-all ${
-                selectedProject?.id === p.id
-                  ? "bg-slate-900 text-white shadow-xl"
-                  : "hover:bg-slate-50 text-slate-600"
-              }`}
-            >
-              <p className="text-[9px] font-black uppercase opacity-60 mb-1 leading-none">
-                Invoice # {p.ref_number || "PENDING"}
-              </p>
-              <p className="font-bold text-sm truncate">{p.book_title}</p>
-            </button>
-          ))}
+        <div className="p-4 space-y-2 max-h-[70vh] overflow-y-auto">
+          {projects
+            .filter(
+              (p) =>
+                (invoices.find((i) => i.project_id === p.id)?.ledger_tab ||
+                  "open") === activeTab
+            )
+            .map((p) => (
+              <button
+                key={p.id}
+                onClick={() => setSelectedProject(p)}
+                className={`w-full text-left p-4 rounded-2xl transition-all ${
+                  selectedProject?.id === p.id
+                    ? "bg-slate-900 text-white shadow-xl"
+                    : "hover:bg-slate-50 text-slate-600"
+                }`}
+              >
+                <p className="text-[9px] font-black uppercase opacity-60 leading-none mb-1">
+                  Inv # {p.ref_number}
+                </p>
+                <p className="font-bold text-sm truncate">{p.book_title}</p>
+              </button>
+            ))}
         </div>
       </div>
 
-      {/* MAIN CONTENT */}
-      <div className="flex-1 bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-y-auto flex flex-col">
+      <div className="flex-1 bg-white rounded-[3rem] border border-slate-200 shadow-sm flex flex-col p-10 min-h-screen">
         {!selectedProject ? (
-          <div className="flex-1 flex items-center justify-center text-slate-300 uppercase font-black text-xs tracking-widest">
-            Select project
+          <div className="m-auto text-slate-300 font-black uppercase text-xs tracking-widest text-center">
+            Select Target Project
           </div>
         ) : (
-          <>
-            <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-20">
-              <div className="flex items-center gap-4">
-                <div className="text-2xl font-black text-slate-900 tracking-tight italic uppercase">
-                  Invoice # {selectedProject.ref_number || "NO REF"}
-                </div>
-                {overdueDays > 0 && (
-                  <div className="px-3 py-1 bg-red-100 text-red-600 rounded-lg text-[10px] font-black uppercase">
-                    Late {overdueDays}d
-                  </div>
-                )}
-              </div>
+          <div className="space-y-10">
+            <div className="flex justify-between items-center bg-white sticky top-0 z-20 pb-6 border-b">
+              <h2 className="text-3xl font-black text-slate-900 italic uppercase tracking-tighter leading-none">
+                Collection: {selectedProject.ref_number}
+              </h2>
               <div className="flex gap-3">
                 <button
-                  onClick={downloadRowCSV}
-                  className="px-4 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold uppercase text-xs flex items-center gap-2 hover:bg-slate-50"
+                  onClick={copyToTSVTemplate}
+                  className={`px-6 py-4 border rounded-2xl font-black uppercase text-xs transition-all shadow-sm ${
+                    copyFeedback
+                      ? "bg-emerald-500 text-white border-emerald-600"
+                      : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                  }`}
                 >
-                  <Download size={14} /> CSV Export
+                  {copyFeedback ? "Template Mapped" : "Copy to TSV Template"}
                 </button>
-                {isEditing ? (
-                  <button
-                    onClick={handleSave}
-                    className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold uppercase text-xs shadow-lg hover:bg-black"
+                <button
+                  onClick={isEditing ? handleSave : () => setIsEditing(true)}
+                  className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs shadow-xl flex items-center gap-2 hover:bg-black transition-all"
+                >
+                  {loading ? (
+                    <Loader2 className="animate-spin" size={16} />
+                  ) : isEditing ? (
+                    <Save size={16} />
+                  ) : (
+                    <Receipt size={16} />
+                  )}{" "}
+                  {isEditing ? "Lock In" : "Edit Debt"}
+                </button>
+              </div>
+            </div>
+
+            <div
+              className={`rounded-[3rem] p-12 text-white shadow-2xl space-y-12 transition-all duration-500 ${
+                formData.reminders_sent === 3
+                  ? "bg-red-950 ring-8 ring-red-600 animate-[pulse_2s_infinite]"
+                  : "bg-slate-950"
+              }`}
+            >
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
+                {[
+                  { l: "PFH Count", v: "pfh_count", i: Calculator },
+                  { l: "PFH Rate", v: "pfh_rate", i: TrendingUp },
+                  { l: "SAG %", v: "sag_ph_percent", i: Percent },
+                  { l: "Add. Fee", v: "convenience_fee", i: PlusCircle },
+                ].map((f) => (
+                  <div key={f.l} className="space-y-3">
+                    <label className="text-slate-500 text-[10px] font-black uppercase flex items-center gap-2 tracking-[0.2em]">
+                      <f.i size={12} /> {f.l}
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      disabled={!isEditing}
+                      className="bg-slate-900 text-white text-2xl font-black p-4 rounded-2xl w-full border border-slate-800 outline-none focus:border-emerald-500 transition-all"
+                      value={formData[f.v]}
+                      onChange={(e) =>
+                        setFormData({ ...formData, [f.v]: e.target.value })
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="pt-10 border-t border-slate-800 flex justify-between items-end">
+                <div className="space-y-1">
+                  <span className="text-slate-500 text-[11px] font-black uppercase tracking-widest block">
+                    Debt Owed
+                  </span>
+                  <span
+                    className={`text-7xl font-black tracking-tighter ${
+                      formData.reminders_sent === 3
+                        ? "text-red-500"
+                        : "text-emerald-400"
+                    }`}
                   >
-                    <Save size={16} /> Save
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => setIsEditing(true)}
-                    className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold uppercase text-xs"
-                  >
-                    Edit
-                  </button>
+                    {formatCurrency(calcs.total)}
+                  </span>
+                </div>
+                {isEditing && (
+                  <div className="flex gap-2 bg-slate-900 p-2.5 rounded-[1.5rem] border border-slate-800">
+                    {["open", "waiting", "paid"].map((t) => (
+                      <button
+                        key={t}
+                        onClick={() =>
+                          setFormData({ ...formData, ledger_tab: t })
+                        }
+                        className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${
+                          formData.ledger_tab === t
+                            ? "bg-white text-slate-900 shadow-2xl scale-105"
+                            : "text-slate-500 hover:text-slate-300"
+                        }`}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
 
-            <div className="p-8 space-y-8">
-              {/* LEDGER MATH ENGINE */}
-              <div className="bg-slate-950 rounded-[2.5rem] p-10 text-white shadow-2xl relative overflow-hidden">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-6 items-start relative z-10">
-                  <div className="space-y-2">
-                    <label className="text-slate-500 text-[9px] font-black uppercase tracking-widest flex items-center gap-2">
-                      <Calculator size={10} /> PFH Count
-                    </label>
-                    {isEditing ? (
-                      <input
-                        type="number"
-                        step="0.01"
-                        className="bg-slate-900 text-white text-xl font-black p-3 rounded-xl w-full border border-slate-800 outline-none"
-                        value={formData.pfh_count}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            pfh_count: e.target.value,
-                          })
-                        }
-                      />
-                    ) : (
-                      <div className="text-2xl font-black">
-                        {formData.pfh_count}
-                      </div>
-                    )}
-                    <div className="text-[10px] text-slate-600 font-bold">
-                      Base: {formatCurrency(calculations.base)}
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-slate-500 text-[9px] font-black uppercase tracking-widest flex items-center gap-2">
-                      <TrendingUp size={10} /> Rate
-                    </label>
-                    {isEditing ? (
-                      <input
-                        type="number"
-                        className="bg-slate-900 text-white text-xl font-black p-3 rounded-xl w-full border border-slate-800 outline-none"
-                        value={formData.pfh_rate}
-                        onChange={(e) =>
-                          setFormData({ ...formData, pfh_rate: e.target.value })
-                        }
-                      />
-                    ) : (
-                      <div className="text-2xl font-black">
-                        {formatCurrency(formData.pfh_rate)}
-                      </div>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-slate-500 text-[9px] font-black uppercase tracking-widest flex items-center gap-2">
-                      <Percent size={10} /> SAG P&H %
-                    </label>
-                    {isEditing ? (
-                      <input
-                        type="number"
-                        step="0.1"
-                        className="bg-slate-900 text-white text-xl font-black p-3 rounded-xl w-full border border-slate-800 outline-none"
-                        value={formData.sag_ph_percent}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            sag_ph_percent: e.target.value,
-                          })
-                        }
-                      />
-                    ) : (
-                      <div className="text-2xl font-black">
-                        {formData.sag_ph_percent}%
-                      </div>
-                    )}
-                    <div className="text-[10px] text-emerald-500/80 font-bold tracking-tight">
-                      + {formatCurrency(calculations.sagAmount)} to total
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-slate-500 text-[9px] font-black uppercase tracking-widest flex items-center gap-2">
-                      <PlusCircle size={10} /> Conv. Fee
-                    </label>
-                    {isEditing ? (
-                      <input
-                        type="number"
-                        className="bg-slate-900 text-white text-xl font-black p-3 rounded-xl w-full border border-slate-800 outline-none"
-                        value={formData.convenience_fee}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            convenience_fee: e.target.value,
-                          })
-                        }
-                      />
-                    ) : (
-                      <div className="text-2xl font-black">
-                        {formatCurrency(formData.convenience_fee)}
-                      </div>
-                    )}
-                    <div className="text-[10px] text-emerald-500/80 font-bold tracking-tight">
-                      + {formatCurrency(calculations.fee)} to total
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-10 pt-8 border-t border-slate-800 flex justify-between items-end">
-                  <div>
-                    <div className="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1">
-                      Total Project Gross
-                    </div>
-                    <div className="text-5xl font-black tracking-tighter text-emerald-400">
-                      {formatCurrency(calculations.total)}
-                    </div>
-                  </div>
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+              <div
+                className={`p-10 rounded-[2.5rem] border-2 transition-all duration-300 flex flex-col justify-center gap-6 ${
+                  formData.reminders_sent === 3
+                    ? "bg-red-50 border-red-600"
+                    : "bg-slate-50 border-slate-100"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <h3
+                    className={`font-black uppercase text-sm flex items-center gap-3 tracking-widest ${status.color}`}
+                  >
+                    {status.icon} {status.label}
+                  </h3>
                   {isEditing && (
                     <div className="flex gap-2">
-                      {["open", "waiting", "paid"].map((t) => (
-                        <button
-                          key={t}
-                          onClick={() =>
-                            setFormData({ ...formData, ledger_tab: t })
-                          }
-                          className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase border transition-all ${
-                            formData.ledger_tab === t
-                              ? "bg-white text-slate-900 border-white shadow-lg"
-                              : "bg-transparent text-slate-500 border-slate-800"
-                          }`}
-                        >
-                          {t}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* THREE STRIKE REMINDERS */}
-              <div className="p-8 rounded-[2rem] bg-slate-50 border border-slate-100 flex items-center justify-between">
-                <div>
-                  <h3 className="font-black uppercase text-xs tracking-widest text-slate-900 flex items-center gap-2 mb-2">
-                    <Bell size={16} /> Reminders Sent
-                  </h3>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase">
-                    System hard-cap at 3 strikes
-                  </p>
-                </div>
-                <div className="flex items-center gap-6">
-                  <div className="flex gap-2">
-                    {[1, 2, 3].map((strike) => (
-                      <div
-                        key={strike}
-                        className={`w-10 h-10 rounded-full border-4 flex items-center justify-center transition-all ${
-                          formData.reminders_sent >= strike
-                            ? "bg-slate-900 border-slate-200 text-white"
-                            : "bg-slate-200 border-slate-300 opacity-20"
-                        }`}
-                      >
-                        <span className="font-black text-xs">{strike}</span>
-                      </div>
-                    ))}
-                  </div>
-                  {isEditing && (
-                    <div className="flex gap-1">
                       <button
                         onClick={() =>
                           setFormData((p) => ({
@@ -477,139 +421,105 @@ export default function InvoicesAndPayments({ initialProject }) {
                             reminders_sent: Math.min(p.reminders_sent + 1, 3),
                           }))
                         }
-                        className="p-2 bg-slate-900 text-white rounded-lg text-[10px] font-black uppercase tracking-tighter shadow-md"
+                        className="p-4 bg-red-600 text-white rounded-2xl shadow-xl shadow-red-200"
                       >
-                        Add Strike
+                        <Zap size={20} />
                       </button>
                       <button
                         onClick={() =>
-                          setFormData((p) => ({
-                            ...p,
-                            reminders_sent: Math.max(p.reminders_sent - 1, 0),
-                          }))
+                          setFormData((p) => ({ ...p, reminders_sent: 0 }))
                         }
-                        className="p-2 bg-white border border-slate-200 text-slate-500 rounded-lg text-[10px] font-black uppercase tracking-tighter"
+                        className="p-4 bg-white border border-slate-200 text-slate-400 rounded-2xl"
                       >
-                        Undo
+                        <RotateCcw size={20} />
                       </button>
                     </div>
                   )}
                 </div>
+                <div className="grid grid-cols-3 gap-4">
+                  {[1, 2, 3].map((s) => (
+                    <div
+                      key={s}
+                      className={`h-20 rounded-[1.5rem] flex items-center justify-center border-2 ${
+                        formData.reminders_sent >= s
+                          ? s === 3
+                            ? "bg-red-700 border-red-900 text-white shadow-2xl"
+                            : s === 2
+                            ? "bg-red-500 border-red-600 text-white shadow-lg"
+                            : "bg-orange-500 border-orange-600 text-white shadow-md"
+                          : "bg-white border-slate-100 opacity-40"
+                      }`}
+                    >
+                      {s === 1 && (
+                        <ShieldAlert
+                          size={28}
+                          className={
+                            formData.reminders_sent >= s ? "animate-pulse" : ""
+                          }
+                        />
+                      )}
+                      {s === 2 && (
+                        <Flame
+                          size={28}
+                          className={
+                            formData.reminders_sent >= s ? "animate-bounce" : ""
+                          }
+                        />
+                      )}
+                      {s === 3 && (
+                        <Skull
+                          size={34}
+                          className={
+                            formData.reminders_sent >= s
+                              ? "animate-[spin_4s_linear_infinite]"
+                              : ""
+                          }
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              {/* DATES & LINKS */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="p-8 rounded-[2rem] bg-slate-50 border border-slate-100 space-y-4">
-                  <h3 className="font-black uppercase text-xs tracking-widest text-slate-900 flex items-center gap-2">
-                    <Calendar size={16} /> Dates
-                  </h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">
-                        Invoiced
-                      </label>
-                      {isEditing ? (
-                        <input
-                          type="date"
-                          className="w-full p-2 rounded-lg border text-xs font-bold"
-                          value={formData.invoiced_date || ""}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              invoiced_date: e.target.value,
-                            })
-                          }
-                        />
-                      ) : (
-                        <div className="text-xs font-bold">
-                          {formData.invoiced_date || "-"}
-                        </div>
-                      )}
-                    </div>
-                    <div>
-                      <label className="text-[9px] font-black text-slate-400 uppercase block mb-1">
-                        Due
-                      </label>
-                      {isEditing ? (
-                        <input
-                          type="date"
-                          className="w-full p-2 rounded-lg border text-xs font-bold"
-                          value={formData.due_date || ""}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              due_date: e.target.value,
-                            })
-                          }
-                        />
-                      ) : (
-                        <div
-                          className={`text-xs font-bold ${
-                            overdueDays > 0 ? "text-red-600" : "text-slate-900"
-                          }`}
-                        >
-                          {formData.due_date || "-"}
-                        </div>
-                      )}
-                    </div>
-                  </div>
+              <div className="p-10 rounded-[2.5rem] bg-slate-50 border border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-8 items-center text-slate-900">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase block tracking-[0.2em]">
+                    Invoiced On
+                  </label>
+                  <input
+                    type="date"
+                    disabled={!isEditing}
+                    className="w-full p-4 rounded-2xl border border-slate-200 text-sm font-bold disabled:bg-transparent transition-all outline-none"
+                    value={formData.invoiced_date || ""}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        invoiced_date: e.target.value,
+                      })
+                    }
+                  />
                 </div>
-
-                <div className="p-8 rounded-[2rem] bg-slate-50 border border-slate-100 space-y-4">
-                  <h3 className="font-black uppercase text-xs tracking-widest text-slate-900 flex items-center gap-2">
-                    <Layers size={16} /> External
-                  </h3>
-                  <div className="space-y-2">
-                    {isEditing ? (
-                      <>
-                        <input
-                          type="text"
-                          placeholder="Invoice Link..."
-                          className="w-full p-3 bg-white border rounded-xl text-[10px] font-medium outline-none"
-                          value={formData.invoice_pdf_link}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              invoice_pdf_link: e.target.value,
-                            })
-                          }
-                        />
-                        <input
-                          type="text"
-                          placeholder="Master Ledger Link..."
-                          className="w-full p-3 bg-white border rounded-xl text-[10px] font-medium outline-none"
-                          value={formData.tracker_sheet_link}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              tracker_sheet_link: e.target.value,
-                            })
-                          }
-                        />
-                      </>
-                    ) : (
-                      <div className="flex gap-2">
-                        <a
-                          href={formData.invoice_pdf_link}
-                          target="_blank"
-                          className="flex-1 p-3 bg-white border rounded-xl text-[10px] font-black uppercase text-slate-600 hover:text-blue-600 flex justify-between items-center"
-                        >
-                          Invoice <ExternalLink size={12} />
-                        </a>
-                        <a
-                          href={formData.tracker_sheet_link}
-                          target="_blank"
-                          className="flex-1 p-3 bg-white border rounded-xl text-[10px] font-black uppercase text-slate-600 hover:text-emerald-600 flex justify-between items-center"
-                        >
-                          Ledger <ExternalLink size={12} />
-                        </a>
-                      </div>
-                    )}
-                  </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase block tracking-[0.2em]">
+                    Invoice Due Date
+                  </label>
+                  <input
+                    type="date"
+                    disabled={!isEditing}
+                    className={`w-full p-4 rounded-2xl border text-sm font-bold disabled:bg-transparent transition-all outline-none ${
+                      overdueDays > 0
+                        ? "text-red-600 bg-red-50 border-red-200 shadow-xl"
+                        : "border-slate-200"
+                    }`}
+                    value={formData.due_date || ""}
+                    onChange={(e) =>
+                      setFormData({ ...formData, due_date: e.target.value })
+                    }
+                  />
                 </div>
               </div>
             </div>
-          </>
+          </div>
         )}
       </div>
     </div>
