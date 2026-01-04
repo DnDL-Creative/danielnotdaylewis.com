@@ -30,7 +30,11 @@ import {
   PlayCircle,
   AlertCircle,
   XCircle,
-  CalendarClock, // Icon for Holding
+  CalendarClock,
+  DollarSign,
+  ListChecks,
+  Headphones,
+  Rocket,
 } from "lucide-react";
 
 const supabase = createClient(
@@ -72,24 +76,21 @@ const cleanNumber = (value) => {
   return parseInt(String(value).replace(/,/g, ""), 10);
 };
 
+// --- TABS CONFIGURATION ---
 const TABS = [
-  { id: "pending", label: "Pending" },
-  { id: "approved", label: "In Production" },
-  { id: "postponed", label: "Postponed" },
-  { id: "completed", label: "Completed" },
-  { id: "rejected", label: "Rejected" },
-  { id: "archived", label: "Archive" },
+  { id: "pending", label: "Pending", icon: BookOpen },
+  { id: "approved", label: "Onboarding", icon: ListChecks },
+  { id: "f15_production", label: "First 15", icon: Headphones },
+  { id: "production", label: "Production", icon: Rocket },
+  { id: "f15_holding", label: "Holding Tank", icon: CalendarClock },
+  { id: "completed", label: "Completed", icon: CheckCircle2 },
+  { id: "paid", label: "Paid", icon: DollarSign },
+  { id: "postponed", label: "Postponed", icon: Clock },
+  { id: "rejected", label: "Rejected", icon: Ban },
+  { id: "archived", label: "Archive", icon: Archive },
 ];
 
-// Define active status list for "In Production" tab
-const ACTIVE_STATUSES = [
-  "approved",
-  "f15_production",
-  "f15_holding",
-  "production",
-];
-
-export default function BookingRequests({ onUpdate }) {
+export default function AllProjectsManager({ onUpdate }) {
   const [allRequests, setAllRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeSubTab, setActiveSubTab] = useState("pending");
@@ -160,46 +161,38 @@ export default function BookingRequests({ onUpdate }) {
       }`,
       async () => {
         try {
-          // 1. Optimistic Update (Immediate UI Change)
+          // 1. Optimistic Update
           setAllRequests((prev) =>
             prev.map((r) =>
               r.id === item.id ? { ...r, status: targetStatus } : r
             )
           );
 
-          setLoading(true);
-
-          // 2. Database Operations
+          // 2. Ensure Tracker Exists
           const { data: existing } = await supabase
             .from(TRACKER_TABLE)
             .select("id")
             .eq("request_id", item.id)
             .single();
-
-          if (!existing) {
-            const { error: insertError } = await supabase
+          if (!existing)
+            await supabase
               .from(TRACKER_TABLE)
               .insert([{ request_id: item.id }]);
-            if (insertError) throw insertError;
-          }
 
-          const { error: updateError } = await supabase
+          // 3. Update Status
+          const { error } = await supabase
             .from("2_booking_requests")
             .update({ status: targetStatus })
             .eq("id", item.id);
-
-          if (updateError) throw updateError;
+          if (error) throw error;
 
           if (onUpdate) setTimeout(onUpdate, 100);
           showToast(`Project moved to ${isRoster ? "First 15" : "Onboarding"}`);
-
-          // Background refresh to ensure consistency
           fetchRequests();
         } catch (error) {
           showToast(error.message, "error");
-          fetchRequests(); // Revert on error
+          fetchRequests();
         } finally {
-          setLoading(false);
           closeModal();
         }
       }
@@ -209,19 +202,14 @@ export default function BookingRequests({ onUpdate }) {
   const updateGenericStatus = async (item, newStatus) => {
     const doUpdate = async () => {
       try {
-        // Optimistic Update
         setAllRequests((prev) =>
           prev.map((r) => (r.id === item.id ? { ...r, status: newStatus } : r))
         );
-        setLoading(true);
-
         const { error } = await supabase
           .from("2_booking_requests")
           .update({ status: newStatus })
           .eq("id", item.id);
-
         if (error) throw error;
-
         if (onUpdate) setTimeout(onUpdate, 100);
         showToast(`Project marked as ${newStatus}`);
         fetchRequests();
@@ -229,26 +217,23 @@ export default function BookingRequests({ onUpdate }) {
         showToast(error.message, "error");
         fetchRequests();
       } finally {
-        setLoading(false);
         closeModal();
       }
     };
 
-    if (newStatus === "rejected") {
+    if (newStatus === "rejected")
       triggerConfirm(
         "Reject Request?",
         "This will move the project to the Rejected tab.",
         doUpdate
       );
-    } else if (newStatus === "pending") {
+    else if (newStatus === "pending")
       triggerConfirm(
         "Restart Project?",
         "This will move the project back to the Pending queue.",
         doUpdate
       );
-    } else {
-      doUpdate();
-    }
+    else doUpdate();
   };
 
   const toggleClientType = async (item) => {
@@ -256,18 +241,11 @@ export default function BookingRequests({ onUpdate }) {
     setAllRequests((prev) =>
       prev.map((r) => (r.id === item.id ? { ...r, client_type: newType } : r))
     );
-
-    const { error } = await supabase
+    await supabase
       .from("2_booking_requests")
       .update({ client_type: newType })
       .eq("id", item.id);
-
-    if (error) {
-      showToast("Failed to update client type", "error");
-      fetchRequests();
-    } else {
-      showToast(`Switched to ${newType}`);
-    }
+    showToast(`Switched to ${newType}`);
   };
 
   const deleteRequest = async (id) => {
@@ -276,23 +254,17 @@ export default function BookingRequests({ onUpdate }) {
       "This action cannot be undone.",
       async () => {
         setAllRequests((prev) => prev.filter((r) => r.id !== id));
-        const { error } = await supabase
+        await supabase
           .from("2_booking_requests")
           .update({ status: "deleted" })
           .eq("id", id);
-
-        if (!error) {
-          showToast("Project deleted");
-        } else {
-          showToast("Delete failed", "error");
-          fetchRequests();
-        }
+        showToast("Project deleted");
         closeModal();
       }
     );
   };
 
-  // ... [Image Upload & Editing logic remains same] ...
+  // ... [Image/Edit/Copy logic identical to previous] ...
   const handleImageUpload = async (e) => {
     try {
       setUploading(true);
@@ -354,18 +326,11 @@ export default function BookingRequests({ onUpdate }) {
     setAllRequests((prev) =>
       prev.map((r) => (r.id === editingId ? { ...r, ...updates } : r))
     );
-
-    const { error } = await supabase
+    await supabase
       .from("2_booking_requests")
       .update(updates)
       .eq("id", editingId);
-
-    if (error) {
-      showToast("Save failed", "error");
-      fetchRequests();
-    } else {
-      showToast("Changes saved");
-    }
+    showToast("Changes saved");
     setEditingId(null);
   };
 
@@ -376,17 +341,11 @@ export default function BookingRequests({ onUpdate }) {
   };
 
   // --- FILTER ---
-  const getCount = (tabId) => {
-    return allRequests.filter((r) => {
-      if (tabId === "approved") return ACTIVE_STATUSES.includes(r.status);
-      return r.status === tabId;
-    }).length;
-  };
-
-  const displayedRequests = allRequests.filter((r) => {
-    if (activeSubTab === "approved") return ACTIVE_STATUSES.includes(r.status);
-    return r.status === activeSubTab;
-  });
+  const getCount = (tabId) =>
+    allRequests.filter((r) => r.status === tabId).length;
+  const displayedRequests = allRequests.filter(
+    (r) => r.status === activeSubTab
+  );
 
   return (
     <div className="space-y-8 relative">
@@ -440,23 +399,25 @@ export default function BookingRequests({ onUpdate }) {
         </div>
       )}
 
+      {/* NEW TABS SCROLLER */}
       <div className="flex items-center justify-between bg-white p-1.5 rounded-full border border-slate-200 shadow-sm overflow-hidden">
-        <div className="flex gap-1 overflow-x-auto no-scrollbar">
+        <div className="flex gap-1 overflow-x-auto no-scrollbar w-full">
           {TABS.map((tab) => {
             const count = getCount(tab.id);
             const isActive = activeSubTab === tab.id;
+            const Icon = tab.icon;
             if (tab.id === "archived" && count === 0 && !isActive) return null;
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveSubTab(tab.id)}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap shrink-0 ${
                   isActive
                     ? "bg-slate-900 text-white shadow-md"
                     : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
                 }`}
               >
-                {tab.label}{" "}
+                <Icon size={14} /> {tab.label}{" "}
                 {count > 0 && (
                   <span
                     className={`flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[9px] ${
@@ -481,7 +442,7 @@ export default function BookingRequests({ onUpdate }) {
       ) : displayedRequests.length === 0 ? (
         <div className="text-center py-24 bg-white/50 rounded-[2rem] border border-dashed border-slate-200">
           <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">
-            No {activeSubTab} projects found
+            No {activeSubTab.replace("_", " ")} projects found
           </p>
         </div>
       ) : (
@@ -493,26 +454,31 @@ export default function BookingRequests({ onUpdate }) {
             const coverImage = isEditing
               ? editForm.cover_image_url
               : r.cover_image_url;
-            const currentClientType = isEditing
-              ? editForm.client_type || r.client_type || "Direct"
-              : r.client_type || "Direct";
-            const isRoster = currentClientType === "Roster";
+            const isRoster =
+              (isEditing ? editForm.client_type : r.client_type) === "Roster";
 
+            // Status Styling
             let statusColor = "border-slate-200 hover:border-slate-300";
             let bgTint = "bg-white";
-            if (ACTIVE_STATUSES.includes(r.status)) {
+            if (
+              ["approved", "f15_production", "production"].includes(r.status)
+            ) {
               statusColor = "border-emerald-200 hover:border-emerald-300";
               bgTint = "bg-emerald-50/20";
+            } else if (r.status === "f15_holding") {
+              statusColor = "border-blue-200 hover:border-blue-300";
+              bgTint = "bg-blue-50/20";
             } else if (r.status === "postponed") {
               statusColor = "border-orange-200 hover:border-orange-300";
               bgTint = "bg-orange-50/20";
-            } else if (r.status === "completed") {
-              statusColor = "border-blue-200 hover:border-blue-300";
-              bgTint = "bg-blue-50/20";
+            } else if (r.status === "paid") {
+              statusColor = "border-teal-200 hover:border-teal-300";
+              bgTint = "bg-teal-50/20";
             } else if (r.status === "rejected") {
               statusColor = "border-red-100 hover:border-red-200";
               bgTint = "bg-red-50/10";
             }
+
             if (isEditing) {
               bgTint =
                 "bg-white ring-4 ring-slate-100 shadow-2xl z-10 scale-[1.01]";
@@ -525,6 +491,7 @@ export default function BookingRequests({ onUpdate }) {
                 className={`group relative rounded-[2rem] border ${statusColor} ${bgTint} shadow-sm transition-all duration-300 overflow-hidden`}
               >
                 <div className="flex flex-col lg:flex-row min-h-[180px]">
+                  {/* --- LEFT: COVER --- */}
                   <div className="w-full lg:w-48 relative flex flex-col items-center justify-center bg-slate-100 border-b lg:border-b-0 lg:border-r border-slate-200 shrink-0 overflow-hidden">
                     {isEditing && (
                       <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/50 opacity-0 hover:opacity-100 transition-opacity cursor-pointer">
@@ -577,10 +544,11 @@ export default function BookingRequests({ onUpdate }) {
                     )}
                   </div>
 
+                  {/* --- MIDDLE: CONTENT --- */}
                   <div className="flex-grow p-6 lg:p-8 flex flex-col justify-center">
                     {isEditing ? (
+                      /* EDIT FORM */
                       <div className="space-y-8 animate-in fade-in duration-300">
-                        {/* EDIT FORM (Brief) */}
                         <div className="w-full space-y-4">
                           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                             Project Title
@@ -690,6 +658,14 @@ export default function BookingRequests({ onUpdate }) {
                             />
                           </div>
                         </div>
+                        <textarea
+                          className="w-full bg-slate-50 rounded-xl p-6 text-sm outline-none resize-none h-32"
+                          value={editForm.notes || ""}
+                          onChange={(e) =>
+                            setEditForm({ ...editForm, notes: e.target.value })
+                          }
+                          placeholder="Notes..."
+                        />
                         <div className="flex gap-4 pt-4">
                           <button
                             onClick={() => saveEdits()}
@@ -811,11 +787,23 @@ export default function BookingRequests({ onUpdate }) {
                             </div>
                           </div>
                         </div>
+                        {r.notes && (
+                          <div className="mt-5 pt-4 border-t border-slate-100 flex gap-3">
+                            <div className="w-6 flex justify-center pt-1">
+                              <FileText size={14} className="text-slate-300" />
+                            </div>
+                            <p className="text-xs text-slate-500 italic leading-relaxed line-clamp-2">
+                              {r.notes}
+                            </p>
+                          </div>
+                        )}
                       </>
                     )}
                   </div>
 
+                  {/* --- RIGHT: ACTIONS --- */}
                   <div className="w-full lg:w-72 shrink-0 p-6 bg-white border-t lg:border-t-0 lg:border-l border-slate-100 flex flex-col gap-3 justify-center">
+                    {/* 1. Pending (Inbox) */}
                     {activeSubTab === "pending" && (
                       <>
                         <button
@@ -843,9 +831,16 @@ export default function BookingRequests({ onUpdate }) {
                       </>
                     )}
 
-                    {activeSubTab === "approved" && (
+                    {/* 2. Onboarding / F15 / Holding / Prod / Completed (Active Pipelines) */}
+                    {[
+                      "approved",
+                      "f15_production",
+                      "f15_holding",
+                      "production",
+                      "completed",
+                    ].includes(activeSubTab) && (
                       <>
-                        <div className="flex flex-col items-center gap-2 text-center">
+                        <div className="flex flex-col items-center gap-2 text-center mb-2">
                           <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
                             Currently In:
                           </span>
@@ -855,59 +850,65 @@ export default function BookingRequests({ onUpdate }) {
                                 ? "text-blue-600 bg-blue-50"
                                 : r.status === "production"
                                 ? "text-emerald-600 bg-emerald-50"
-                                : isRoster
-                                ? "text-purple-600 bg-purple-50"
-                                : "text-slate-600 bg-slate-100"
+                                : r.status === "completed"
+                                ? "text-blue-600 bg-blue-50"
+                                : r.status === "approved"
+                                ? "text-slate-600 bg-slate-100"
+                                : "text-purple-600 bg-purple-50"
                             }`}
                           >
-                            {r.status === "f15_holding" ? (
-                              <span className="flex items-center gap-1">
-                                <CalendarClock size={12} /> Holding Tank
-                              </span>
-                            ) : r.status === "production" ? (
-                              "Production"
-                            ) : isRoster ? (
-                              "First 15 (Prod)"
-                            ) : (
-                              "Onboarding"
-                            )}
+                            {r.status === "approved"
+                              ? "Onboarding"
+                              : r.status === "f15_production"
+                              ? "First 15"
+                              : r.status === "f15_holding"
+                              ? "Holding Tank"
+                              : r.status === "production"
+                              ? "Production"
+                              : "Completed"}
                           </div>
                         </div>
+
+                        {/* Specific Actions based on Tab */}
+                        {activeSubTab === "completed" && (
+                          <button
+                            onClick={() => updateGenericStatus(r, "paid")}
+                            className="w-full py-4 bg-teal-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-teal-600 shadow-md transition-all flex items-center justify-center gap-2"
+                          >
+                            <DollarSign size={16} /> Mark Paid
+                          </button>
+                        )}
+
                         <button
                           onClick={() => updateGenericStatus(r, "pending")}
-                          className="w-full py-4 bg-white border-2 border-slate-100 text-slate-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:border-orange-300 hover:text-orange-500 hover:bg-orange-50 transition-all flex items-center justify-center gap-2 mt-2"
+                          className="w-full py-4 bg-white border-2 border-slate-100 text-slate-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:border-orange-300 hover:text-orange-500 hover:bg-orange-50 transition-all flex items-center justify-center gap-2"
                         >
                           <Undo2 size={16} /> Restart
                         </button>
                       </>
                     )}
 
-                    {/* Postponed, Completed, Rejected, Archive views - Standard */}
-                    {[
-                      "postponed",
-                      "completed",
-                      "rejected",
-                      "archived",
-                    ].includes(activeSubTab) && (
-                      <div className="flex flex-col gap-2">
-                        {activeSubTab === "postponed" && (
-                          <button
-                            onClick={() => updateGenericStatus(r, "pending")}
-                            className="w-full py-4 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-500"
-                          >
-                            <Undo2 size={16} className="inline mr-2" /> Revive
-                          </button>
-                        )}
-                        {activeSubTab === "rejected" && (
-                          <button
-                            onClick={() => updateGenericStatus(r, "pending")}
-                            className="w-full py-4 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-500"
-                          >
-                            <Undo2 size={16} className="inline mr-2" />{" "}
-                            Reconsider
-                          </button>
-                        )}
+                    {/* 3. Paid */}
+                    {activeSubTab === "paid" && (
+                      <button
+                        onClick={() => updateGenericStatus(r, "archived")}
+                        className="w-full py-4 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 shadow-md transition-all flex items-center justify-center gap-2"
+                      >
+                        <Archive size={16} /> Archive Project
+                      </button>
+                    )}
 
+                    {/* 4. Postponed / Rejected / Archive */}
+                    {["postponed", "rejected", "archived"].includes(
+                      activeSubTab
+                    ) && (
+                      <div className="flex flex-col gap-2">
+                        <button
+                          onClick={() => updateGenericStatus(r, "pending")}
+                          className="w-full py-4 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-500"
+                        >
+                          <Undo2 size={16} className="inline mr-2" /> Revive
+                        </button>
                         <button
                           onClick={() => deleteRequest(r.id)}
                           className="w-full py-4 bg-white border border-red-100 text-red-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-50"
