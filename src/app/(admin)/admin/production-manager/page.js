@@ -11,8 +11,9 @@ import PendingProjects from "@/src/components/production-manager/PendingProjects
 import SchedulerDashboard from "@/src/components/production-manager/SchedulerDashboard";
 import OnboardingManager from "@/src/components/production-manager/OnboardingManager";
 import ProductionBoard from "@/src/components/production-manager/ProductionBoard";
-// IMPORT THE NEW COMPONENT
 import InvoicesAndPayments from "@/src/components/production-manager/InvoicesAndPayments";
+// 1. ADDED HOURS LOG IMPORT
+import HoursLog from "@/src/components/production-manager/HoursLog";
 import Archives from "@/src/components/production-manager/Archives";
 
 import {
@@ -23,7 +24,8 @@ import {
   Archive,
   CalendarRange,
   MessageCircle,
-  DollarSign, // Added DollarSign icon
+  DollarSign,
+  Clock, // 2. ADDED CLOCK ICON
 } from "lucide-react";
 
 const supabase = createClient(
@@ -39,8 +41,9 @@ const TABS = [
   { id: "calendar", label: "Calendar Ops", icon: CalendarRange },
   { id: "onboarding", label: "Onboarding & First 15", icon: Kanban },
   { id: "production", label: "Production", icon: Briefcase },
-  // ADDED FINANCIALS BEFORE ARCHIVE
-  { id: "financials", label: "Payment", icon: DollarSign },
+  { id: "financials", label: "Payments & Contracts", icon: DollarSign },
+  // 3. ADDED HOURS TAB BEFORE ARCHIVE
+  { id: "hours", label: "Hours & ROI", icon: Clock },
   { id: "archive", label: "Archive", icon: Archive },
 ];
 
@@ -54,7 +57,6 @@ export default function ProductionManager() {
   const allProjectsRef = useRef(null);
 
   // --- FETCH DATA ---
-  // We fetch basic counts here for the notification badges
   const fetchAllData = async () => {
     setLoading(true);
     const { data, error } = await supabase
@@ -101,7 +103,7 @@ export default function ProductionManager() {
         {/* HEADER AREA */}
         <div className="flex flex-col gap-8 mb-8">
           <div className="flex flex-col">
-            <h1 className="text-4xl md:text-5xl font-black uppercase text-slate-900 tracking-tighter mb-2">
+            <h1 className="text-4xl md:text-5xl font-black uppercase text-slate-900 tracking-tighter mb-2 italic">
               Mission Control
             </h1>
             <p className="text-slate-500 font-medium flex items-center gap-2 text-xs uppercase tracking-widest">
@@ -176,14 +178,15 @@ export default function ProductionManager() {
           {activeTab === "calendar" && <SchedulerDashboard />}
           {activeTab === "onboarding" && <OnboardingManager />}
 
-          {/* Production Board (Contains Invoice Modal Logic) */}
+          {/* Production Board */}
           {activeTab === "production" && <ProductionBoard />}
 
           {activeTab === "financials" && (
-            <InvoicesAndPayments
-              initialProject={null} // Component will now fetch and allow selection
-            />
+            <InvoicesAndPayments initialProject={null} />
           )}
+
+          {/* 4. RENDER NEW HOURS LOG COMPONENT */}
+          {activeTab === "hours" && <HoursLog initialProject={null} />}
 
           {activeTab === "archive" && <Archives />}
         </div>
