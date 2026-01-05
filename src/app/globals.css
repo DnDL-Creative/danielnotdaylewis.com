@@ -14,10 +14,9 @@
   --animate-fade-in: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   --animate-slide-up: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   --animate-gradient-xy: gradient-xy 3s ease infinite;
-
-  /* ADDED: Slow-Slow Gradient & Ticker Engine */
   --animate-gradient-x: gradient-x 10s ease infinite;
   --animate-ticker: ticker 30s linear infinite;
+  --animate-glitch: glitch 4000ms infinite;
 
   /* --- Keyframes --- */
   @keyframes fadeIn {
@@ -47,8 +46,6 @@
       background-position: 100% 50%;
     }
   }
-
-  /* ADDED: Keyframes for Acting Glow & Stats Ticker */
   @keyframes gradient-x {
     0%,
     100% {
@@ -66,12 +63,44 @@
       transform: translateX(-50%);
     }
   }
+  @keyframes glitch {
+    0% {
+      text-shadow:
+        0.05em 0 0 rgba(255, 0, 81, 0.8),
+        -0.05em -0.025em 0 rgba(0, 255, 225, 0.8),
+        -0.025em 0.05em 0 rgba(255, 255, 0, 0.8);
+    }
+    15% {
+      text-shadow:
+        -0.05em -0.025em 0 rgba(255, 0, 81, 0.8),
+        0.025em 0.025em 0 rgba(0, 255, 225, 0.8),
+        -0.05em -0.05em 0 rgba(255, 255, 0, 0.8);
+    }
+    50% {
+      text-shadow:
+        0.025em 0.05em 0 rgba(255, 0, 81, 0.8),
+        0.05em 0 0 rgba(0, 255, 225, 0.8),
+        0 -0.05em 0 rgba(255, 255, 0, 0.8);
+    }
+    100% {
+      text-shadow:
+        -0.025em 0 0 rgba(255, 0, 81, 0.8),
+        -0.025em -0.025em 0 rgba(0, 255, 225, 0.8),
+        -0.025em -0.05em 0 rgba(255, 255, 0, 0.8);
+    }
+  }
 }
 
 /* ==========================================================================
    2. CSS VARIABLES & DARK MODE
    ========================================================================== */
 :root {
+  /* Dynamic Theme Variables (Moved from JSX) */
+  --theme-rgb: 45, 212, 191; /* Default Teal */
+  --theme-hex: #2dd4bf;
+  --toolbar-text: #475569;
+  --picker-bg: #fff;
+
   /* Core Palette */
   --color-primary: #0d9488;
   --color-primary-light: #5eead4;
@@ -80,19 +109,28 @@
   --color-secondary-light: #faedcd;
 
   /* Surfaces */
-  --color-bg: #e2e8f0; /* Slate 200 */
-  --color-surface: #f8fafc; /* Slate 50 */
+  --color-bg: #e2e8f0;
+  --color-surface: #f8fafc;
 
   /* Typography */
-  --color-text-main: #1f2937; /* Gray 800 */
-  --color-text-muted: #4b5563; /* Gray 600 */
-
-  /* Dimensions */
+  --color-text-main: #1f2937;
+  --color-text-muted: #4b5563;
   --nav-height: 80px;
   --radius-lg: 1.5rem;
 }
 
+/* Logic for Yellow Theme */
+.theme-yellow {
+  --theme-rgb: 250, 204, 21;
+  --theme-hex: #facc15;
+}
+
 .dark {
+  --theme-rgb: 45, 212, 191;
+  --theme-hex: #2dd4bf;
+  --toolbar-text: var(--theme-hex);
+  --picker-bg: #000;
+
   --color-primary: #14b8a6;
   --color-primary-light: #2dd4bf;
   --color-primary-dark: #0f766e;
@@ -133,7 +171,6 @@
    4. COMPONENT UTILITIES
    ========================================================================== */
 @layer components {
-  /* ADDED: Utilities to activate the Background Animations */
   .animate-gradient-x {
     background-size: 200% 200%;
     animation: var(--animate-gradient-x);
@@ -144,21 +181,13 @@
   }
 
   .glow-heading {
-    /* 1. The Gradient & Clip */
     @apply text-transparent bg-clip-text bg-gradient-to-r from-teal-500 via-indigo-500 to-purple-500;
-
-    /* 2. The Movement (Requires 200% size to slide) */
     @apply bg-[length:200%_200%] animate-gradient-xy;
-
-    /* 3. The "Bloom" (The actual glow effect) */
     filter: drop-shadow(0 0 8px rgba(20, 184, 166, 0.35))
       drop-shadow(0 0 20px rgba(129, 140, 248, 0.2));
-
-    /* 4. Extra Sharpness */
     @apply tracking-tight font-black uppercase;
   }
 
-  /* --- UI Elements --- */
   .glass-panel {
     @apply backdrop-blur-xl border border-white/10 shadow-xl;
     background: rgba(255, 255, 255, 0.6);
@@ -190,17 +219,15 @@
     border: 1px solid rgba(0, 0, 0, 0.05);
   }
 
-  /* --- Blog Typography System (The Dot Fix) --- */
+  /* --- Blog Typography System --- */
   .blog-content {
     color: #334155;
     line-height: 1.8;
     font-size: 1.125rem;
   }
-
   .blog-content > * + * {
     margin-top: 1.5em;
   }
-
   .blog-content h2 {
     font-size: 1.875rem;
     font-weight: 900;
@@ -210,7 +237,6 @@
     letter-spacing: -0.025em;
     line-height: 1.2;
   }
-
   .blog-content h3 {
     font-size: 1.5rem;
     font-weight: 800;
@@ -218,32 +244,20 @@
     margin-top: 2.5rem;
     margin-bottom: 1rem;
   }
-
   .blog-content p {
     margin-bottom: 2rem;
   }
 
-  /* --- Override default list styles completely --- */
   .blog-content ul {
     list-style: none !important;
-    list-style-type: none !important;
     margin: 2rem 0;
     padding-left: 0;
   }
-
   .blog-content li {
     position: relative;
     padding-left: 2rem;
     margin-bottom: 1rem;
-    list-style: none !important;
   }
-
-  .blog-content li::marker {
-    display: none;
-    content: "";
-  }
-
-  /* The Custom Dot */
   .blog-content li::before {
     content: "";
     position: absolute;
@@ -258,7 +272,6 @@
       0 0 20px rgba(20, 184, 166, 0.4);
     transition: transform 0.3s ease;
   }
-
   .blog-content li:hover::before {
     transform: scale(1.5);
     box-shadow:
@@ -266,50 +279,187 @@
       0 0 30px rgba(20, 184, 166, 0.6);
   }
 
-  .blog-content a {
-    color: #0d9488;
-    font-weight: 700;
-    text-decoration: underline;
-    text-decoration-color: rgba(13, 148, 136, 0.3);
-    text-underline-offset: 4px;
+  /* ==========================================================================
+     NEW: EDITOR & NEON STYLES (INTEGRATED FROM JSX)
+     ========================================================================== */
+
+  #toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    border: none !important;
+  }
+
+  #toolbar button,
+  #toolbar .ql-picker-label {
+    color: var(--toolbar-text) !important;
+    margin-right: 0.5rem;
     transition: all 0.2s;
   }
 
-  .blog-content a:hover {
-    background-color: #ccfbf1;
-    color: #0f766e;
-    text-decoration-color: #0f766e;
+  #toolbar button:hover,
+  #toolbar .ql-picker-label:hover {
+    opacity: 1;
+    transform: scale(1.1);
   }
 
-  .blog-content blockquote {
-    border-left: 4px solid #14b8a6;
-    background: #f0fdfa;
-    padding: 1.5rem 2rem;
-    border-radius: 0 1rem 1rem 0;
+  #toolbar .ql-active,
+  #toolbar .ql-picker-label.ql-active {
+    filter: drop-shadow(0 0 5px var(--theme-hex));
+    font-weight: bold;
+  }
+
+  #toolbar .ql-stroke {
+    stroke: var(--toolbar-text) !important;
+  }
+  #toolbar .ql-fill {
+    fill: var(--toolbar-text) !important;
+  }
+
+  .ql-container {
+    font-family: var(--font-nunito);
+    border: none !important;
+    height: 100% !important;
+    overflow-y: auto;
+  }
+
+  .ql-editor {
+    font-size: 1.15rem !important;
+    line-height: 1.8 !important;
+    min-height: 100%;
+    padding-bottom: 5rem !important;
+  }
+
+  .ql-editor h1 {
+    font-size: 2.5em !important;
+    font-weight: 900 !important;
+    margin-top: 1em;
+    margin-bottom: 0.5em;
+    line-height: 1.1;
+  }
+  .ql-editor h2 {
+    font-size: 2em !important;
+    font-weight: 800 !important;
+    margin-top: 1em;
+    margin-bottom: 0.5em;
+  }
+  .ql-editor h3 {
+    font-size: 1.5em !important;
+    font-weight: 800 !important;
+    margin-top: 1em;
+    margin-bottom: 0.5em;
+  }
+  .ql-editor h4 {
+    font-size: 1.25em !important;
+    font-weight: 700 !important;
+    margin-top: 1em;
+    margin-bottom: 0.5em;
+  }
+  .ql-editor p {
+    margin-bottom: 1em !important;
+  }
+
+  /* Editor Scrollbar */
+  .ql-editor::-webkit-scrollbar {
+    width: 8px;
+  }
+  .ql-editor::-webkit-scrollbar-thumb {
+    background-color: var(--theme-hex);
+    border-radius: 4px;
+  }
+  .ql-editor::-webkit-scrollbar-track {
+    background-color: rgba(0, 0, 0, 0.1);
+  }
+
+  /* Quill Dark/Light Variants */
+  .dark-quill .ql-editor {
+    color: rgba(var(--theme-rgb), 0.9) !important;
+    text-shadow: 0 0 10px rgba(var(--theme-rgb), 0.2);
+  }
+  .dark-quill .ql-editor.ql-blank::before {
+    color: rgba(var(--theme-rgb), 0.4) !important;
     font-style: italic;
-    color: #475569;
-    margin: 2.5rem 0;
   }
 
-  /* ==========================================================================
-     NEW: THE IMAGE ENGINE (Responsive, Floating, Sizing)
-     ========================================================================== */
+  .light-quill .ql-editor {
+    color: #1e293b;
+  }
+  .light-quill .ql-editor.ql-blank::before {
+    color: #94a3b8 !important;
+  }
 
-  /* 1. Base Image Style (Mobile Default: Always Full Width, Stacked) */
+  /* Theme Inputs */
+  .theme-input {
+    color: rgba(var(--theme-rgb), 0.9) !important;
+    text-shadow: 0 0 10px rgba(var(--theme-rgb), 0.4);
+  }
+  .theme-input::placeholder {
+    color: rgba(var(--theme-rgb), 0.5) !important;
+    text-shadow: none;
+  }
+
+  .ql-picker-options {
+    background-color: var(--picker-bg) !important;
+    border: 1px solid var(--theme-hex) !important;
+    z-index: 9999 !important;
+    padding: 10px !important;
+  }
+
+  /* Neon Effects */
+  .neon-text-glow {
+    text-shadow: 0 0 15px rgba(var(--theme-rgb), 1);
+  }
+  .neon-text-ultra {
+    text-shadow:
+      0 0 30px rgba(var(--theme-rgb), 1),
+      0 0 60px rgba(var(--theme-rgb), 0.6);
+  }
+
+  .shadow-neon-md {
+    box-shadow: 0 0 30px rgba(var(--theme-rgb), 0.5);
+  }
+  .shadow-neon-field {
+    box-shadow:
+      0 0 30px rgba(var(--theme-rgb), 0.4),
+      inset 0 0 15px rgba(var(--theme-rgb), 0.1);
+  }
+  .shadow-neon-ultra {
+    box-shadow:
+      0 0 60px rgba(var(--theme-rgb), 0.8),
+      inset 0 0 25px rgba(var(--theme-rgb), 0.4);
+  }
+  .shadow-neon-box-intense {
+    box-shadow:
+      0 0 80px rgba(var(--theme-rgb), 0.15),
+      inset 0 0 30px rgba(var(--theme-rgb), 0.05);
+  }
+  .shadow-neon-box-ultra {
+    box-shadow:
+      0 0 130px rgba(var(--theme-rgb), 0.25),
+      inset 0 0 40px rgba(var(--theme-rgb), 0.1);
+  }
+  .shadow-neon-inner-intense {
+    box-shadow: inset 0 0 60px rgba(var(--theme-rgb), 0.2);
+  }
+
+  .glitch-title {
+    position: relative;
+    animation: var(--animate-glitch);
+  }
+
+  /* Image Engine */
   .blog-content img {
     border-radius: 1rem;
     box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.15);
     height: auto;
     display: block;
-    width: 100%; /* Default to full width on mobile */
+    width: 100%;
     margin: 2rem 0;
     transition: transform 0.3s ease;
   }
-
   .blog-content img:hover {
     transform: scale(1.01);
   }
-
   .blog-content figcaption {
     text-align: center;
     font-size: 0.875rem;
@@ -318,59 +468,45 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    clear: both; /* Ensures caption sits under floated images */
+    clear: both;
   }
 
-  /* 2. Desktop Layouts (Only active on screens > 768px) */
   @media (min-width: 768px) {
-    /* --- SIZES --- */
     img.blog-size-sm {
       width: 30%;
-    } /* Small: Good for 3 in a row */
+    }
     img.blog-size-md {
       width: 48%;
-    } /* Medium: Good for 2 in a row */
+    }
     img.blog-size-lg {
       width: 100%;
-    } /* Large: Hero style */
-
-    /* --- ALIGNMENT / WRAPPING --- */
-
-    /* Left: Text wraps around right side */
+    }
     img.blog-align-left {
       float: left;
       margin-right: 2rem;
       margin-top: 0.5rem;
       margin-bottom: 1.5rem;
     }
-
-    /* Right: Text wraps around left side */
     img.blog-align-right {
       float: right;
       margin-left: 2rem;
       margin-top: 0.5rem;
       margin-bottom: 1.5rem;
     }
-
-    /* Center: Stands alone */
     img.blog-align-center {
       float: none;
       margin-left: auto;
       margin-right: auto;
       display: block;
     }
-
-    /* --- SPECIAL: INLINE MODE (Side-by-Side) --- */
-    /* If you pick 'Inline', images sit next to each other like words */
     img.blog-display-inline {
       display: inline-block;
       vertical-align: top;
       float: none;
-      margin: 1%; /* Small gap */
+      margin: 1%;
     }
   }
 
-  /* Clearfix for floats (Prevents layout breaking) */
   .blog-content::after {
     content: "";
     display: table;
@@ -379,10 +515,9 @@
 }
 
 /* ==========================================================================
-   5. COMPLEX ANIMATIONS
+   5. COMPLEX ANIMATIONS (MAIL & LINKS)
    ========================================================================== */
 @layer components {
-  /* --- Mail Animation --- */
   .letter-image {
     position: relative;
     width: 200px;
@@ -501,7 +636,6 @@
     transition: all 0.5s ease;
   }
 
-  /* Hover States for Mail */
   .letter-image:hover .animated-mail {
     transform: translate(-50%, -80px);
   }
@@ -521,7 +655,6 @@
     width: 250px;
   }
 
-  /* --- Wavy Link Animation --- */
   @keyframes wavy-color-jump {
     0%,
     100% {
@@ -547,7 +680,6 @@
     will-change: transform, color;
   }
 
-  /* --- Magnifying Glass Pulse --- */
   @keyframes magnifying-pulse {
     0%,
     100% {

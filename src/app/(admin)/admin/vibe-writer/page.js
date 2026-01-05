@@ -23,9 +23,12 @@ import {
   EyeOff,
   Upload,
   Loader2,
-  Layout, // NEW
-  AlignLeft, // NEW
-  Maximize, // NEW
+  Layout,
+  AlignLeft,
+  Maximize,
+  ArrowRightCircle,
+  Film,
+  Trash2,
 } from "lucide-react";
 import { FaHotdog } from "react-icons/fa6";
 
@@ -58,9 +61,29 @@ const CATEGORIES = [
   "Production",
 ];
 
-// --- CUSTOM TOOLBAR ---
+// --- UTILITIES ---
+const getStoragePathFromUrl = (url) => {
+  if (!url || !url.includes("blog-images/")) return null;
+  return url.split("blog-images/")[1];
+};
+
+const deleteOldAsset = async (url) => {
+  const path = getStoragePathFromUrl(url);
+  if (path) {
+    await supabase.storage.from("blog-images").remove([path]);
+  }
+};
+
+// --- TOOLBAR (Aggressive Event Handling) ---
 const CustomToolbar = () => (
-  <div id="toolbar" className="flex flex-wrap items-center gap-4">
+  <div
+    id="toolbar"
+    onMouseDown={(e) => {
+      e.preventDefault(); // Stop focus loss
+      e.stopPropagation(); // Stop event bubbling
+    }}
+    className="flex flex-wrap items-center gap-2 sm:gap-4 border-none justify-center sm:justify-start"
+  >
     <span className="ql-formats">
       <select className="ql-header" defaultValue="">
         <option value="1">Heading 1</option>
@@ -71,28 +94,32 @@ const CustomToolbar = () => (
       </select>
     </span>
     <span className="ql-formats">
-      <button className="ql-bold" />
-      <button className="ql-italic" />
-      <button className="ql-underline" />
-      <button className="ql-strike" />
+      <button className="ql-bold" type="button" />
+      <button className="ql-italic" type="button" />
+      <button className="ql-underline" type="button" />
+      <button className="ql-strike" type="button" />
     </span>
     <span className="ql-formats">
-      <button className="ql-list" value="ordered" />
-      <button className="ql-list" value="bullet" />
-      <button className="ql-blockquote" />
-      <button className="ql-code-block" />
+      <button className="ql-list" value="ordered" type="button" />
+      <button className="ql-list" value="bullet" type="button" />
+      <button className="ql-blockquote" type="button" />
+      <button className="ql-code-block" type="button" />
     </span>
     <span className="ql-formats">
-      <button className="ql-link" />
-      <button className="ql-image" />
+      <button className="ql-link" type="button" />
+      <button className="ql-image" type="button" />
     </span>
     <span className="ql-formats">
-      <button className="ql-clean" />
+      <button className="ql-clean" type="button" />
     </span>
   </div>
 );
 
+// Memoizing to prevent re-renders that detach the toolbar
+const MemoizedToolbar = React.memo(CustomToolbar);
+
 export default function MasterEditorPage() {
+  // --- STATE ---
   const [postId, setPostId] = useState(null);
   const [isPublished, setIsPublished] = useState(false);
   const [title, setTitle] = useState("");
@@ -100,6 +127,8 @@ export default function MasterEditorPage() {
   const [urlPath, setUrlPath] = useState("");
   const [tag, setTag] = useState("Life");
   const [date, setDate] = useState("");
+  const [imageCaption, setImageCaption] = useState("");
+
   const [images, setImages] = useState({
     main: "",
     img2: "",
@@ -108,7 +137,6 @@ export default function MasterEditorPage() {
     img5: "",
   });
 
-  // NEW: Image Settings State
   const [imgSettings, setImgSettings] = useState({
     img2: { size: "lg", align: "center", display: "block" },
     img3: { size: "lg", align: "center", display: "block" },
@@ -116,16 +144,17 @@ export default function MasterEditorPage() {
     img5: { size: "lg", align: "center", display: "block" },
   });
 
-  const [copied, setCopied] = useState(false);
   const [copiedTag, setCopiedTag] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [showLoadModal, setShowLoadModal] = useState(false);
   const [availableDrafts, setAvailableDrafts] = useState([]);
+  const [recentAssets, setRecentAssets] = useState([]);
   const [uploadingSlot, setUploadingSlot] = useState(null);
 
   const [theme, setTheme] = useState("teal");
   const isDark = theme !== "light";
 
+  const quillRef = useRef(null);
   const fileInputRefs = {
     main: useRef(null),
     img2: useRef(null),
@@ -134,8 +163,30 @@ export default function MasterEditorPage() {
     img5: useRef(null),
   };
 
+  // --- THEME HELPERS ---
+  const getThemeColor = (opacity = 1) => {
+    if (theme === "yellow") return `rgba(250, 204, 21, ${opacity})`;
+    return `rgba(45, 212, 191, ${opacity})`;
+  };
+  const themeHex = theme === "yellow" ? "#facc15" : "#2dd4bf";
+  const themeTextClass =
+    theme === "yellow" ? "text-yellow-400" : "text-teal-400";
+  const themeBorderClass =
+    theme === "yellow" ? "border-yellow-500" : "border-teal-500";
+  const sceneBgColor = theme === "yellow" ? "#1a0500" : "#02020a";
+
+  // --- INIT & ASSETS ---
+  const fetchRecentAssets = async () => {
+    const { data } = await supabase.storage.from("blog-images").list("", {
+      limit: 12,
+      sortBy: { column: "created_at", order: "desc" },
+    });
+    if (data) setRecentAssets(data);
+  };
+
   useEffect(() => {
     setDate(new Date().toISOString().split("T")[0]);
+    fetchRecentAssets();
     const saved = localStorage.getItem("vibewriter-autosave");
     if (saved && !postId) {
       try {
@@ -171,90 +222,9 @@ export default function MasterEditorPage() {
 
   const isReady = title.length > 2 && urlPath.length > 2 && content.length > 10;
 
-  // --- NEW: Update Settings Helper ---
-  const updateImgSetting = (key, field, value) => {
-    setImgSettings((prev) => ({
-      ...prev,
-      [key]: { ...prev[key], [field]: value },
-    }));
-  };
-
-  // --- NEW: Generate Smart Tag ---
-  const copyImageTag = (key, url) => {
-    if (!url) return;
-    const s = imgSettings[key];
-
-    // Construct classes based on settings
-    const sizeClass = `blog-size-${s.size}`; // blog-size-sm, blog-size-md, blog-size-lg
-    const alignClass = `blog-align-${s.align}`; // blog-align-left, blog-align-center
-    const displayClass = s.display === "inline" ? "blog-display-inline" : "";
-
-    const tag = `<img src="${url}" alt="image-${key}" class="${sizeClass} ${alignClass} ${displayClass}" />`;
-
-    navigator.clipboard.writeText(tag);
-    setCopiedTag(key);
-    setTimeout(() => setCopiedTag(null), 2000);
-  };
-
-  // --- NEW: HANDLE IMAGE UPLOAD (ORGANIZED) ---
-  const handleFileUpload = async (e, slotKey) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    // 1. Safety Check: We need a slug to create the folder
-    if (!urlPath) {
-      alert(
-        "Please enter a Title to generate a slug first (needed for folder organization)."
-      );
-      return;
-    }
-
-    setUploadingSlot(slotKey);
-
-    try {
-      const fileExt = file.name.split(".").pop();
-
-      // 2. Determine Subfolder (Hero vs Content)
-      // If slotKey is 'main', go to 'hero' folder. Otherwise 'content-images'
-      const subFolder = slotKey === "main" ? "hero" : "content-images";
-
-      // 3. Create Clean Filename (timestamp prevents overwriting)
-      const fileName = `${slotKey}-${Date.now()}.${fileExt}`;
-
-      // 4. Construct Full Path: slug / subfolder / filename
-      const filePath = `${urlPath}/${subFolder}/${fileName}`;
-
-      // 5. Upload
-      const { error: uploadError } = await supabase.storage
-        .from("blog-images")
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      // 6. Get Public URL
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("blog-images").getPublicUrl(filePath);
-
-      // 7. Update State
-      setImages((prev) => ({ ...prev, [slotKey]: publicUrl }));
-    } catch (error) {
-      console.error("Upload failed:", error);
-      alert("Upload failed: " + error.message);
-    } finally {
-      setUploadingSlot(null);
-      if (fileInputRefs[slotKey].current) {
-        fileInputRefs[slotKey].current.value = "";
-      }
-    }
-  };
-
-  // ... (Keep handleClear, handleDatabaseAction, fetchDrafts, loadDraft, toggleVisibility, toggleTheme as they were) ...
-  // [I am omitting the middle functions to save space, paste them back from previous code if needed,
-  // but for a clean copy-paste I will include the critical UI render part below]
-
+  // --- ACTIONS ---
   const handleClear = () => {
-    /* ... same ... */ if (confirm("Clear?")) {
+    if (confirm("Are you sure? This will clear everything.")) {
       setPostId(null);
       setTitle("");
       setContent("");
@@ -268,7 +238,7 @@ export default function MasterEditorPage() {
   };
 
   const handleDatabaseAction = async (actionType) => {
-    /* ... same ... */ if (!isReady) return;
+    if (!isReady) return;
     setIsSaving(true);
     const targetStatus = actionType === "PUBLISH";
     const payload = {
@@ -282,8 +252,10 @@ export default function MasterEditorPage() {
       image_3: images.img3,
       image_4: images.img4,
       image_5: images.img5,
+      image_caption: imageCaption,
       published: targetStatus,
     };
+
     try {
       let query = supabase.from("posts");
       if (postId) {
@@ -295,9 +267,9 @@ export default function MasterEditorPage() {
         if (data && data[0]) setPostId(data[0].id);
       }
       setIsPublished(targetStatus);
-      alert(actionType === "PUBLISH" ? "POSTED!" : "Saved.");
+      alert(targetStatus ? "LIVE!" : "SAVED");
     } catch (err) {
-      alert(err.message);
+      alert(`Error: ${err.message}`);
     } finally {
       setIsSaving(false);
     }
@@ -325,6 +297,8 @@ export default function MasterEditorPage() {
       setTag(data.tag);
       setContent(data.content);
       setDate(data.date);
+      setIsPublished(data.published || false);
+      setImageCaption(data.image_caption || "");
       setImages({
         main: data.image || "",
         img2: data.image_2 || "",
@@ -332,7 +306,6 @@ export default function MasterEditorPage() {
         img4: data.image_4 || "",
         img5: data.image_5 || "",
       });
-      setIsPublished(data.published || false);
       setShowLoadModal(false);
     }
   };
@@ -340,13 +313,95 @@ export default function MasterEditorPage() {
   const toggleVisibility = async (e, draftId, currentStatus) => {
     e.stopPropagation();
     const newStatus = !currentStatus;
-    await supabase
+    const { error } = await supabase
       .from("posts")
       .update({ published: newStatus })
       .eq("id", draftId);
+    if (error) return alert("Error updating status");
     setAvailableDrafts((prev) =>
       prev.map((p) => (p.id === draftId ? { ...p, published: newStatus } : p))
     );
+  };
+
+  const handleFileUpload = async (e, slotKey) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (!urlPath)
+      return alert("Please enter a Title to generate a slug first.");
+
+    setUploadingSlot(slotKey);
+    try {
+      if (images[slotKey]) await deleteOldAsset(images[slotKey]);
+      const fileExt = file.name.split(".").pop();
+      const subFolder = slotKey === "main" ? "hero" : "content-images";
+      const uniqueId = Math.random().toString(36).substring(2, 8);
+      const fileName = `${slotKey}-${uniqueId}.${fileExt}`;
+      const filePath = `${urlPath}/${subFolder}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("blog-images")
+        .upload(filePath, file, { cacheControl: "3600", upsert: true });
+      if (uploadError) throw uploadError;
+
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("blog-images").getPublicUrl(filePath);
+      setImages((prev) => ({ ...prev, [slotKey]: publicUrl }));
+      fetchRecentAssets();
+    } catch (error) {
+      alert("Upload failed: " + error.message);
+    } finally {
+      setUploadingSlot(null);
+      if (fileInputRefs[slotKey].current)
+        fileInputRefs[slotKey].current.value = "";
+    }
+  };
+
+  const updateImgSetting = (key, field, value) => {
+    setImgSettings((prev) => ({
+      ...prev,
+      [key]: { ...prev[key], [field]: value },
+    }));
+  };
+
+  const generateImageHtml = (key, url) => {
+    const s = imgSettings[key];
+    let style =
+      "border-radius: 1.5rem; box-shadow: 0 20px 40px -10px rgba(0,0,0,0.3); transition: all 0.3s ease; ";
+    if (s.size === "sm") style += "width: 30%; min-width: 250px; ";
+    if (s.size === "md") style += "width: 55%; min-width: 300px; ";
+    if (s.size === "lg") style += "width: 100%; ";
+
+    if (s.display === "inline") {
+      style += "display: inline-block; vertical-align: top; margin: 1%; ";
+    } else {
+      style += "display: block; ";
+      if (s.align === "left")
+        style += "float: left; margin-right: 2.5rem; margin-bottom: 1.5rem; ";
+      if (s.align === "right")
+        style += "float: right; margin-left: 2.5rem; margin-bottom: 1.5rem; ";
+      if (s.align === "center")
+        style +=
+          "margin-left: auto; margin-right: auto; float: none; margin-top: 2rem; margin-bottom: 2rem; ";
+    }
+    return `<img src="${url}" alt="vibe-asset-${key}" style="${style}" data-asset-slot="${key}" />`;
+  };
+
+  const insertImageToEditor = (key, urlOverride = null) => {
+    const url = urlOverride || images[key];
+    if (!url || !quillRef.current) return;
+    const html = generateImageHtml(key, url);
+    const editor = quillRef.current.getEditor();
+    const range = editor.getSelection();
+    const index = range ? range.index : editor.getLength();
+    editor.clipboard.dangerouslyPasteHTML(index, html);
+  };
+
+  const copyImageTag = (key, url) => {
+    if (!url) return;
+    navigator.clipboard.writeText(generateImageHtml(key, url));
+    setCopiedTag(key);
+    setTimeout(() => setCopiedTag(null), 2000);
   };
 
   const toggleTheme = () => {
@@ -354,16 +409,7 @@ export default function MasterEditorPage() {
     else if (theme === "teal") setTheme("yellow");
     else setTheme("light");
   };
-  const getThemeColor = (opacity = 1) =>
-    theme === "yellow"
-      ? `rgba(250, 204, 21, ${opacity})`
-      : `rgba(45, 212, 191, ${opacity})`;
-  const themeHex = theme === "yellow" ? "#facc15" : "#2dd4bf";
-  const themeTextClass =
-    theme === "yellow" ? "text-yellow-400" : "text-teal-400";
-  const themeBorderClass =
-    theme === "yellow" ? "border-yellow-500" : "border-teal-500";
-  const sceneBgColor = theme === "yellow" ? "#1a0500" : "#02020a";
+
   const modules = useMemo(() => ({ toolbar: { container: "#toolbar" } }), []);
 
   return (
@@ -371,8 +417,9 @@ export default function MasterEditorPage() {
       className={`transition-all duration-1000 min-h-screen relative font-sans ${isDark ? "bg-[#02020a] text-slate-100" : "bg-slate-50 text-slate-900"}`}
       style={{ backgroundColor: isDark ? sceneBgColor : "#f8fafc" }}
     >
+      {/* 🌌 3D SCENE */}
       {isDark && (
-        <div className="fixed inset-0 z-0 opacity-100 transition-opacity duration-1000">
+        <div className="fixed inset-0 z-0 opacity-100 transition-opacity duration-1000 pointer-events-none">
           <Suspense fallback={null}>
             <Canvas camera={{ position: [0, 0, 10], fov: 60, far: 100 }}>
               <color attach="background" args={[sceneBgColor]} />
@@ -383,15 +430,15 @@ export default function MasterEditorPage() {
         </div>
       )}
 
-      {/* MODAL */}
+      {/* 📥 LOAD MODAL */}
       {showLoadModal && (
         <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div
-            className={`w-full max-w-2xl max-h-[80vh] overflow-y-auto bg-[#0a0a0a] border-2 ${themeBorderClass} rounded-2xl p-6 shadow-2xl`}
+            className={`w-full md:w-[90%] max-w-2xl max-h-[80vh] overflow-y-auto bg-[#0a0a0a] border-2 ${themeBorderClass} rounded-2xl p-4 md:p-6 shadow-2xl`}
           >
             <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-4">
               <h2
-                className={`text-xl font-black uppercase tracking-widest ${themeTextClass}`}
+                className={`text-lg md:text-xl font-black uppercase tracking-widest ${themeTextClass}`}
               >
                 Load Transmission
               </h2>
@@ -406,11 +453,11 @@ export default function MasterEditorPage() {
               {availableDrafts.map((draft) => (
                 <div
                   key={draft.id}
-                  className="w-full relative p-4 border border-white/10 rounded-lg flex justify-between items-center group transition-all hover:bg-white/5"
+                  className="w-full relative p-3 md:p-4 border border-white/10 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center group transition-all hover:bg-white/5 gap-3"
                 >
                   <button
                     onClick={() => loadDraft(draft.id)}
-                    className="flex-1 flex justify-between items-center text-left"
+                    className="flex-1 flex justify-between items-center text-left w-full"
                   >
                     <div>
                       <div className="flex items-center gap-2">
@@ -423,7 +470,7 @@ export default function MasterEditorPage() {
                             Hidden
                           </span>
                         )}
-                        <span className="font-bold text-slate-200 group-hover:text-white transition-colors">
+                        <span className="font-bold text-slate-200 group-hover:text-white transition-colors text-sm truncate max-w-[150px] sm:max-w-xs">
                           {draft.title || "Untitled"}
                         </span>
                       </div>
@@ -431,12 +478,12 @@ export default function MasterEditorPage() {
                         {draft.date} • {draft.slug}
                       </div>
                     </div>
-                    <div className="flex items-center gap-4 pr-4">
-                      <span className="text-[10px] uppercase font-bold text-slate-600 group-hover:text-slate-400">
+                    <div className="flex items-center gap-2 md:gap-4 pr-2">
+                      <span className="hidden sm:inline text-[10px] uppercase font-bold text-slate-600 group-hover:text-slate-400">
                         Load
                       </span>
                       <CloudDownload
-                        size={20}
+                        size={18}
                         className={`opacity-50 group-hover:opacity-100 transition-opacity ${themeTextClass}`}
                       />
                     </div>
@@ -445,7 +492,7 @@ export default function MasterEditorPage() {
                     onClick={(e) =>
                       toggleVisibility(e, draft.id, draft.published)
                     }
-                    className={`ml-4 p-2 rounded-lg border transition-all z-10 ${draft.published ? "bg-emerald-900/20 border-emerald-500/50 text-emerald-400 hover:bg-emerald-500 hover:text-white" : "bg-slate-800/50 border-slate-700 text-slate-500 hover:bg-slate-700 hover:text-slate-300"}`}
+                    className={`w-full sm:w-auto p-2 rounded-lg border transition-all z-10 flex justify-center ${draft.published ? "bg-emerald-900/20 border-emerald-500/50 text-emerald-400 hover:bg-emerald-500 hover:text-white" : "bg-slate-800/50 border-slate-700 text-slate-500 hover:bg-slate-700 hover:text-slate-300"}`}
                   >
                     {draft.published ? <Eye size={16} /> : <EyeOff size={16} />}
                   </button>
@@ -456,92 +503,113 @@ export default function MasterEditorPage() {
         </div>
       )}
 
-      {/* NAVBAR (Simplified for brevity) */}
-      <div className="relative z-10 pt-24 pb-20 px-6 lg:px-16 max-w-[1600px] mx-auto">
-        <header
-          className={`flex items-center justify-between mb-16 pb-10 relative transition-colors duration-500`}
-        >
+      {/* --- UI WRAPPER --- */}
+      <div className="relative z-10 pt-8 md:pt-16 lg:pt-24 pb-20 px-4 md:px-8 lg:px-16 max-w-[1600px] mx-auto">
+        {/* RESPONSIVE HEADER */}
+        <header className="flex flex-col xl:flex-row items-center justify-between mb-8 lg:mb-16 gap-6 relative transition-colors duration-500">
           <div
-            className="absolute bottom-[-1px] left-2 right-2 h-[2px] transition-all duration-500"
+            className="absolute bottom-[-20px] xl:bottom-[-40px] left-0 right-0 h-[2px] transition-all duration-500"
             style={{
               backgroundColor: isDark ? themeHex : "#e2e8f0",
               boxShadow: isDark ? `0 0 25px ${getThemeColor(1)}` : "none",
             }}
           />
           <h1
-            className={`text-3xl font-black uppercase tracking-[0.4em] transition-all cursor-default ${isDark ? `${themeTextClass} glitch-title` : "text-slate-900"}`}
+            className={`text-2xl md:text-3xl font-black uppercase tracking-[0.2em] md:tracking-[0.4em] transition-all cursor-default text-center xl:text-left ${isDark ? `${themeTextClass} glitch-title` : "text-slate-900"}`}
+            data-text="VibeWriter™"
           >
             VibeWriter™
           </h1>
-          <div className="flex items-center gap-3 mr-4 lg:mr-12">
+
+          <div className="flex flex-wrap justify-center gap-2 md:gap-3 w-full xl:w-auto">
             <button
               onClick={handleClear}
-              className="p-4 rounded-full bg-white/5 border border-transparent hover:border-red-900 text-slate-500 hover:text-red-500"
+              className={`p-3 md:p-4 rounded-full transition-all ${isDark ? `bg-white/5 text-slate-500 hover:text-red-500 border border-transparent hover:border-red-900` : "bg-white border text-slate-400 hover:text-red-600"}`}
             >
-              <FilePlus size={20} />
+              <FilePlus size={18} />
             </button>
             <button
               onClick={fetchDrafts}
-              className={`flex items-center gap-3 px-6 py-4 rounded-full font-bold text-xs tracking-widest bg-white/5 text-slate-300 hover:text-white border-2 border-transparent hover:border-white/20`}
+              className={`flex items-center gap-2 px-4 py-3 md:px-6 md:py-4 rounded-full transition-all uppercase font-bold text-[10px] md:text-xs tracking-widest ${isDark ? `bg-white/5 text-slate-300 hover:text-white border-2 border-transparent hover:border-white/20` : "bg-white border border-slate-200 text-slate-600 hover:text-teal-600"}`}
             >
-              {" "}
-              <Archive size={16} /> Open Archive
+              <Archive size={14} />{" "}
+              <span className="hidden sm:inline">Archive</span>
             </button>
             <button
               onClick={() => handleDatabaseAction("DRAFT")}
               disabled={isSaving || !isReady}
-              className={`p-4 rounded-full ${isDark ? `bg-white/5 ${themeTextClass} border-2 border-white/10` : "bg-white text-teal-600"}`}
+              className={`p-3 md:p-4 rounded-full transition-all ${isDark ? `bg-white/5 ${themeTextClass} border-2 border-white/10 hover:${themeBorderClass}` : "bg-white border border-slate-200 shadow-sm text-slate-500 hover:text-teal-600"}`}
             >
-              {" "}
               {isSaving ? (
-                <Loader2 size={20} className="animate-spin" />
+                <Loader2 size={18} className="animate-spin" />
               ) : (
-                <Save size={20} />
-              )}{" "}
+                <Save size={18} />
+              )}
             </button>
+            {isPublished && (
+              <button
+                onClick={() => handleDatabaseAction("UNPUBLISH")}
+                className="p-3 md:p-4 rounded-full transition-all bg-red-900/20 text-red-500 border-2 border-red-900 hover:bg-red-500 hover:text-white"
+              >
+                <Ban size={18} />
+              </button>
+            )}
             <button
               onClick={() => handleDatabaseAction("PUBLISH")}
               disabled={isSaving || !isReady}
-              className={`flex items-center gap-2 px-6 py-4 rounded-full font-black uppercase text-xs tracking-widest ${isPublished ? "bg-emerald-500/10 text-emerald-500 border-2 border-emerald-500" : `bg-black/40 ${themeBorderClass} ${themeTextClass}`}`}
+              className={`flex items-center gap-2 px-6 py-3 md:px-6 md:py-4 rounded-full transition-all font-black uppercase text-[10px] md:text-xs tracking-widest ${isPublished ? "bg-emerald-500/10 text-emerald-500 border-2 border-emerald-500" : isDark ? `bg-black/40 backdrop-blur-md ${themeBorderClass} ${themeTextClass} border-2 hover:bg-white/10 hover:scale-105` : "bg-slate-900 text-white border-transparent hover:bg-black hover:scale-105 shadow-xl"}`}
             >
-              {" "}
-              {isPublished ? <Check size={16} /> : <Send size={16} />}{" "}
+              {isPublished ? (
+                <>
+                  <span className="hidden sm:inline">Posted</span>{" "}
+                  <Check size={14} />
+                </>
+              ) : (
+                <>
+                  <span className="hidden sm:inline">Post</span>{" "}
+                  <Send size={14} />
+                </>
+              )}
             </button>
             <button
               onClick={toggleTheme}
-              className={`ml-2 p-4 rounded-full ${isDark ? `bg-white/5 ${themeTextClass}` : "bg-white text-amber-500"}`}
+              className={`p-3 md:p-4 rounded-full transition-all ${isDark ? `bg-white/5 ${themeTextClass} border-2 ${themeBorderClass}` : "bg-white border border-slate-200 text-amber-500 hover:bg-amber-50"}`}
             >
-              {" "}
-              {theme === "light" ? <Sun size={20} /> : <Cpu size={20} />}{" "}
+              {theme === "light" ? (
+                <Sun size={18} />
+              ) : theme === "teal" ? (
+                <Cpu size={18} />
+              ) : (
+                <FaHotdog size={18} />
+              )}
             </button>
           </div>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-          {/* Metadata Sidebar */}
-          <div className="lg:col-span-4 space-y-8">
+        {/* MAIN GRID */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
+          {/* SIDEBAR */}
+          <div className="lg:col-span-4 space-y-6 md:space-y-8 order-2 lg:order-1">
             <div
-              className={`p-8 rounded-[2.5rem] border-2 transition-all duration-500 ${isDark ? `bg-black/20 backdrop-blur-md ${themeBorderClass} border-opacity-60 shadow-neon-box-ultra` : "bg-white border-slate-200 shadow-sm"}`}
+              className={`p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border-2 transition-all duration-500 ${isDark ? `bg-black/20 backdrop-blur-md ${themeBorderClass} border-opacity-60 shadow-neon-box-ultra` : "bg-white border-slate-200 shadow-sm"}`}
             >
-              {/* URL & TAG & MAIN IMAGE */}
               <div className="space-y-6">
-                {/* ... (URL and Tag inputs - kept same) ... */}
-                <div className="group relative">
+                <div className="relative group">
                   <Globe
                     size={16}
-                    className={`absolute left-5 top-5 ${themeTextClass}`}
+                    className={`absolute left-5 top-5 transition-colors ${isDark ? `${themeTextClass} neon-text-glow` : "text-slate-400"}`}
                   />
                   <input
                     value={urlPath}
                     onChange={(e) => setUrlPath(e.target.value)}
                     placeholder="URL slug"
-                    className={`w-full p-4 pl-12 rounded-xl text-sm font-bold border-2 bg-black/40 border-white/10 ${themeTextClass}`}
+                    className={`w-full p-4 pl-12 rounded-xl text-sm font-bold outline-none border-2 transition-all ${isDark ? `bg-transparent border-white/10 focus:${themeBorderClass} theme-input` : "bg-slate-50 border-slate-200"}`}
                   />
                 </div>
                 <select
                   value={tag}
                   onChange={(e) => setTag(e.target.value)}
-                  className={`w-full p-4 rounded-xl text-sm font-black border-2 bg-black/40 border-white/10 ${themeTextClass}`}
+                  className={`w-full p-4 rounded-xl text-sm font-black outline-none border-2 transition-all ${isDark ? `bg-transparent border-white/10 focus:${themeBorderClass} theme-input` : "bg-slate-50 border-slate-200"}`}
                 >
                   {CATEGORIES.map((c) => (
                     <option key={c} value={c} className="bg-black text-white">
@@ -549,33 +617,24 @@ export default function MasterEditorPage() {
                     </option>
                   ))}
                 </select>
-
-                {/* Main Image */}
-                <div className="group relative flex items-center gap-2">
+                <div className="flex items-center gap-2">
                   <div className="relative flex-grow">
                     <ImageIcon
                       size={16}
-                      className={`absolute left-5 top-5 ${themeTextClass}`}
+                      className={`absolute left-5 top-5 ${isDark ? themeTextClass : "text-slate-400"}`}
                     />
                     <input
                       value={images.main}
                       onChange={(e) =>
                         setImages({ ...images, main: e.target.value })
                       }
-                      placeholder="Hero Image URL (Always Full Width)"
-                      className={`w-full p-4 pl-12 rounded-xl text-[10px] font-mono border-2 bg-black/40 border-white/10 ${themeTextClass}`}
+                      placeholder="Hero URL"
+                      className={`w-full p-4 pl-12 rounded-xl text-[10px] font-mono outline-none border-2 transition-all ${isDark ? `bg-transparent border-white/10 focus:${themeBorderClass} theme-input` : "bg-slate-50 border-slate-200"}`}
                     />
                   </div>
-                  <input
-                    type="file"
-                    ref={fileInputRefs.main}
-                    onChange={(e) => handleFileUpload(e, "main")}
-                    className="hidden"
-                    accept="image/*"
-                  />
                   <button
                     onClick={() => fileInputRefs.main.current.click()}
-                    className="p-4 rounded-xl border-2 bg-white/5 border-white/10 text-slate-400 hover:text-white"
+                    className={`p-4 rounded-xl border-2 ${isDark ? `bg-transparent border-white/10 hover:${themeBorderClass} text-slate-400 hover:text-white` : "bg-slate-100 border-slate-200"}`}
                   >
                     {uploadingSlot === "main" ? (
                       <Loader2 size={20} className="animate-spin" />
@@ -583,43 +642,89 @@ export default function MasterEditorPage() {
                       <Upload size={20} />
                     )}
                   </button>
+                  <input
+                    type="file"
+                    ref={fileInputRefs.main}
+                    onChange={(e) => handleFileUpload(e, "main")}
+                    className="hidden"
+                    accept="image/*"
+                  />
                 </div>
               </div>
             </div>
 
-            {/* --- CONFIGURABLE IMAGES SECTION --- */}
+            {/* 🗄️ RECENT ASSETS LIBRARY */}
+            <div className="p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border-2 border-white/5 bg-white/5 backdrop-blur-md">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40">
+                  Recent Assets
+                </h3>
+                <button
+                  onClick={fetchRecentAssets}
+                  className="text-white/20 hover:text-teal-400 transition-colors"
+                >
+                  <RefreshCw
+                    size={12}
+                    className={uploadingSlot ? "animate-spin" : ""}
+                  />
+                </button>
+              </div>
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 md:gap-3">
+                {recentAssets.length > 0 ? (
+                  recentAssets.map((asset) => {
+                    const publicUrl = supabase.storage
+                      .from("blog-images")
+                      .getPublicUrl(asset.name).data.publicUrl;
+                    return (
+                      <button
+                        key={asset.name}
+                        onClick={() => insertImageToEditor("img2", publicUrl)}
+                        className="aspect-square rounded-lg border border-white/10 overflow-hidden hover:border-teal-400 transition-all group relative bg-black/40"
+                      >
+                        <img
+                          src={publicUrl}
+                          className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity"
+                          alt="asset"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-teal-500/20">
+                          <FilePlus size={16} className="text-white" />
+                        </div>
+                      </button>
+                    );
+                  })
+                ) : (
+                  <div className="col-span-4 py-8 text-center border border-dashed border-white/10 rounded-xl">
+                    <p className="text-[9px] uppercase tracking-widest opacity-20 font-bold">
+                      No Assets Found
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* ASSET ENGINE */}
             <div
-              className={`p-8 rounded-[2.5rem] border-2 transition-all duration-500 ${isDark ? `bg-black/20 backdrop-blur-md ${themeBorderClass} border-opacity-40 shadow-neon-box-intense` : "bg-white border-slate-200"}`}
+              className={`p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border-2 transition-all duration-500 ${isDark ? `bg-black/20 backdrop-blur-md ${themeBorderClass} border-opacity-40 shadow-neon-box-intense` : "bg-white border-slate-200"}`}
             >
               <h3
                 className={`font-black uppercase tracking-[0.2em] text-[10px] mb-4 ${isDark ? "text-white/50" : "text-slate-400"}`}
               >
-                Configurable Assets
+                Config Assets
               </h3>
               <div className="space-y-6">
                 {["img2", "img3", "img4", "img5"].map((key, index) => (
                   <div
                     key={key}
-                    className="flex flex-col gap-2 p-3 rounded-xl border border-white/5 bg-black/20"
+                    className="flex flex-col gap-2 p-3 rounded-xl border border-white/5 bg-black/10"
                   >
-                    {/* Top Row: Input + Upload + Copy */}
                     <div className="flex items-center gap-2">
-                      <div className="relative flex-grow">
-                        <input
-                          value={images[key]}
-                          onChange={(e) =>
-                            setImages({ ...images, [key]: e.target.value })
-                          }
-                          placeholder={`Image ${index + 2} URL`}
-                          className={`w-full p-2 pr-2 rounded-lg text-[10px] font-mono border-2 bg-black/30 border-white/5 focus:${themeBorderClass} ${themeTextClass}`}
-                        />
-                      </div>
                       <input
-                        type="file"
-                        ref={fileInputRefs[key]}
-                        onChange={(e) => handleFileUpload(e, key)}
-                        className="hidden"
-                        accept="image/*"
+                        value={images[key]}
+                        onChange={(e) =>
+                          setImages({ ...images, [key]: e.target.value })
+                        }
+                        placeholder={`Img ${index + 2}`}
+                        className={`flex-grow p-2 rounded-lg text-[10px] font-mono outline-none border-2 ${isDark ? `bg-transparent border-white/5 focus:${themeBorderClass} theme-input` : "bg-slate-50 border-slate-200"}`}
                       />
                       <button
                         onClick={() => fileInputRefs[key].current.click()}
@@ -631,23 +736,35 @@ export default function MasterEditorPage() {
                           <Upload size={14} />
                         )}
                       </button>
+                      <input
+                        type="file"
+                        ref={fileInputRefs[key]}
+                        onChange={(e) => handleFileUpload(e, key)}
+                        className="hidden"
+                        accept="image/*"
+                      />
                       {images[key].length > 5 && (
-                        <button
-                          onClick={() => copyImageTag(key, images[key])}
-                          className={`p-2 rounded-lg border ${copiedTag === key ? "bg-emerald-500 text-black border-emerald-500" : "bg-white/10 text-white border-white/20"}`}
-                        >
-                          {copiedTag === key ? (
-                            <Check size={14} />
-                          ) : (
-                            <Copy size={14} />
-                          )}
-                        </button>
+                        <>
+                          <button
+                            onClick={() => insertImageToEditor(key)}
+                            className={`p-2 rounded-lg border ${isDark ? "bg-emerald-500/10 border-emerald-500/50 text-emerald-400" : "bg-emerald-50"}`}
+                          >
+                            <ArrowRightCircle size={14} />
+                          </button>
+                          <button
+                            onClick={() => copyImageTag(key, images[key])}
+                            className="p-2 rounded-lg border bg-white/5 border-white/20 text-slate-500 hover:text-white"
+                          >
+                            {copiedTag === key ? (
+                              <Check size={14} />
+                            ) : (
+                              <Copy size={14} />
+                            )}
+                          </button>
+                        </>
                       )}
                     </div>
-
-                    {/* Bottom Row: Controls (Size, Align, Display) */}
                     <div className="grid grid-cols-3 gap-2">
-                      {/* 1. SIZE */}
                       <div className="flex items-center gap-1 bg-white/5 rounded px-2 py-1">
                         <Maximize size={10} className="text-slate-500" />
                         <select
@@ -658,18 +775,16 @@ export default function MasterEditorPage() {
                           className="bg-transparent text-[9px] uppercase font-bold text-slate-300 outline-none w-full"
                         >
                           <option value="sm" className="bg-black">
-                            Small (33%)
+                            Sm
                           </option>
                           <option value="md" className="bg-black">
-                            Medium (50%)
+                            Md
                           </option>
                           <option value="lg" className="bg-black">
-                            Large (100%)
+                            Lg
                           </option>
                         </select>
                       </div>
-
-                      {/* 2. ALIGN */}
                       <div className="flex items-center gap-1 bg-white/5 rounded px-2 py-1">
                         <AlignLeft size={10} className="text-slate-500" />
                         <select
@@ -680,18 +795,16 @@ export default function MasterEditorPage() {
                           className="bg-transparent text-[9px] uppercase font-bold text-slate-300 outline-none w-full"
                         >
                           <option value="left" className="bg-black">
-                            Left
+                            L
                           </option>
                           <option value="center" className="bg-black">
-                            Center
+                            C
                           </option>
                           <option value="right" className="bg-black">
-                            Right
+                            R
                           </option>
                         </select>
                       </div>
-
-                      {/* 3. DISPLAY */}
                       <div className="flex items-center gap-1 bg-white/5 rounded px-2 py-1">
                         <Layout size={10} className="text-slate-500" />
                         <select
@@ -702,10 +815,10 @@ export default function MasterEditorPage() {
                           className="bg-transparent text-[9px] uppercase font-bold text-slate-300 outline-none w-full"
                         >
                           <option value="block" className="bg-black">
-                            Block
+                            Blk
                           </option>
                           <option value="inline" className="bg-black">
-                            Inline
+                            Inl
                           </option>
                         </select>
                       </div>
@@ -716,32 +829,36 @@ export default function MasterEditorPage() {
             </div>
           </div>
 
-          {/* Editor Workspace */}
-          <div className="lg:col-span-8 space-y-8">
+          {/* EDITOR AREA */}
+          <div className="lg:col-span-8 space-y-8 order-1 lg:order-2">
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="POST TITLE"
-              className={`w-[98%] p-4 text-4xl lg:text-6xl font-black outline-none bg-transparent transition-all tracking-tighter border-b-2 ${isDark ? `${themeBorderClass} focus:neon-text-ultra theme-input` : "text-slate-900 placeholder:text-slate-300 border-slate-200 focus:border-slate-400"}`}
+              className={`w-[98%] p-4 text-4xl md:text-5xl lg:text-6xl font-black outline-none bg-transparent transition-all tracking-tighter border-b-2 ${isDark ? `${themeBorderClass} focus:neon-text-ultra theme-input` : "text-slate-900 border-slate-200"}`}
             />
+
             <div
-              className={`relative z-50 p-4 rounded-[2rem] border-2 transition-all duration-500 ${isDark ? `bg-black/40 backdrop-blur-xl ${themeBorderClass} border-opacity-50` : "bg-white border-slate-200 shadow-sm"}`}
+              className={`p-3 md:p-4 rounded-[2rem] border-2 transition-all duration-500 relative z-20 ${isDark ? `bg-black/60 backdrop-blur-md ${themeBorderClass} border-opacity-40` : "bg-white border-slate-200"}`}
             >
-              <CustomToolbar />
+              <MemoizedToolbar />
             </div>
+
             <div
-              className={`relative z-0 rounded-[2.5rem] border-2 transition-all duration-700 overflow-hidden ${isDark ? `bg-black/30 backdrop-blur-xl ${themeBorderClass} border-opacity-40 shadow-neon-box-ultra` : "bg-white border-slate-200 shadow-xl"}`}
+              className={`relative z-10 rounded-[2rem] md:rounded-[2.5rem] border-2 transition-all duration-700 overflow-hidden ${isDark ? `bg-black/60 backdrop-blur-xl ${themeBorderClass} border-opacity-40 shadow-neon-box-ultra dark-quill` : "bg-white border-slate-200 shadow-xl light-quill"}`}
             >
               <ReactQuill
+                ref={quillRef}
                 theme="snow"
                 value={content}
                 onChange={setContent}
                 modules={modules}
-                className={`h-[500px] border-none px-8 py-8 ${isDark ? "dark-quill" : "light-quill"}`}
+                className="h-[500px] border-none px-4 md:px-8 py-6 md:py-8"
               />
             </div>
+
             <div
-              className={`p-4 rounded-xl flex items-center justify-between text-[10px] font-mono uppercase tracking-widest ${isDark ? "bg-white/5 text-slate-400" : "bg-slate-100 text-slate-500"}`}
+              className={`p-4 rounded-xl flex items-center justify-between text-[9px] md:text-[10px] font-mono uppercase tracking-widest ${isDark ? "bg-white/5 text-slate-400" : "bg-slate-100 text-slate-500"}`}
             >
               <span>
                 Status:{" "}
@@ -758,8 +875,118 @@ export default function MasterEditorPage() {
           </div>
         </div>
       </div>
+
       <style jsx global>{`
-        /* ... (Your existing Editor CSS) ... */
+        :root {
+          --theme-rgb: ${theme === "yellow" ? "250, 204, 21" : "45, 212, 191"};
+          --theme-hex: ${themeHex};
+        }
+        #toolbar {
+          display: flex;
+          flex-wrap: wrap;
+          border: none !important;
+        }
+        /* FIXED BUTTON COLORS */
+        #toolbar button,
+        #toolbar .ql-picker-label {
+          color: ${isDark ? "var(--theme-hex)" : "#475569"} !important;
+          margin-right: 0.5rem;
+          transition: all 0.2s;
+        }
+        #toolbar button:hover {
+          transform: scale(1.1);
+        }
+        /* FIXED SVG STROKE/FILL FOR ICONS */
+        #toolbar .ql-stroke {
+          stroke: ${isDark ? "var(--theme-hex)" : "#475569"} !important;
+        }
+        #toolbar .ql-fill {
+          fill: ${isDark ? "var(--theme-hex)" : "#475569"} !important;
+        }
+        /* DROPDOWN FIX - High Contrast */
+        .ql-picker-options {
+          z-index: 9999 !important;
+          background-color: ${isDark ? "#050505" : "#fff"} !important;
+          border: 1px solid var(--theme-hex) !important;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+          padding: 10px !important;
+        }
+        .ql-picker-label {
+          color: ${isDark ? "var(--theme-hex)" : "#000"} !important;
+        }
+        .ql-picker-item {
+          color: ${isDark
+            ? "#a1a1aa"
+            : "#333"} !important; /* Visible Text Color */
+          transition: all 0.2s ease;
+        }
+        .ql-picker-item:hover {
+          color: var(--theme-hex) !important;
+          font-weight: bold !important;
+        }
+        .ql-picker-item.ql-selected {
+          color: var(--theme-hex) !important;
+          font-weight: bold;
+        }
+        /* ACTIVE BUTTON STATE */
+        .ql-active .ql-stroke {
+          stroke: #fff !important;
+        }
+        .ql-active .ql-fill {
+          fill: #fff !important;
+        }
+
+        .ql-container {
+          border: none !important;
+          height: 100% !important;
+        }
+        .ql-editor {
+          font-size: 1.15rem !important;
+          line-height: 1.8 !important;
+          padding-bottom: 5rem !important;
+        }
+        .ql-editor h1 {
+          font-size: 2.5em !important;
+          font-weight: 900 !important;
+        }
+        .dark-quill .ql-editor {
+          color: rgba(var(--theme-rgb), 0.9) !important;
+          text-shadow: 0 0 10px rgba(var(--theme-rgb), 0.2);
+        }
+        .theme-input {
+          color: rgba(var(--theme-rgb), 0.9) !important;
+          text-shadow: 0 0 10px rgba(var(--theme-rgb), 0.4);
+        }
+        .neon-text-ultra {
+          text-shadow:
+            0 0 30px rgba(var(--theme-rgb), 1),
+            0 0 60px rgba(var(--theme-rgb), 0.6);
+        }
+        .shadow-neon-box-ultra {
+          box-shadow:
+            0 0 130px rgba(var(--theme-rgb), 0.25),
+            inset 0 0 40px rgba(var(--theme-rgb), 0.1);
+        }
+        .glitch-title {
+          position: relative;
+          text-shadow:
+            0.05em 0 0 rgba(255, 0, 81, 0.8),
+            -0.025em -0.05em 0 rgba(0, 255, 225, 0.8);
+          animation: glitch 4s infinite;
+        }
+        @keyframes glitch {
+          0%,
+          100% {
+            text-shadow:
+              0.05em 0 0 rgba(255, 0, 81, 0.8),
+              -0.05em -0.025em 0 rgba(0, 255, 225, 0.8);
+          }
+          50% {
+            text-shadow:
+              0.025em 0.05em 0 rgba(255, 0, 81, 0.8),
+              0.05em 0 0 rgba(0, 255, 225, 0.8);
+          }
+        }
       `}</style>
     </div>
   );
