@@ -45,10 +45,13 @@
     "three": "^0.181.2"
   },
   "browserslist": [
-    "defaults",
-    "not IE 11",
-    "not IE_Mob 11",
-    "maintained node versions"
+    "chrome >= 80",
+    "firefox >= 78",
+    "safari >= 14",
+    "edge >= 80",
+    "ios >= 14",
+    "not dead",
+    "not op_mini all"
   ],
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

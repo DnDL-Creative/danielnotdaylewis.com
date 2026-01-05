@@ -145,8 +145,8 @@ export default function ProductionManager() {
                           tab.id === "requests"
                             ? "bg-orange-500 text-white animate-pulse"
                             : isActive
-                            ? "bg-white text-slate-900"
-                            : "bg-slate-200 text-slate-500"
+                              ? "bg-white text-slate-900"
+                              : "bg-slate-200 text-slate-500"
                         }`}
                       >
                         {count}
