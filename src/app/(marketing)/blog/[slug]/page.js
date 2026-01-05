@@ -1,5 +1,3 @@
-// app/blog/[slug]/page.jsx (or wherever your file is located)
-
 import { createClient } from "../../../../utils/supabase/server";
 import { createClient as createBrowserClient } from "@supabase/supabase-js";
 import Image from "next/image";
@@ -16,7 +14,7 @@ import {
 import PopularPosts from "../../../../components/marketing/PostsWidget";
 import ViewCounter from "./ViewCounter";
 
-// --- NEW IMPORTS FOR THE HANDLER ---
+// --- PARSER IMPORT ---
 import parse, { domToReact } from "html-react-parser";
 
 // 1. STATIC PARAMS
@@ -55,40 +53,189 @@ export async function generateMetadata({ params }) {
   };
 }
 
-// --- THE ROBUST FIX: RECURSIVE TEXT FINDER ---
+// 3. THE CONTENT PARSER
 const contentParserOptions = {
   replace: (domNode) => {
-    // 1. Target Paragraphs (<p>)
     if (domNode.name === "p") {
-      // Helper function to extract text from any nested structure (spans, bold, etc.)
       const extractText = (node) => {
         if (node.type === "text") return node.data;
         if (node.children) return node.children.map(extractText).join("");
         return "";
       };
 
-      // 2. Get the clean text content of the paragraph
-      const textContent = extractText(domNode).trim();
+      const textContent = extractText(domNode);
+      const cleanText = textContent ? textContent.trim() : "";
 
-      // 3. Check if it matches the Shortcode pattern
-      if (textContent.startsWith("[[image:") && textContent.endsWith("]]")) {
-        const url = textContent.replace("[[image:", "").replace("]]", "");
+      // SHORTCODE DETECTION
+      if (cleanText.startsWith("[[") && cleanText.endsWith("]]")) {
+        const innerContent = cleanText.substring(2, cleanText.length - 2);
 
-        // 4. Return the FIGURE (Replacing the entire <p> tag)
-        return (
-          <figure className="my-8 w-full md:w-2/3 mx-auto group">
-            <img
-              src={url}
-              alt="blog-content"
-              className="rounded-xl shadow-lg w-full h-auto object-cover"
-            />
-            {/* Note: Since this is a shortcode, the caption is static here. 
-                If you want a specific caption, write it in the paragraph BELOW this code in your editor. */}
-            <figcaption className="text-center text-sm text-gray-500 mt-2 font-mono tracking-wide uppercase">
-              Write Caption Here
-            </figcaption>
-          </figure>
-        );
+        // --- A. VIDEO MODE ---
+        if (innerContent.startsWith("video:")) {
+          const rawUrl = innerContent.replace("video:", "").trim();
+          let embedUrl = rawUrl;
+
+          // Convert YouTube to Embed
+          if (rawUrl.includes("youtube.com") || rawUrl.includes("youtu.be")) {
+            const videoId =
+              rawUrl.split("v=")[1]?.split("&")[0] || rawUrl.split("/").pop();
+            embedUrl = `https://www.youtube.com/embed/${videoId}`;
+          }
+          // Convert Vimeo to Embed
+          else if (rawUrl.includes("vimeo.com")) {
+            const videoId = rawUrl.split("/").pop();
+            embedUrl = `https://player.vimeo.com/video/${videoId}`;
+          }
+
+          return (
+            <figure className="my-10 w-full md:w-2/3 mx-auto clear-both">
+              <div className="relative aspect-video rounded-xl overflow-hidden shadow-2xl bg-black border border-teal-500/20">
+                <iframe
+                  src={embedUrl}
+                  className="absolute inset-0 w-full h-full"
+                  allowFullScreen
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  title="Embedded Video"
+                />
+              </div>
+            </figure>
+          );
+        }
+
+        // --- B. AUDIO MODE ---
+        if (innerContent.startsWith("audio:")) {
+          const rawUrl = innerContent.replace("audio:", "").trim();
+
+          // Spotify Embed
+          if (rawUrl.includes("open.spotify.com")) {
+            // Convert standard link to embed link if needed, or assume embed code logic
+            // Simple approach: trust the iframe src logic or transform if needed
+            // e.g. open.spotify.com/track/XYZ -> open.spotify.com/embed/track/XYZ
+            let embedUrl = rawUrl;
+            if (!rawUrl.includes("/embed/")) {
+              embedUrl = rawUrl.replace(".com/", ".com/embed/");
+            }
+
+            return (
+              <figure className="my-8 w-full md:w-2/3 mx-auto clear-both">
+                <iframe
+                  style={{ borderRadius: "12px" }}
+                  src={embedUrl}
+                  width="100%"
+                  height="152"
+                  frameBorder="0"
+                  allowFullScreen=""
+                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                  loading="lazy"
+                />
+              </figure>
+            );
+          }
+
+          // Native Audio (Supabase/MP3)
+          return (
+            <figure className="my-8 w-full md:w-2/3 mx-auto clear-both">
+              <audio
+                controls
+                className="w-full border border-teal-500/20 rounded-full bg-slate-100 dark:bg-slate-900"
+                src={rawUrl}
+              >
+                Your browser does not support the audio element.
+              </audio>
+            </figure>
+          );
+        }
+
+        // --- C. GALLERY MODE (Duo/Trio) ---
+        if (
+          innerContent.startsWith("duo:") ||
+          innerContent.startsWith("trio:")
+        ) {
+          const type = innerContent.startsWith("duo:") ? "duo" : "trio";
+          const content = innerContent.replace(`${type}:`, "");
+          const [urlsPart, ...params] = content.split("|caption=");
+
+          let caption = params.length ? params[0].trim() : null;
+          if (caption === "") caption = null;
+
+          const urls = urlsPart.split("|");
+          const gridCols = type === "duo" ? "md:grid-cols-2" : "md:grid-cols-3";
+
+          return (
+            <figure className="my-10 w-full clear-both">
+              <div className={`grid grid-cols-1 ${gridCols} gap-4`}>
+                {urls.map((u, i) => (
+                  // FIXED: aspect-[2/3] for vertical rigid look, block class for spacing
+                  <div
+                    key={i}
+                    className="rounded-xl overflow-hidden shadow-lg relative aspect-[2/3] bg-gray-100"
+                  >
+                    <img
+                      src={u.trim()}
+                      className="block w-full h-full object-cover !m-0 !p-0"
+                      alt="gallery"
+                      loading="lazy"
+                    />
+                  </div>
+                ))}
+              </div>
+              {caption && (
+                <figcaption className="mt-3 text-center text-xs text-slate-500 font-mono tracking-widest uppercase">
+                  {caption}
+                </figcaption>
+              )}
+            </figure>
+          );
+        }
+
+        // --- D. SINGLE IMAGE MODE ---
+        if (innerContent.startsWith("image:")) {
+          const parts = innerContent.replace("image:", "").split("|");
+          let url = parts[0].trim();
+          let sizeClass = "w-full md:w-2/3";
+          let alignClass = "mx-auto";
+          let caption = null;
+
+          parts.slice(1).forEach((part) => {
+            const [key, val] = part.split("=").map((s) => (s ? s.trim() : ""));
+            if (key === "size") {
+              if (val === "small") sizeClass = "w-full md:w-1/3";
+              if (val === "medium") sizeClass = "w-full md:w-1/2";
+              if (val === "large") sizeClass = "w-full md:w-2/3";
+              if (val === "full") sizeClass = "w-full";
+            }
+            if (key === "align") {
+              if (val === "left")
+                alignClass = "float-left mr-8 mb-4 clear-left";
+              if (val === "right")
+                alignClass = "float-right ml-8 mb-4 clear-right";
+              if (val === "center") alignClass = "mx-auto block clear-both";
+            }
+            if (key === "caption") {
+              if (val.length > 0) caption = val;
+            }
+          });
+
+          return (
+            <figure
+              className={`my-8 group relative ${alignClass} ${sizeClass}`}
+            >
+              <div className="rounded-xl overflow-hidden shadow-2xl leading-none">
+                <img
+                  src={url}
+                  alt={caption || "blog"}
+                  className="block w-full h-auto object-cover !m-0 !p-0"
+                  loading="lazy"
+                />
+              </div>
+              {caption && (
+                <figcaption className="mt-3 text-center text-xs text-slate-500 font-mono tracking-widest uppercase">
+                  {caption}
+                </figcaption>
+              )}
+            </figure>
+          );
+        }
       }
     }
   },
@@ -138,7 +285,6 @@ export default async function BlogPost({ params }) {
           {/* MAIN HERO IMAGE */}
           <figure className="relative w-full mb-6 group md:max-w-4xl md:mx-auto">
             <div className="relative w-full aspect-video rounded-xl md:rounded-2xl overflow-hidden shadow-2xl shadow-indigo-900/10 border-4 border-white">
-              {/* Ensure you have this domain in next.config.js for this to work */}
               <Image
                 src={post.image}
                 alt={post.title}
@@ -186,10 +332,8 @@ export default async function BlogPost({ params }) {
 
       {/* --- MAIN CONTENT WITH PARSER --- */}
       <article className="max-w-4xl mx-auto px-4 md:px-6 py-4 md:py-8 animate-fade-in">
-        {/* We replaced dangerouslySetInnerHTML with the parse function.
-            We also added specific CSS overrides for the prose class. 
-        */}
-        <div className="blog-content prose prose-lg prose-slate max-w-none mx-auto prose-img:rounded-xl prose-headings:text-teal-900 prose-a:text-indigo-600">
+        {/* ADDED flow-root HERE: This forces the div to contain all floated children */}
+        <div className="blog-content flow-root prose prose-lg prose-slate max-w-none mx-auto prose-img:rounded-xl prose-headings:text-teal-900 prose-a:text-indigo-600">
           {post.content ? (
             parse(post.content, contentParserOptions)
           ) : (
@@ -201,7 +345,8 @@ export default async function BlogPost({ params }) {
       </article>
 
       {/* --- POPULAR POSTS WIDGET --- */}
-      <div className="w-full px-4 md:px-6 py-16">
+      {/* ADDED clear-both HERE: Forces this widget to start below any floated images */}
+      <div className="w-full px-4 md:px-6 py-16 clear-both">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center gap-4 mb-12">
             <div className="h-px bg-slate-200 flex-1" />

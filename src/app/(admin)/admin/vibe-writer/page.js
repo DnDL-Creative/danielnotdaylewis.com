@@ -1,18 +1,15 @@
 "use client";
 
-import React, { useState, useEffect, Suspense, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import { createClient } from "@/src/utils/supabase/client";
 import {
-  Image as ImageIcon,
   Globe,
   Copy,
   Check,
   Sun,
   Save,
-  Send,
   Ban,
-  RefreshCw,
   CloudDownload,
   X,
   FilePlus,
@@ -21,10 +18,6 @@ import {
   EyeOff,
   Upload,
   Loader2,
-  Layout,
-  AlignLeft,
-  Maximize,
-  ArrowRightCircle,
   Cpu,
   Zap,
   Flame,
@@ -33,16 +26,17 @@ import {
   Type,
   Database,
   Terminal,
-  Code, // --- NEW IMPORT FOR THE BUTTON ICON
 } from "lucide-react";
 import { FaHotdog } from "react-icons/fa6";
 import { Canvas } from "@react-three/fiber";
 
 // --- IMPORTS ---
-import VibeEditor from "@/src/components/write/VibeEditor";
+import VibeEditor from "@/src/components/vibe-writer/VibeEditor";
+import VibeImageStudio from "@/src/components/vibe-writer/VibeImageStudio";
+import AssetSidebar from "@/src/components/vibe-writer/AssetSidebar";
 
 const DystopianSnow = dynamic(
-  () => import("@/src/components/write/DystopianSnow"),
+  () => import("@/src/components/vibe-writer/DystopianSnow"),
   { ssr: false }
 );
 
@@ -57,17 +51,14 @@ const CATEGORIES = [
   "Production",
 ];
 
-// --- HELPER: Sanitize Filenames ---
 const sanitize = (name) => name.replace(/[^a-z0-9.]/gi, "-").toLowerCase();
 
 export default function MasterEditorPage() {
-  // --- STATE ---
   const [postId, setPostId] = useState(null);
   const [isPublished, setIsPublished] = useState(false);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState(null);
 
-  // Metadata State
   const [urlPath, setUrlPath] = useState("");
   const [tag, setTag] = useState("Life");
   const [date, setDate] = useState("");
@@ -88,6 +79,11 @@ export default function MasterEditorPage() {
   const [showSqlModal, setShowSqlModal] = useState(false);
   const [generatedSql, setGeneratedSql] = useState("");
 
+  // --- STUDIO STATE ---
+  const [showStudio, setShowStudio] = useState(false);
+  const [studioImage, setStudioImage] = useState("");
+  const [studioInitialTab, setStudioInitialTab] = useState("layout");
+
   const [availableDrafts, setAvailableDrafts] = useState([]);
   const [recentAssets, setRecentAssets] = useState([]);
   const [uploadingSlot, setUploadingSlot] = useState(null);
@@ -96,7 +92,6 @@ export default function MasterEditorPage() {
   const isDark = theme !== "light";
   const [vibeMode, setVibeMode] = useState("glitch");
 
-  // Helpers for theme styling
   const themeHex = theme === "yellow" ? "#facc15" : "#2dd4bf";
   const themeTextClass =
     theme === "yellow" ? "text-yellow-400" : "text-teal-400";
@@ -104,16 +99,6 @@ export default function MasterEditorPage() {
     theme === "yellow" ? "border-yellow-500" : "border-teal-500";
   const sceneBgColor = theme === "yellow" ? "#1a0500" : "#02020a";
 
-  const fileInputRefs = {
-    main: useRef(null),
-    img2: useRef(null),
-    img3: useRef(null),
-    img4: useRef(null),
-    img5: useRef(null),
-    img6: useRef(null),
-  };
-
-  // --- INIT & ASSETS ---
   const fetchRecentAssets = async () => {
     const { data } = await supabase.storage.from("blog-images").list("", {
       limit: 12,
@@ -140,7 +125,6 @@ export default function MasterEditorPage() {
 
   const isReady = title.length > 2;
 
-  // --- ACTIONS ---
   const handleClear = () => {
     if (confirm("Are you sure? This will clear everything.")) {
       setPostId(null);
@@ -159,69 +143,32 @@ export default function MasterEditorPage() {
   const copyToClipboard = (text) => {
     if (!text) return;
     navigator.clipboard.writeText(text);
-    alert("URL Copied!");
+    alert("Copied!");
   };
 
-  // --- UPDATED: COPY BUTTON ---
-  // We copy a shortcode instead of raw HTML to prevent the editor from escaping it.
-  const copyHtmlTag = (url) => {
-    if (!url) return;
-    const shortcode = `[[image:${url}]]`;
-    navigator.clipboard.writeText(shortcode);
-    alert("Image Code Copied! Paste into editor.");
+  // --- STUDIO HANDLERS ---
+  const openStudio = (url, initialMode = "layout") => {
+    // Allow opening audio/video modes without an image
+    if (!url && initialMode === "layout")
+      return alert("Upload an image first!");
+
+    setStudioImage(url || "");
+    setStudioInitialTab(initialMode);
+    setShowStudio(true);
   };
 
-  // --- SQL GENERATOR FUNCTION ---
+  const handleStudioGenerate = (code) => {
+    navigator.clipboard.writeText(code);
+    setShowStudio(false);
+    alert("Code Copied! Paste into editor.");
+  };
+
   const generateAndShowSql = () => {
     const escape = (str) => (str ? str.replace(/'/g, "''") : "");
-
     const sql = `
-INSERT INTO posts (
-  title, 
-  slug, 
-  date, 
-  author, 
-  tag, 
-  image, 
-  image_2, 
-  image_3, 
-  image_4, 
-  image_5, 
-  image_6,
-  image_caption, 
-  content, 
-  published
-) VALUES (
-  '${escape(title)}',
-  '${escape(urlPath)}',
-  '${date}',
-  '${escape(author)}',
-  '${escape(tag)}',
-  '${images.main}',
-  '${images.img2}',
-  '${images.img3}',
-  '${images.img4}',
-  '${images.img5}',
-  '${images.img6}',
-  '${escape(imageCaption)}',
-  '${escape(content)}',
-  ${isPublished}
-)
-ON CONFLICT (slug) DO UPDATE SET
-  title = EXCLUDED.title,
-  content = EXCLUDED.content,
-  image = EXCLUDED.image,
-  image_2 = EXCLUDED.image_2,
-  image_3 = EXCLUDED.image_3,
-  image_4 = EXCLUDED.image_4,
-  image_5 = EXCLUDED.image_5,
-  image_6 = EXCLUDED.image_6,
-  image_caption = EXCLUDED.image_caption,
-  author = EXCLUDED.author,
-  tag = EXCLUDED.tag,
-  published = EXCLUDED.published;
-    `.trim();
-
+INSERT INTO posts (title, slug, date, author, tag, image, image_2, image_3, image_4, image_5, image_6, image_caption, content, published) 
+VALUES ('${escape(title)}', '${escape(urlPath)}', '${date}', '${escape(author)}', '${escape(tag)}', '${images.main}', '${images.img2}', '${images.img3}', '${images.img4}', '${images.img5}', '${images.img6}', '${escape(imageCaption)}', '${escape(content)}', ${isPublished})
+ON CONFLICT (slug) DO UPDATE SET title = EXCLUDED.title, content = EXCLUDED.content, image = EXCLUDED.image, image_2 = EXCLUDED.image_2, image_3 = EXCLUDED.image_3, image_4 = EXCLUDED.image_4, image_5 = EXCLUDED.image_5, image_6 = EXCLUDED.image_6, image_caption = EXCLUDED.image_caption, author = EXCLUDED.author, tag = EXCLUDED.tag, published = EXCLUDED.published;`.trim();
     setGeneratedSql(sql);
     setShowSqlModal(true);
   };
@@ -326,38 +273,25 @@ ON CONFLICT (slug) DO UPDATE SET
     }
   };
 
-  // --- UPLOAD LOGIC ---
   const handleFileUpload = async (e, slotKey) => {
     const file = e.target.files[0];
     if (!file) return;
-
     if (!urlPath)
       return alert("Please enter a Title to generate a slug first.");
-
     setUploadingSlot(slotKey);
     try {
       const cleanName = sanitize(file.name);
-      let filePath = "";
-
-      // 1. Determine Folder Path
-      if (slotKey === "main") {
-        filePath = `${urlPath}/hero/${cleanName}`;
-      } else {
-        filePath = `${urlPath}/content-images/${cleanName}`;
-      }
-
-      // 2. Upload
+      let filePath =
+        slotKey === "main"
+          ? `${urlPath}/hero/${cleanName}`
+          : `${urlPath}/content-images/${cleanName}`;
       const { error } = await supabase.storage
         .from("blog-images")
         .upload(filePath, file, { upsert: true });
       if (error) throw error;
-
-      // 3. Get URL
       const {
         data: { publicUrl },
       } = supabase.storage.from("blog-images").getPublicUrl(filePath);
-
-      // 4. Set State
       setImages((prev) => ({ ...prev, [slotKey]: publicUrl }));
       fetchRecentAssets();
     } catch (error) {
@@ -367,40 +301,30 @@ ON CONFLICT (slug) DO UPDATE SET
     }
   };
 
-  const toggleTheme = () => {
+  const toggleTheme = () =>
     setTheme((prev) =>
       prev === "light" ? "teal" : prev === "teal" ? "yellow" : "light"
     );
-  };
-
-  const toggleVibeMode = () => {
+  const toggleVibeMode = () =>
     setVibeMode((prev) => (prev === "glitch" ? "sexy" : "glitch"));
-  };
+  const handleLexicalChange = (htmlString) => setContent(htmlString);
 
-  // --- IMPORTANT: Handles raw HTML string from editor ---
-  const handleLexicalChange = (htmlString) => {
-    setContent(htmlString);
-  };
-
-  const getTitleClass = () => {
-    if (theme === "yellow")
-      return "text-yellow-400 border-yellow-500 placeholder:text-yellow-400/50";
-    if (theme === "light")
-      return "text-blue-600 border-slate-300 placeholder:text-blue-600/50";
-    return "text-teal-400 border-teal-500 placeholder:text-teal-400/50";
-  };
-
-  const getBtnBase = () => {
-    if (!isDark)
-      return "bg-white border border-slate-200 text-slate-500 hover:bg-slate-50";
-    return "bg-white/5 border border-transparent hover:bg-white/10 text-slate-300 hover:text-white";
-  };
-
-  const getHeaderTitleClass = () => {
-    if (!isDark) return "text-slate-900";
-    if (vibeMode === "sexy") return "sexy-text";
-    return "glitch-text";
-  };
+  const getTitleClass = () =>
+    theme === "yellow"
+      ? "text-yellow-400 border-yellow-500 placeholder:text-yellow-400/50"
+      : theme === "light"
+        ? "text-blue-600 border-slate-300 placeholder:text-blue-600/50"
+        : "text-teal-400 border-teal-500 placeholder:text-teal-400/50";
+  const getBtnBase = () =>
+    !isDark
+      ? "bg-white border border-slate-200 text-slate-500 hover:bg-slate-50"
+      : "bg-white/5 border border-transparent hover:bg-white/10 text-slate-300 hover:text-white";
+  const getHeaderTitleClass = () =>
+    !isDark
+      ? "text-slate-900"
+      : vibeMode === "sexy"
+        ? "sexy-text"
+        : "glitch-text";
 
   return (
     <div
@@ -418,6 +342,23 @@ ON CONFLICT (slug) DO UPDATE SET
           </Suspense>
         </div>
       )}
+
+      {/* --- VIBE IMAGE STUDIO OVERLAY --- */}
+      <VibeImageStudio
+        isOpen={showStudio}
+        onClose={() => setShowStudio(false)}
+        imageUrl={studioImage}
+        availableImages={[
+          images.main,
+          images.img2,
+          images.img3,
+          images.img4,
+          images.img5,
+          images.img6,
+        ].filter(Boolean)}
+        onGenerateCode={handleStudioGenerate}
+        initialTab={studioInitialTab}
+      />
 
       {/* --- SQL MODAL --- */}
       {showSqlModal && (
@@ -457,8 +398,7 @@ ON CONFLICT (slug) DO UPDATE SET
               </div>
             </div>
             <p className="mt-4 text-[10px] text-slate-500 font-mono text-center">
-              WARNING: This executes a raw INSERT/UPDATE. It will overwrite
-              database fields for this slug.
+              WARNING: This executes a raw INSERT/UPDATE.
             </p>
           </div>
         </div>
@@ -540,7 +480,6 @@ ON CONFLICT (slug) DO UPDATE SET
           >
             VibeWriter™
           </h1>
-
           <div className="flex gap-3">
             {isDark && (
               <button
@@ -569,7 +508,6 @@ ON CONFLICT (slug) DO UPDATE SET
             >
               <Archive size={14} />
             </button>
-
             <button
               onClick={generateAndShowSql}
               className={`px-4 py-4 rounded-full font-bold uppercase text-xs tracking-widest transition-all border border-blue-500/30 text-blue-400 bg-blue-900/10 hover:bg-blue-500 hover:text-white flex items-center gap-2`}
@@ -577,7 +515,6 @@ ON CONFLICT (slug) DO UPDATE SET
             >
               <Database size={14} /> SQL
             </button>
-
             <button
               onClick={() => handleDatabaseAction("DRAFT")}
               className={`p-4 rounded-full transition-all ${getBtnBase()}`}
@@ -616,13 +553,13 @@ ON CONFLICT (slug) DO UPDATE SET
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-          {/* SIDEBAR METADATA BOX */}
+          {/* SIDEBAR METADATA BOX - NEW COMPONENT */}
           <div className="lg:col-span-4 space-y-8 order-2 lg:order-1">
             <div
               className={`p-8 rounded-[2.5rem] border-2 ${isDark ? `bg-black/20 backdrop-blur-md ${themeBorderClass} border-opacity-60` : "bg-white border-slate-200"}`}
             >
               <div className="space-y-6">
-                {/* 1. Date & Author */}
+                {/* Basic Metadata Inputs (Date, Author, Slug, Tag) */}
                 <div className="flex gap-2">
                   <div className="relative flex-1">
                     <Calendar
@@ -650,8 +587,6 @@ ON CONFLICT (slug) DO UPDATE SET
                     />
                   </div>
                 </div>
-
-                {/* 2. URL Slug */}
                 <div className="relative">
                   <Globe
                     size={14}
@@ -664,8 +599,6 @@ ON CONFLICT (slug) DO UPDATE SET
                     className={`w-full p-3 pl-10 rounded-xl text-xs font-bold bg-transparent border-2 outline-none ${isDark ? "border-white/10 focus:border-teal-500 text-white placeholder-slate-600" : "border-slate-200 text-slate-800 placeholder-slate-400"}`}
                   />
                 </div>
-
-                {/* 3. Category/Tag */}
                 <select
                   value={tag}
                   onChange={(e) => setTag(e.target.value)}
@@ -677,59 +610,7 @@ ON CONFLICT (slug) DO UPDATE SET
                     </option>
                   ))}
                 </select>
-
-                {/* 4. Main Image (Hero) */}
-                <div className="flex gap-2">
-                  <div className="relative flex-grow">
-                    <ImageIcon
-                      size={14}
-                      className={`absolute left-4 top-4 ${isDark ? "text-slate-500" : "text-slate-400"}`}
-                    />
-                    <input
-                      value={images.main}
-                      onChange={(e) =>
-                        setImages({ ...images, main: e.target.value })
-                      }
-                      placeholder="Hero Image URL"
-                      className={`w-full p-3 pl-10 bg-transparent border-2 rounded-xl outline-none text-[10px] font-mono ${isDark ? "border-white/10 text-white placeholder-slate-600" : "border-slate-200 text-slate-800 placeholder-slate-400"}`}
-                    />
-                  </div>
-                  {/* Copy Button */}
-                  <button
-                    onClick={() => copyToClipboard(images.main)}
-                    className={`p-3 rounded-xl border-2 ${isDark ? "border-white/10 hover:bg-white/5" : "border-slate-200 hover:bg-slate-50"}`}
-                    title="Copy URL"
-                  >
-                    <Copy size={16} />
-                  </button>
-                  {/* NEW: Copy HTML Code Button */}
-                  <button
-                    onClick={() => copyHtmlTag(images.main)}
-                    className={`p-3 rounded-xl border-2 ${isDark ? "border-white/10 hover:bg-white/5" : "border-slate-200 hover:bg-slate-50"}`}
-                    title="Copy HTML Tag"
-                  >
-                    <Code size={16} />
-                  </button>
-                  {/* Upload Button */}
-                  <button
-                    onClick={() => fileInputRefs.main.current.click()}
-                    className={`p-3 rounded-xl border-2 ${isDark ? "border-white/10 hover:bg-white/5" : "border-slate-200 hover:bg-slate-50"}`}
-                  >
-                    {uploadingSlot === "main" ? (
-                      <Loader2 size={16} className="animate-spin" />
-                    ) : (
-                      <Upload size={16} />
-                    )}
-                  </button>
-                  <input
-                    type="file"
-                    ref={fileInputRefs.main}
-                    onChange={(e) => handleFileUpload(e, "main")}
-                    className="hidden"
-                  />
-                </div>
-
-                {/* 5. Image Caption */}
+                {/* Caption for Hero */}
                 <div className="relative">
                   <Type
                     size={14}
@@ -745,60 +626,14 @@ ON CONFLICT (slug) DO UPDATE SET
               </div>
             </div>
 
-            {/* ASSET MANAGER */}
-            <div
-              className={`p-8 rounded-[2.5rem] border-2 ${isDark ? "bg-black/20 " + themeBorderClass : "bg-white border-slate-200"}`}
-            >
-              <h3
-                className={`font-black uppercase text-[10px] opacity-40 mb-4 ${isDark ? "text-white" : "text-slate-500"}`}
-              >
-                Content Assets
-              </h3>
-              {["img2", "img3", "img4", "img5", "img6"].map((key, i) => (
-                <div key={key} className="flex gap-2 mb-2">
-                  <input
-                    value={images[key]}
-                    placeholder={`Image ${i + 2}`}
-                    className={`flex-grow p-2 bg-transparent border rounded text-[10px] ${isDark ? "border-white/10 text-white" : "border-slate-200 text-slate-800"}`}
-                    readOnly
-                  />
-                  <button
-                    onClick={() => copyToClipboard(images[key])}
-                    className={`p-2 border rounded ${isDark ? "border-white/10 hover:bg-white/5" : "border-slate-200 hover:bg-slate-50"}`}
-                    title="Copy URL"
-                  >
-                    <Copy size={12} />
-                  </button>
-                  {/* NEW: Copy HTML Code Button */}
-                  <button
-                    onClick={() => copyHtmlTag(images[key])}
-                    className={`p-2 border rounded ${isDark ? "border-white/10 hover:bg-white/5" : "border-slate-200 hover:bg-slate-50"}`}
-                    title="Copy HTML Tag"
-                  >
-                    <Code size={12} />
-                  </button>
-                  <button
-                    onClick={() => fileInputRefs[key].current.click()}
-                    className={`p-2 border rounded ${isDark ? "border-white/10 hover:bg-white/5" : "border-slate-200 hover:bg-slate-50"}`}
-                  >
-                    {uploadingSlot === key ? (
-                      <Loader2 size={12} className="animate-spin" />
-                    ) : (
-                      <Upload size={12} />
-                    )}
-                  </button>
-                  <input
-                    type="file"
-                    ref={fileInputRefs[key]}
-                    onChange={(e) => handleFileUpload(e, key)}
-                    className="hidden"
-                  />
-                </div>
-              ))}
-              <p className="text-[9px] opacity-30 mt-4 text-center">
-                Drag & Drop assets coming to V2 Core
-              </p>
-            </div>
+            {/* ASSET SIDEBAR COMPONENT */}
+            <AssetSidebar
+              images={images}
+              onUpload={handleFileUpload}
+              onOpenStudio={openStudio}
+              uploadingSlot={uploadingSlot}
+              isDark={isDark}
+            />
           </div>
 
           <div className="lg:col-span-8 space-y-8 order-1 lg:order-2">
