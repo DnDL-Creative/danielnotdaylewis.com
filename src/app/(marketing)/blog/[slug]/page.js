@@ -1,3 +1,5 @@
+// app/blog/[slug]/page.jsx (or wherever your file is located)
+
 import { createClient } from "../../../../utils/supabase/server";
 import { createClient as createBrowserClient } from "@supabase/supabase-js";
 import Image from "next/image";
@@ -9,12 +11,13 @@ import {
   ChevronLeft,
   ArrowRight,
   Clock,
-  AlignLeft,
-  Eye,
   Mail,
 } from "lucide-react";
 import PopularPosts from "../../../../components/marketing/PostsWidget";
 import ViewCounter from "./ViewCounter";
+
+// --- NEW IMPORTS FOR THE HANDLER ---
+import parse, { domToReact } from "html-react-parser";
 
 // 1. STATIC PARAMS
 export async function generateStaticParams() {
@@ -22,7 +25,6 @@ export async function generateStaticParams() {
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   );
-
   const { data: posts } = await supabase.from("posts").select("slug");
   return posts?.map(({ slug }) => ({ slug })) || [];
 }
@@ -30,21 +32,17 @@ export async function generateStaticParams() {
 // 2. DYNAMIC METADATA
 export async function generateMetadata({ params }) {
   const { slug } = await params;
-
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   );
-
   const { data: post } = await supabase
     .from("posts")
     .select("title, tag")
     .eq("slug", slug)
     .single();
 
-  if (!post) {
-    return { title: "Post Not Found" };
-  }
+  if (!post) return { title: "Post Not Found" };
 
   return {
     title: post.title,
@@ -57,7 +55,46 @@ export async function generateMetadata({ params }) {
   };
 }
 
-// 3. BLOG POST COMPONENT
+// --- THE ROBUST FIX: RECURSIVE TEXT FINDER ---
+const contentParserOptions = {
+  replace: (domNode) => {
+    // 1. Target Paragraphs (<p>)
+    if (domNode.name === "p") {
+      // Helper function to extract text from any nested structure (spans, bold, etc.)
+      const extractText = (node) => {
+        if (node.type === "text") return node.data;
+        if (node.children) return node.children.map(extractText).join("");
+        return "";
+      };
+
+      // 2. Get the clean text content of the paragraph
+      const textContent = extractText(domNode).trim();
+
+      // 3. Check if it matches the Shortcode pattern
+      if (textContent.startsWith("[[image:") && textContent.endsWith("]]")) {
+        const url = textContent.replace("[[image:", "").replace("]]", "");
+
+        // 4. Return the FIGURE (Replacing the entire <p> tag)
+        return (
+          <figure className="my-8 w-full md:w-2/3 mx-auto group">
+            <img
+              src={url}
+              alt="blog-content"
+              className="rounded-xl shadow-lg w-full h-auto object-cover"
+            />
+            {/* Note: Since this is a shortcode, the caption is static here. 
+                If you want a specific caption, write it in the paragraph BELOW this code in your editor. */}
+            <figcaption className="text-center text-sm text-gray-500 mt-2 font-mono tracking-wide uppercase">
+              Write Caption Here
+            </figcaption>
+          </figure>
+        );
+      }
+    }
+  },
+};
+
+// 4. BLOG POST COMPONENT
 export default async function BlogPost({ params }) {
   const { slug } = await params;
   const supabase = await createClient();
@@ -85,7 +122,7 @@ export default async function BlogPost({ params }) {
         <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-indigo-200/20 rounded-full blur-[120px] mix-blend-multiply opacity-70" />
       </div>
 
-      {/* --- HERO SECTION (TIGHTENED) --- */}
+      {/* --- HERO SECTION --- */}
       <div className="relative z-0 pt-24 pb-4 px-4 md:px-6">
         <div className="relative z-10 max-w-5xl mx-auto text-center animate-fade-in-up">
           <Link
@@ -98,9 +135,10 @@ export default async function BlogPost({ params }) {
             All posts
           </Link>
 
-          {/* MAIN IMAGE (TIGHTENED MARGIN) */}
+          {/* MAIN HERO IMAGE */}
           <figure className="relative w-full mb-6 group md:max-w-4xl md:mx-auto">
             <div className="relative w-full aspect-video rounded-xl md:rounded-2xl overflow-hidden shadow-2xl shadow-indigo-900/10 border-4 border-white">
+              {/* Ensure you have this domain in next.config.js for this to work */}
               <Image
                 src={post.image}
                 alt={post.title}
@@ -116,7 +154,7 @@ export default async function BlogPost({ params }) {
             )}
           </figure>
 
-          {/* META DATA (TIGHTENED MARGIN) */}
+          {/* META DATA */}
           <div className="flex flex-wrap items-center justify-center gap-2 md:gap-3 mb-4">
             <div className="flex items-center gap-2 bg-white/70 backdrop-blur-md px-3 py-1 rounded-full border border-slate-200/60 shadow-sm">
               <Calendar size={10} className="text-teal-500" />
@@ -138,7 +176,6 @@ export default async function BlogPost({ params }) {
             </div>
           </div>
 
-          {/* TITLE (NO TOP MARGIN, GRADIENT APPLIED) */}
           <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold tracking-tight leading-tight px-2 max-w-4xl mx-auto">
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-500 to-indigo-500 animate-gradient-x">
               {post.title}
@@ -147,12 +184,20 @@ export default async function BlogPost({ params }) {
         </div>
       </div>
 
-      {/* --- MAIN CONTENT --- */}
+      {/* --- MAIN CONTENT WITH PARSER --- */}
       <article className="max-w-4xl mx-auto px-4 md:px-6 py-4 md:py-8 animate-fade-in">
-        <div
-          className="blog-content prose prose-lg prose-slate max-w-none mx-auto"
-          dangerouslySetInnerHTML={{ __html: post.content }}
-        />
+        {/* We replaced dangerouslySetInnerHTML with the parse function.
+            We also added specific CSS overrides for the prose class. 
+        */}
+        <div className="blog-content prose prose-lg prose-slate max-w-none mx-auto prose-img:rounded-xl prose-headings:text-teal-900 prose-a:text-indigo-600">
+          {post.content ? (
+            parse(post.content, contentParserOptions)
+          ) : (
+            <p className="text-center text-slate-400 italic">
+              No content found.
+            </p>
+          )}
+        </div>
       </article>
 
       {/* --- POPULAR POSTS WIDGET --- */}

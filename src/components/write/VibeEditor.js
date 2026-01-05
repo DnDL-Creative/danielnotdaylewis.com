@@ -1,11 +1,17 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, {
+  useEffect,
+  useState,
+  useCallback,
+  useRef,
+  forwardRef,
+  useImperativeHandle,
+} from "react";
 import { LexicalComposer } from "@lexical/react/LexicalComposer";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { ContentEditable } from "@lexical/react/LexicalContentEditable";
 import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
-// We removed OnChangePlugin and replaced it with HtmlOutputPlugin below
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { ListPlugin } from "@lexical/react/LexicalListPlugin";
 import { LinkPlugin } from "@lexical/react/LexicalLinkPlugin";
@@ -22,18 +28,13 @@ import {
 } from "@lexical/list";
 import { CodeNode } from "@lexical/code";
 import { LinkNode, TOGGLE_LINK_COMMAND } from "@lexical/link";
-// --- 1. NEW IMPORT FOR SQL GENERATION ---
 import { $generateHtmlFromNodes } from "@lexical/html";
 import {
-  DecoratorNode,
   $createParagraphNode,
   $getSelection,
   $isRangeSelection,
-  $getRoot,
   FORMAT_TEXT_COMMAND,
   FORMAT_ELEMENT_COMMAND,
-  COMMAND_PRIORITY_LOW,
-  createCommand,
 } from "lexical";
 import { $createHeadingNode, $createQuoteNode } from "@lexical/rich-text";
 import { $setBlocksType } from "@lexical/selection";
@@ -56,101 +57,12 @@ import {
   AlignCenter,
   AlignRight,
   Link as LinkIcon,
-  Image as ImageIcon,
   X,
   Ghost,
-  Terminal, // Icon for the placeholder
 } from "lucide-react";
 
 // -----------------------------------------------------------------------------
-// 1. RAW HTML IMAGE NODE (The Fix)
-// -----------------------------------------------------------------------------
-const INSERT_IMAGE_COMMAND = createCommand("INSERT_IMAGE_COMMAND");
-
-export class SimpleImageNode extends DecoratorNode {
-  static getType() {
-    return "simple-image";
-  }
-  static clone(node) {
-    return new SimpleImageNode(node.__src, node.__alt, node.__key);
-  }
-  static importJSON(serializedNode) {
-    return $createSimpleImageNode(serializedNode.src, serializedNode.alt);
-  }
-
-  constructor(src, alt, key) {
-    super(key);
-    this.__src = src;
-    this.__alt = alt;
-  }
-
-  exportJSON() {
-    return {
-      type: "simple-image",
-      src: this.__src,
-      alt: this.__alt,
-      version: 1,
-    };
-  }
-
-  // --- 2. SQL EXPORT LOGIC: This creates the real <img> tag for the DB ---
-  exportDOM() {
-    const element = document.createElement("img");
-    element.setAttribute("src", this.__src);
-    element.setAttribute("alt", this.__alt || "Blog content");
-    // These classes ensure it looks good when the SQL is rendered on your site
-    element.setAttribute(
-      "class",
-      "w-full rounded-2xl shadow-xl my-8 border-2 border-white/10"
-    );
-    return { element };
-  }
-
-  createDOM(config) {
-    const span = document.createElement("span");
-    const theme = config.theme;
-    const className = theme.image;
-    if (className !== undefined) {
-      span.className = className;
-    }
-    return span;
-  }
-
-  updateDOM() {
-    return false;
-  }
-
-  // --- 3. VISUAL FALLBACK: Renders the "Code Placeholder" in the Editor ---
-  decorate() {
-    return (
-      <div className="my-6 select-none group relative">
-        <div className="bg-[#0f172a] border border-slate-700 rounded-lg p-4 flex items-center gap-4 shadow-inner">
-          <div className="p-3 bg-slate-800 rounded-md border border-slate-600">
-            <Terminal size={20} className="text-teal-400" />
-          </div>
-          <div className="flex-grow font-mono text-xs overflow-hidden">
-            <div className="text-slate-400 uppercase text-[10px] font-bold mb-1 tracking-widest">
-              Raw HTML Asset
-            </div>
-            <div className="text-teal-200 truncate">
-              {`<img src="`}
-              <span className="text-yellow-400">{this.__src}</span>
-              {`" />`}
-            </div>
-          </div>
-        </div>
-        <div className="absolute inset-0 border-2 border-teal-500/0 group-hover:border-teal-500/50 rounded-lg transition-all pointer-events-none" />
-      </div>
-    );
-  }
-}
-
-export function $createSimpleImageNode(src, alt) {
-  return new SimpleImageNode(src, alt);
-}
-
-// -----------------------------------------------------------------------------
-// 2. THEME CONFIGURATION
+// 1. THEME CONFIGURATION
 // -----------------------------------------------------------------------------
 const vibeTheme = {
   paragraph: "mb-4 text-lg leading-relaxed font-light theme-text-body",
@@ -177,13 +89,12 @@ const vibeTheme = {
     "border-l-4 pl-6 py-2 my-8 italic bg-white/5 rounded-r-lg theme-border-left theme-text-dim",
   code: "block bg-black/80 border theme-border-dim p-4 rounded-lg font-mono text-sm theme-text-primary overflow-x-auto my-6 shadow-inner",
   link: "underline decoration-2 underline-offset-2 cursor-pointer theme-text-primary theme-decoration",
-  image: "block",
 };
 
 // -----------------------------------------------------------------------------
-// 3. VIBE MODAL
+// 2. VIBE MODAL (Links Only)
 // -----------------------------------------------------------------------------
-const VibeModal = ({ isOpen, onClose, onConfirm, type }) => {
+const VibeModal = ({ isOpen, onClose, onConfirm }) => {
   const [value, setValue] = useState("");
   const inputRef = useRef(null);
 
@@ -207,7 +118,7 @@ const VibeModal = ({ isOpen, onClose, onConfirm, type }) => {
       >
         <div className="flex justify-between items-center mb-4">
           <h3 className="font-bold uppercase tracking-widest text-sm theme-text-primary">
-            Insert {type === "link" ? "Hyperlink" : "Visual Asset HTML"}
+            Insert Hyperlink
           </h3>
           <button onClick={onClose} className="theme-text-dim hover:text-white">
             <X size={16} />
@@ -218,7 +129,7 @@ const VibeModal = ({ isOpen, onClose, onConfirm, type }) => {
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && onConfirm(value)}
-          placeholder={type === "link" ? "https://..." : "Image URL..."}
+          placeholder="https://..."
           className="w-full bg-black/10 border theme-border-dim rounded-lg p-3 theme-text-body outline-none focus:border-[var(--theme-color)] transition-colors mb-6 font-mono text-sm placeholder:opacity-50"
         />
         <div className="flex justify-end gap-2">
@@ -242,11 +153,12 @@ const VibeModal = ({ isOpen, onClose, onConfirm, type }) => {
 };
 
 // -----------------------------------------------------------------------------
-// 4. TOOLBAR COMPONENT
+// 3. TOOLBAR COMPONENT
 // -----------------------------------------------------------------------------
 function VibeToolbar({ bgOpacity, setBgOpacity }) {
   const [editor] = useLexicalComposerContext();
   const [activeBlock, setActiveBlock] = useState("paragraph");
+
   const [isBold, setIsBold] = useState(false);
   const [isItalic, setIsItalic] = useState(false);
   const [isUnderline, setIsUnderline] = useState(false);
@@ -254,8 +166,8 @@ function VibeToolbar({ bgOpacity, setBgOpacity }) {
   const [isSubscript, setIsSubscript] = useState(false);
   const [isSuperscript, setIsSuperscript] = useState(false);
   const [isCode, setIsCode] = useState(false);
+
   const [modalOpen, setModalOpen] = useState(false);
-  const [modalType, setModalType] = useState(null);
 
   const updateToolbar = useCallback(() => {
     const selection = $getSelection();
@@ -301,9 +213,7 @@ function VibeToolbar({ bgOpacity, setBgOpacity }) {
   useEffect(() => {
     return mergeRegister(
       editor.registerUpdateListener(({ editorState }) => {
-        editorState.read(() => {
-          updateToolbar();
-        });
+        editorState.read(() => updateToolbar());
       })
     );
   }, [editor, updateToolbar]);
@@ -329,26 +239,13 @@ function VibeToolbar({ bgOpacity, setBgOpacity }) {
     });
   };
 
-  const openModal = (type) => {
-    setModalType(type);
-    setModalOpen(true);
-  };
-
   const handleModalConfirm = (val) => {
     setModalOpen(false);
     if (!val) return;
-
-    // Force focus back to editor before dispatching
-    editor.focus();
-
-    if (modalType === "link") {
+    setTimeout(() => {
+      editor.focus();
       editor.dispatchCommand(TOGGLE_LINK_COMMAND, val);
-    } else if (modalType === "image") {
-      editor.dispatchCommand(INSERT_IMAGE_COMMAND, {
-        src: val,
-        alt: "vibe-asset",
-      });
-    }
+    }, 50);
   };
 
   const btnClass = (isActive) =>
@@ -473,7 +370,7 @@ function VibeToolbar({ bgOpacity, setBgOpacity }) {
         <button
           onMouseDown={(e) => {
             e.preventDefault();
-            openModal("link");
+            setModalOpen(true);
           }}
           className={btnClass(false)}
           title="Link"
@@ -542,17 +439,7 @@ function VibeToolbar({ bgOpacity, setBgOpacity }) {
         >
           <AlignRight size={18} />
         </button>
-        <button
-          onMouseDown={(e) => {
-            e.preventDefault();
-            openModal("image");
-          }}
-          className={btnClass(false)}
-          title="Insert Image"
-        >
-          <ImageIcon size={18} />
-        </button>
-        {/* OPACITY SLIDER */}
+
         <div className="flex items-center gap-2 mr-4 border-r theme-border-dim pr-4 hidden md:flex">
           <Ghost size={16} className="theme-text-dim" />
           <input
@@ -568,7 +455,6 @@ function VibeToolbar({ bgOpacity, setBgOpacity }) {
       </div>
       <VibeModal
         isOpen={modalOpen}
-        type={modalType}
         onClose={() => setModalOpen(false)}
         onConfirm={handleModalConfirm}
       />
@@ -579,185 +465,169 @@ function VibeToolbar({ bgOpacity, setBgOpacity }) {
 // -----------------------------------------------------------------------------
 // 5. MAIN EXPORTED COMPONENT
 // -----------------------------------------------------------------------------
-export default function VibeEditor({
-  onChange,
-  initialContent = null,
-  theme = "teal",
-}) {
-  const [bgOpacity, setBgOpacity] = useState(80);
+const VibeEditor = forwardRef(
+  ({ onChange, initialContent = null, theme = "teal" }, ref) => {
+    const [bgOpacity, setBgOpacity] = useState(80);
 
-  const initialConfig = {
-    namespace: "VibeWriter",
-    theme: vibeTheme,
-    onError: (e) => console.error("Lexical Error:", e),
-    nodes: [
-      HeadingNode,
-      QuoteNode,
-      ListNode,
-      ListItemNode,
-      CodeNode,
-      LinkNode,
-      SimpleImageNode,
-    ],
-    editorState: initialContent,
-  };
-
-  const ImagePlugin = () => {
-    const [editor] = useLexicalComposerContext();
-    useEffect(() => {
-      return editor.registerCommand(
-        INSERT_IMAGE_COMMAND,
-        (payload) => {
-          const imageNode = $createSimpleImageNode(payload.src, payload.alt);
-
-          const selection = $getSelection();
-          if ($isRangeSelection(selection)) {
-            selection.insertNodes([imageNode]);
-          } else {
-            // Fallback: If no selection (e.g. focus lost), append to the end of the doc
-            const root = $getRoot();
-            const p = $createParagraphNode();
-            p.append(imageNode);
-            root.append(p);
-          }
-          return true;
-        },
-        COMMAND_PRIORITY_LOW
-      );
-    }, [editor]);
-    return null;
-  };
-
-  // --- 4. HTML OUTPUT PLUGIN ---
-  const HtmlOutputPlugin = ({ onChange }) => {
-    const [editor] = useLexicalComposerContext();
-    useEffect(() => {
-      return editor.registerUpdateListener(({ editorState }) => {
-        editorState.read(() => {
-          // This uses the exportDOM method we added to the Image Node
-          const htmlString = $generateHtmlFromNodes(editor, null);
-          onChange(htmlString);
-        });
-      });
-    }, [editor, onChange]);
-    return null;
-  };
-
-  const getThemeVars = () => {
-    const isLight = theme === "light";
-    const isYellow = theme === "yellow";
-
-    return {
-      "--theme-color": isLight ? "#2563eb" : isYellow ? "#facc15" : "#2dd4bf",
-      "--theme-border": isLight ? "#cbd5e1" : isYellow ? "#eab308" : "#14b8a6",
-      "--theme-shadow-color": isLight
-        ? "rgba(37, 99, 235, 0.3)"
-        : isYellow
-          ? "rgba(250, 204, 21, 0.5)"
-          : "rgba(45, 212, 191, 0.5)",
-      "--theme-shadow": isLight
-        ? "0 10px 15px -3px rgba(0, 0, 0, 0.1)"
-        : "0 0 30px -10px rgba(var(--theme-color-rgb), 0.3)",
-
-      "--text-body": isLight ? "#0f172a" : "#cbd5e1",
-      "--text-heading": isLight ? "#0f172a" : "#ffffff",
-      "--text-placeholder": isLight ? "#94a3b8" : "#475569",
-      "--bg-toolbar": isLight
-        ? "rgba(255, 255, 255, 0.8)"
-        : "rgba(0, 0, 0, 0.4)",
-      "--border-dim": isLight
-        ? "1px solid #e2e8f0"
-        : "1px solid rgba(255, 255, 255, 0.1)",
-      "--icon-base": isLight ? "#64748b" : "#94a3b8",
-      "--icon-hover-bg": isLight
-        ? "rgba(0, 0, 0, 0.05)"
-        : "rgba(255, 255, 255, 0.1)",
-      "--icon-hover-text": isLight ? "#0f172a" : "#ffffff",
+    const initialConfig = {
+      namespace: "VibeWriter",
+      theme: vibeTheme,
+      onError: (e) => console.error("Lexical Error:", e),
+      nodes: [
+        HeadingNode,
+        QuoteNode,
+        ListNode,
+        ListItemNode,
+        CodeNode,
+        LinkNode,
+        // Image node removed per instructions
+      ],
+      editorState: initialContent,
     };
-  };
 
-  return (
-    <div
-      className="flex-grow relative rounded-[2rem] overflow-hidden border border-teal-500/20 shadow-[0_0_50px_-20px_rgba(20,184,166,0.2)] transition-all duration-500 vibe-editor-wrapper"
-      style={{
-        backgroundColor: `rgba(5, 10, 16, ${bgOpacity / 100})`,
-        backdropFilter: `blur(${bgOpacity * 0.2}px)`,
-        borderColor: "var(--theme-border)",
-        boxShadow: "var(--theme-shadow)",
-        ...getThemeVars(),
-      }}
-    >
-      <LexicalComposer initialConfig={initialConfig}>
-        <VibeToolbar bgOpacity={bgOpacity} setBgOpacity={setBgOpacity} />
-        <ImagePlugin />
+    const EditorRefPlugin = () => {
+      // Logic for insertImage removed to prevent errors.
+      // Ref is kept if you want to add generic text insertion later.
+      useImperativeHandle(ref, () => ({
+        // No-op for now
+      }));
+      return null;
+    };
 
-        {/* REPLACED OnChangePlugin WITH HtmlOutputPlugin */}
-        <HtmlOutputPlugin onChange={onChange} />
+    const HtmlOutputPlugin = ({ onChange }) => {
+      const [editor] = useLexicalComposerContext();
+      useEffect(() => {
+        return editor.registerUpdateListener(({ editorState }) => {
+          editorState.read(() => {
+            const htmlString = $generateHtmlFromNodes(editor, null);
+            onChange(htmlString);
+          });
+        });
+      }, [editor, onChange]);
+      return null;
+    };
 
-        <ListPlugin />
-        <LinkPlugin />
-        <HistoryPlugin />
-        <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
+    const getThemeVars = () => {
+      const isLight = theme === "light";
+      const isYellow = theme === "yellow";
 
-        <div className="relative p-8 md:p-12 min-h-[600px]">
-          <RichTextPlugin
-            contentEditable={
-              <ContentEditable className="outline-none min-h-[500px] theme-text-body relative z-10" />
-            }
-            placeholder={
-              <div
-                className="absolute top-8 md:top-12 left-8 md:left-12 text-lg font-light italic z-0"
-                style={{ color: "var(--text-placeholder)" }}
-              >
-                The canvas is yours...
-              </div>
-            }
-            ErrorBoundary={({ error }) => (
-              <div className="p-4 border border-red-500 bg-red-900/50 text-white rounded font-mono text-xs">
-                <strong>CRASH REPORT:</strong>
-                <br />
-                {error ? error.message : "Unknown Error"}
-                <br />
-                Check console for stack trace.
-              </div>
-            )}
-          />
-        </div>
-      </LexicalComposer>
+      return {
+        "--theme-color": isLight ? "#2563eb" : isYellow ? "#facc15" : "#2dd4bf",
+        "--theme-border": isLight
+          ? "#cbd5e1"
+          : isYellow
+            ? "#eab308"
+            : "#14b8a6",
+        "--theme-shadow-color": isLight
+          ? "rgba(37, 99, 235, 0.3)"
+          : isYellow
+            ? "rgba(250, 204, 21, 0.5)"
+            : "rgba(45, 212, 191, 0.5)",
+        "--theme-shadow": isLight
+          ? "0 10px 15px -3px rgba(0, 0, 0, 0.1)"
+          : "0 0 30px -10px rgba(var(--theme-color-rgb), 0.3)",
+        "--text-body": isLight ? "#0f172a" : "#cbd5e1",
+        "--text-heading": isLight ? "#0f172a" : "#ffffff",
+        "--text-placeholder": isLight ? "#94a3b8" : "#475569",
+        "--bg-toolbar": isLight
+          ? "rgba(255, 255, 255, 0.8)"
+          : "rgba(0, 0, 0, 0.4)",
+        "--border-dim": isLight
+          ? "1px solid #e2e8f0"
+          : "1px solid rgba(255, 255, 255, 0.1)",
+        "--icon-base": isLight ? "#64748b" : "#94a3b8",
+        "--icon-hover-bg": isLight
+          ? "rgba(0, 0, 0, 0.05)"
+          : "rgba(255, 255, 255, 0.1)",
+        "--icon-hover-text": isLight ? "#0f172a" : "#ffffff",
+      };
+    };
 
-      <style jsx global>{`
-        .vibe-editor-wrapper .theme-text-body {
-          color: var(--text-body) !important;
-        }
-        .vibe-editor-wrapper .theme-text-heading {
-          color: var(--text-heading) !important;
-        }
-        .vibe-editor-wrapper .theme-text-primary {
-          color: var(--theme-color) !important;
-        }
-        .vibe-editor-wrapper .theme-text-secondary {
-          color: var(--theme-border) !important;
-        }
-        .vibe-editor-wrapper .theme-text-dim {
-          color: var(--theme-border) !important;
-          opacity: 0.7;
-        }
-        .vibe-editor-wrapper .theme-border-dim {
-          border: var(--border-dim) !important;
-        }
-        .vibe-editor-wrapper .theme-border-left {
-          border-left-color: var(--theme-border) !important;
-        }
-        .vibe-editor-wrapper .theme-decoration {
-          text-decoration-color: var(--theme-border) !important;
-        }
-        .vibe-editor-wrapper .theme-icon-base {
-          color: var(--icon-base) !important;
-        }
-        .vibe-editor-wrapper input[type="range"] {
-          accent-color: var(--theme-color);
-        }
-      `}</style>
-    </div>
-  );
-}
+    return (
+      <div
+        className="flex-grow relative rounded-[2rem] overflow-hidden border border-teal-500/20 shadow-[0_0_50px_-20px_rgba(20,184,166,0.2)] transition-all duration-500 vibe-editor-wrapper"
+        style={{
+          backgroundColor: `rgba(5, 10, 16, ${bgOpacity / 100})`,
+          backdropFilter: `blur(${bgOpacity * 0.2}px)`,
+          borderColor: "var(--theme-border)",
+          boxShadow: "var(--theme-shadow)",
+          ...getThemeVars(),
+        }}
+      >
+        <LexicalComposer initialConfig={initialConfig}>
+          <VibeToolbar bgOpacity={bgOpacity} setBgOpacity={setBgOpacity} />
+
+          <EditorRefPlugin />
+          <HtmlOutputPlugin onChange={onChange} />
+
+          <ListPlugin />
+          <LinkPlugin />
+          <HistoryPlugin />
+          <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
+
+          <div className="relative p-8 md:p-12 min-h-[600px]">
+            <RichTextPlugin
+              contentEditable={
+                <ContentEditable className="outline-none min-h-[500px] theme-text-body relative z-10" />
+              }
+              placeholder={
+                <div
+                  className="absolute top-8 md:top-12 left-8 md:left-12 text-lg font-light italic z-0"
+                  style={{ color: "var(--text-placeholder)" }}
+                >
+                  The canvas is yours...
+                </div>
+              }
+              ErrorBoundary={({ error }) => (
+                <div className="p-4 border border-red-500 bg-red-900/50 text-white rounded font-mono text-xs">
+                  <strong>CRASH REPORT:</strong>
+                  <br />
+                  {error ? error.message : "Unknown Error"}
+                  <br />
+                  Check console for stack trace.
+                </div>
+              )}
+            />
+          </div>
+        </LexicalComposer>
+
+        <style jsx global>{`
+          .vibe-editor-wrapper .theme-text-body {
+            color: var(--text-body) !important;
+          }
+          .vibe-editor-wrapper .theme-text-heading {
+            color: var(--text-heading) !important;
+          }
+          .vibe-editor-wrapper .theme-text-primary {
+            color: var(--theme-color) !important;
+          }
+          .vibe-editor-wrapper .theme-text-secondary {
+            color: var(--theme-border) !important;
+          }
+          .vibe-editor-wrapper .theme-text-dim {
+            color: var(--theme-border) !important;
+            opacity: 0.7;
+          }
+          .vibe-editor-wrapper .theme-border-dim {
+            border: var(--border-dim) !important;
+          }
+          .vibe-editor-wrapper .theme-border-left {
+            border-left-color: var(--theme-border) !important;
+          }
+          .vibe-editor-wrapper .theme-decoration {
+            text-decoration-color: var(--theme-border) !important;
+          }
+          .vibe-editor-wrapper .theme-icon-base {
+            color: var(--icon-base) !important;
+          }
+          .vibe-editor-wrapper input[type="range"] {
+            accent-color: var(--theme-color);
+          }
+        `}</style>
+      </div>
+    );
+  }
+);
+
+VibeEditor.displayName = "VibeEditor";
+export default VibeEditor;

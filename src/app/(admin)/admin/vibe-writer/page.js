@@ -162,12 +162,13 @@ export default function MasterEditorPage() {
     alert("URL Copied!");
   };
 
-  // --- NEW: Copy HTML Tag Button ---
+  // --- UPDATED: COPY BUTTON ---
+  // We copy a shortcode instead of raw HTML to prevent the editor from escaping it.
   const copyHtmlTag = (url) => {
     if (!url) return;
-    const tag = `<img src="${url}" alt="blog-image" />`;
-    navigator.clipboard.writeText(tag);
-    alert("HTML Code Copied: " + tag);
+    const shortcode = `[[image:${url}]]`;
+    navigator.clipboard.writeText(shortcode);
+    alert("Image Code Copied! Paste into editor.");
   };
 
   // --- SQL GENERATOR FUNCTION ---
