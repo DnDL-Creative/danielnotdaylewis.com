@@ -26,18 +26,23 @@ export default function VibeImageStudio({
 }) {
   const [activeTab, setActiveTab] = useState(initialTab);
 
-  // Auto-detect content type to switch tabs automatically
+  // LOGIC: Auto-switch tabs based on content or initial request
   useEffect(() => {
-    if (isOpen && imageUrl) {
-      if (imageUrl.includes("youtube") || imageUrl.includes("vimeo")) {
-        setActiveTab("video");
-        setVideoUrl(imageUrl);
-      } else if (imageUrl.includes("spotify")) {
-        setActiveTab("audio");
-        setAudioUrl(imageUrl);
+    if (isOpen) {
+      if (initialTab === "gallery") {
+        setActiveTab("gallery");
+      } else if (imageUrl) {
+        if (imageUrl.includes("youtube") || imageUrl.includes("vimeo")) {
+          setActiveTab("video");
+          setVideoUrl(imageUrl);
+        } else if (imageUrl.includes("spotify")) {
+          setActiveTab("audio");
+          setAudioUrl(imageUrl);
+        } else {
+          setActiveTab("layout");
+        }
       } else {
-        // It's an image, default to layout or what was passed
-        setActiveTab(initialTab);
+        setActiveTab("layout");
       }
     }
   }, [isOpen, imageUrl, initialTab]);
@@ -47,23 +52,10 @@ export default function VibeImageStudio({
     align: "center",
     caption: "",
   });
-
   const [selectedGalleryImages, setSelectedGalleryImages] = useState([]);
-  const [galleryIndex, setGalleryIndex] = useState(0); // Tracks preview carousel
+  const [galleryIndex, setGalleryIndex] = useState(0);
   const [videoUrl, setVideoUrl] = useState("");
   const [audioUrl, setAudioUrl] = useState("");
-
-  // When opening in gallery mode, try to use the current image as first selection
-  useEffect(() => {
-    if (
-      isOpen &&
-      imageUrl &&
-      !imageUrl.includes("youtube") &&
-      !imageUrl.includes("spotify")
-    ) {
-      setSelectedGalleryImages([imageUrl]);
-    }
-  }, [isOpen, imageUrl]);
 
   if (!isOpen) return null;
 
@@ -104,39 +96,43 @@ export default function VibeImageStudio({
     }
   };
 
-  // --- PREVIEW NAVIGATION ---
-  const nextSlide = () => {
+  const nextSlide = () =>
     setGalleryIndex((prev) => (prev + 1) % selectedGalleryImages.length);
-  };
-
-  const prevSlide = () => {
+  const prevSlide = () =>
     setGalleryIndex(
       (prev) =>
         (prev - 1 + selectedGalleryImages.length) % selectedGalleryImages.length
     );
-  };
 
   const generateCode = () => {
     if (activeTab === "audio") {
       if (!audioUrl) return alert("Please enter an audio URL");
       return onGenerateCode(`[[audio:${audioUrl}]]`);
     }
-
     if (activeTab === "video") {
       if (!videoUrl) return alert("Please enter a video URL");
       return onGenerateCode(`[[video:${videoUrl}]]`);
     }
-
     if (activeTab === "gallery") {
       const count = selectedGalleryImages.length;
       if (count < 2) return alert("Select at least 2 images for a gallery.");
-      const type = count === 2 ? "duo" : "trio"; // Logic falls back to trio style for >3 usually
+      const type = count === 2 ? "duo" : "trio";
       let code = `[[${type}:${selectedGalleryImages.join("|")}`;
       if (layout.caption) code += `|caption=${layout.caption}`;
       code += "]]";
       return onGenerateCode(code);
     } else {
-      let code = `[[image:${imageUrl}`;
+      // Single Image Logic - If imageUrl is missing (e.g. opened empty), fail gracefully or use gallery selection
+      let finalUrl = imageUrl;
+      if (!finalUrl && selectedGalleryImages.length > 0)
+        finalUrl = selectedGalleryImages[0];
+
+      if (!finalUrl)
+        return alert(
+          "No image selected! Upload one first or select from gallery."
+        );
+
+      let code = `[[image:${finalUrl}`;
       code += `|size=${layout.size}`;
       code += `|align=${layout.align}`;
       if (layout.caption) code += `|caption=${layout.caption}`;
@@ -150,15 +146,12 @@ export default function VibeImageStudio({
     (imageUrl.includes("youtube") ||
       imageUrl.includes("vimeo") ||
       imageUrl.includes("spotify"));
-
-  // Gallery Indices
   const nextIndex = (galleryIndex + 1) % selectedGalleryImages.length;
   const nextNextIndex = (galleryIndex + 2) % selectedGalleryImages.length;
 
   return (
     <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/90 backdrop-blur-md animate-in fade-in duration-200 p-4">
       <div className="w-[800px] h-[90vh] max-h-[900px] bg-[#0f172a] border border-teal-500/30 rounded-2xl flex flex-col overflow-hidden shadow-2xl relative">
-        {/* Header */}
         <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-10 pointer-events-none">
           <div className="bg-black/50 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 pointer-events-auto">
             <h3 className="font-black uppercase tracking-widest text-teal-400 text-xs flex items-center gap-2">
@@ -173,9 +166,9 @@ export default function VibeImageStudio({
           </button>
         </div>
 
-        {/* --- TOP: PREVIEW AREA (60%) --- */}
+        {/* --- PREVIEW AREA --- */}
         <div className="h-[60%] bg-[#02020a] relative flex items-center justify-center p-8 overflow-hidden border-b border-white/10">
-          {/* SINGLE IMAGE PREVIEW */}
+          {/* SINGLE IMAGE */}
           {activeTab === "layout" && (
             <div
               className={`transition-all duration-500 relative ${layout.size === "small" ? "w-1/3" : layout.size === "medium" ? "w-1/2" : "w-2/3"}`}
@@ -190,7 +183,9 @@ export default function VibeImageStudio({
                 <div className="w-full h-64 flex flex-col items-center justify-center text-slate-500 border border-white/10 rounded-lg bg-white/5">
                   <ImageIcon size={48} className="mb-4 opacity-50" />
                   <span className="text-xs uppercase font-bold tracking-widest">
-                    {isMedia ? "Switch to Media Tab" : "No Image Selected"}
+                    {isMedia
+                      ? "Switch to Media Tab"
+                      : "No Single Image Selected"}
                   </span>
                 </div>
               )}
@@ -204,12 +199,11 @@ export default function VibeImageStudio({
             </div>
           )}
 
-          {/* GALLERY CAROUSEL PREVIEW (Interactive Deck) */}
+          {/* GALLERY PREVIEW */}
           {activeTab === "gallery" && (
             <div className="relative w-full max-w-lg aspect-video flex items-center justify-center">
               {selectedGalleryImages.length > 0 ? (
                 <div className="relative w-full h-full">
-                  {/* Stack Background Layers */}
                   {selectedGalleryImages.length > 2 && (
                     <div className="absolute inset-0 w-full h-full transform translate-x-3 translate-y-3 rotate-3 opacity-40 rounded-xl bg-gray-800 border border-white/10 overflow-hidden">
                       <img
@@ -226,15 +220,11 @@ export default function VibeImageStudio({
                       />
                     </div>
                   )}
-
-                  {/* Active Card */}
                   <div className="absolute inset-0 w-full h-full z-20 rounded-xl overflow-hidden shadow-2xl border border-white/20 bg-black">
                     <img
                       src={selectedGalleryImages[galleryIndex]}
                       className="w-full h-full object-cover"
                     />
-
-                    {/* Overlay Controls */}
                     <div className="absolute inset-0 flex items-center justify-between px-4 opacity-0 hover:opacity-100 transition-opacity bg-black/20">
                       <button
                         onClick={prevSlide}
@@ -249,8 +239,6 @@ export default function VibeImageStudio({
                         <ChevronRight size={20} />
                       </button>
                     </div>
-
-                    {/* Count */}
                     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/60 px-3 py-1 rounded-full text-[9px] font-bold tracking-widest text-white border border-white/10">
                       {galleryIndex + 1} / {selectedGalleryImages.length}
                     </div>
@@ -267,7 +255,7 @@ export default function VibeImageStudio({
             </div>
           )}
 
-          {/* VIDEO PREVIEW */}
+          {/* VIDEO */}
           {activeTab === "video" && (
             <div className="w-full max-w-2xl aspect-video bg-black rounded-xl border border-white/10 overflow-hidden shadow-2xl relative flex items-center justify-center">
               {videoUrl ? (
@@ -288,7 +276,7 @@ export default function VibeImageStudio({
             </div>
           )}
 
-          {/* AUDIO PREVIEW */}
+          {/* AUDIO */}
           {activeTab === "audio" && (
             <div className="w-full max-w-xl bg-black/50 rounded-xl border border-white/10 p-8 shadow-2xl flex flex-col items-center justify-center gap-4">
               {audioUrl ? (

@@ -31,10 +31,10 @@ import { FaHotdog } from "react-icons/fa6";
 import { Canvas } from "@react-three/fiber";
 
 // --- IMPORTS ---
-import PopulateMeta from "@/src/components/vibe-writer/PopulateMeta";
 import VibeEditor from "@/src/components/vibe-writer/VibeEditor";
-import AssetSidebar from "@/src/components/vibe-writer/AssetSidebar";
 import VibeImageStudio from "@/src/components/vibe-writer/VibeImageStudio";
+import AssetSidebar from "@/src/components/vibe-writer/AssetSidebar";
+import PopulateMeta from "@/src/components/vibe-writer/PopulateMeta";
 
 const DystopianSnow = dynamic(
   () => import("@/src/components/vibe-writer/DystopianSnow"),
@@ -281,6 +281,29 @@ export default function MasterEditorPage() {
     if (!slotKey) return showToast("No slots available!", "error");
     setImages((prev) => ({ ...prev, [slotKey]: url }));
     showToast("Media Link Added");
+  };
+
+  // --- NEW: REORDER LOGIC ---
+  const handleAssetReorder = (dragIndex, dropIndex) => {
+    const slots = ["img2", "img3", "img4", "img5", "img6"];
+    if (
+      dragIndex < 0 ||
+      dropIndex < 0 ||
+      dragIndex >= slots.length ||
+      dropIndex >= slots.length
+    )
+      return;
+
+    const dragKey = slots[dragIndex];
+    const dropKey = slots[dropIndex];
+
+    setImages((prev) => {
+      const newImages = { ...prev };
+      const temp = newImages[dragKey];
+      newImages[dragKey] = newImages[dropKey];
+      newImages[dropKey] = temp;
+      return newImages;
+    });
   };
 
   const generateAndShowSql = () => {
@@ -740,6 +763,7 @@ ON CONFLICT (slug) DO UPDATE SET title = EXCLUDED.title, content = EXCLUDED.cont
               onUpload={handleFileUpload}
               onManualInput={handleManualAsset}
               onOpenStudio={openStudio}
+              onReorder={handleAssetReorder} // <--- Added Reorder Prop
               uploadingSlot={uploadingSlot}
               isDark={isDark}
             />
