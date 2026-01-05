@@ -390,7 +390,7 @@ export default function SchedulerPage() {
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center pt-24 md:pt-32 pb-16 px-4 bg-gradient-to-br from-[#FDFBF7] via-[#E8F3F1] to-[#E0E7FF] selection:bg-teal-200 selection:text-teal-900 overflow-x-hidden">
+    <div className="min-h-screen w-full flex flex-col items-center pt-12 md:pt-8 pb-16 px-4 bg-gradient-to-br from-[#FDFBF7] via-[#E8F3F1] to-[#E0E7FF] selection:bg-teal-200 selection:text-teal-900 overflow-x-hidden">
       {/* Toast */}
       {toast && (
         <div
