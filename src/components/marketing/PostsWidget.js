@@ -11,6 +11,7 @@ export default async function PostsWidget({ currentSlug }) {
   const { data: posts } = await supabase
     .from("posts")
     .select("*")
+    .eq("published", true) // <--- ADD THIS LINE TO FILTER
     .order("views", { ascending: false })
     .limit(5);
 

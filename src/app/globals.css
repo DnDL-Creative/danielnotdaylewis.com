@@ -113,7 +113,9 @@
     background-color: transparent;
     color: var(--color-text-main);
     font-family: "Nunito Sans", sans-serif;
-    transition: background-color 0.3s ease, color 0.3s ease;
+    transition:
+      background-color 0.3s ease,
+      color 0.3s ease;
   }
   h1,
   h2,
@@ -251,13 +253,17 @@
     height: 8px;
     background-color: #14b8a6;
     border-radius: 50%;
-    box-shadow: 0 0 10px #14b8a6, 0 0 20px rgba(20, 184, 166, 0.4);
+    box-shadow:
+      0 0 10px #14b8a6,
+      0 0 20px rgba(20, 184, 166, 0.4);
     transition: transform 0.3s ease;
   }
 
   .blog-content li:hover::before {
     transform: scale(1.5);
-    box-shadow: 0 0 15px #14b8a6, 0 0 30px rgba(20, 184, 166, 0.6);
+    box-shadow:
+      0 0 15px #14b8a6,
+      0 0 30px rgba(20, 184, 166, 0.6);
   }
 
   .blog-content a {
@@ -285,16 +291,23 @@
     margin: 2.5rem 0;
   }
 
-  .blog-content figure {
-    margin: 3rem 0;
-    width: 100%;
-  }
+  /* ==========================================================================
+     NEW: THE IMAGE ENGINE (Responsive, Floating, Sizing)
+     ========================================================================== */
 
+  /* 1. Base Image Style (Mobile Default: Always Full Width, Stacked) */
   .blog-content img {
     border-radius: 1rem;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-    width: 100%;
+    box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.15);
     height: auto;
+    display: block;
+    width: 100%; /* Default to full width on mobile */
+    margin: 2rem 0;
+    transition: transform 0.3s ease;
+  }
+
+  .blog-content img:hover {
+    transform: scale(1.01);
   }
 
   .blog-content figcaption {
@@ -305,6 +318,63 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    clear: both; /* Ensures caption sits under floated images */
+  }
+
+  /* 2. Desktop Layouts (Only active on screens > 768px) */
+  @media (min-width: 768px) {
+    /* --- SIZES --- */
+    img.blog-size-sm {
+      width: 30%;
+    } /* Small: Good for 3 in a row */
+    img.blog-size-md {
+      width: 48%;
+    } /* Medium: Good for 2 in a row */
+    img.blog-size-lg {
+      width: 100%;
+    } /* Large: Hero style */
+
+    /* --- ALIGNMENT / WRAPPING --- */
+
+    /* Left: Text wraps around right side */
+    img.blog-align-left {
+      float: left;
+      margin-right: 2rem;
+      margin-top: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    /* Right: Text wraps around left side */
+    img.blog-align-right {
+      float: right;
+      margin-left: 2rem;
+      margin-top: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    /* Center: Stands alone */
+    img.blog-align-center {
+      float: none;
+      margin-left: auto;
+      margin-right: auto;
+      display: block;
+    }
+
+    /* --- SPECIAL: INLINE MODE (Side-by-Side) --- */
+    /* If you pick 'Inline', images sit next to each other like words */
+    img.blog-display-inline {
+      display: inline-block;
+      vertical-align: top;
+      float: none;
+      margin: 1%; /* Small gap */
+    }
+  }
+
+  /* Clearfix for floats (Prevents layout breaking) */
+  .blog-content::after {
+    content: "";
+    display: table;
+    clear: both;
   }
 }
 

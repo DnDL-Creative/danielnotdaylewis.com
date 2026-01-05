@@ -16,7 +16,7 @@ export default function BlogIndexPage() {
       const { data, error } = await supabase
         .from("posts")
         .select("*")
-        // FIX 1: Sort by Views first (descending), then by Date
+        .eq("published", true) // <--- ADD THIS LINE TO FILTER
         .order("views", { ascending: false })
         .order("created_at", { ascending: false });
 

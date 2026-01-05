@@ -30,23 +30,25 @@ export async function middleware(request) {
     }
   );
 
-  // IMPORTANT: Do not use getUser() here if you only need the session check
-  // for speed, but for admin redirects, we use it to be secure.
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   const url = request.nextUrl.clone();
 
-  // 1. PROTECT ADMIN: If trying to access /admin and NOT logged in -> /login
+  // 1. PROTECT ADMIN: Redirect to /login and save the intended destination in the URL
   if (url.pathname.startsWith("/admin") && !user) {
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = "/login";
+    loginUrl.searchParams.set("next", url.pathname); // This saves your path
+    return NextResponse.redirect(loginUrl);
   }
 
-  // 2. AUTH REDIRECT: If trying to access /login and ARE logged in -> /admin/scheduler
+  // 2. AUTH REDIRECT: If already logged in, check if there's a specific 'next' destination
   if (url.pathname === "/login" && user) {
-    url.pathname = "/admin/scheduler";
+    const nextPath =
+      request.nextUrl.searchParams.get("next") || "/admin/scheduler";
+    url.pathname = nextPath;
     return NextResponse.redirect(url);
   }
 

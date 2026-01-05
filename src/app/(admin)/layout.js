@@ -1,8 +1,22 @@
-// src/app/(admin)/layout.js
 import Link from "next/link";
 import { Home } from "lucide-react";
+import { redirect } from "next/navigation";
+import { createClient } from "@/src/utils/supabase/server";
 
-export default function AdminLayout({ children }) {
+export default async function AdminLayout({ children }) {
+  const supabase = await createClient();
+
+  // 1. Check for a session
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  // 2. Redirect if not logged in
+  if (error || !user) {
+    redirect("/login");
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 relative">
       {/* APP HEADER / BACK BUTTON */}
