@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import PopularPosts from "../../../../components/marketing/PostsWidget";
 import ViewCounter from "./ViewCounter";
+import GalleryCarousel from "@/src/components/vibe-writer/GalleryCarousel"; // NEW IMPORT
 
 // --- PARSER IMPORT ---
 import parse, { domToReact } from "html-react-parser";
@@ -143,7 +144,7 @@ const contentParserOptions = {
           );
         }
 
-        // --- C. GALLERY MODE (Duo/Trio) ---
+        // --- C. GALLERY MODE (CAROUSEL) ---
         if (
           innerContent.startsWith("duo:") ||
           innerContent.startsWith("trio:")
@@ -155,33 +156,13 @@ const contentParserOptions = {
           let caption = params.length ? params[0].trim() : null;
           if (caption === "") caption = null;
 
-          const urls = urlsPart.split("|");
-          const gridCols = type === "duo" ? "md:grid-cols-2" : "md:grid-cols-3";
+          const urls = urlsPart
+            .split("|")
+            .map((u) => u.trim())
+            .filter(Boolean);
 
-          return (
-            <figure className="my-10 w-full clear-both !block">
-              <div className={`grid grid-cols-1 ${gridCols} gap-4`}>
-                {urls.map((u, i) => (
-                  <div
-                    key={i}
-                    className="rounded-xl overflow-hidden shadow-lg relative aspect-[2/3] bg-gray-100"
-                  >
-                    <img
-                      src={u.trim()}
-                      className="block w-full h-full object-cover !m-0 !p-0"
-                      alt="gallery"
-                      loading="lazy"
-                    />
-                  </div>
-                ))}
-              </div>
-              {caption && (
-                <figcaption className="mt-3 text-center text-xs text-slate-500 font-mono tracking-widest uppercase">
-                  {caption}
-                </figcaption>
-              )}
-            </figure>
-          );
+          // Render the interactive carousel component
+          return <GalleryCarousel images={urls} caption={caption} />;
         }
 
         // --- D. SINGLE IMAGE MODE ---
@@ -189,25 +170,29 @@ const contentParserOptions = {
           const parts = innerContent.replace("image:", "").split("|");
           let url = parts[0].trim();
           let sizeClass = "w-full md:w-2/3";
-          let alignClass = "!block mx-auto"; // Default block
+          let alignClass = "!block mx-auto";
           let caption = null;
 
           parts.slice(1).forEach((part) => {
             const [key, val] = part.split("=").map((s) => (s ? s.trim() : ""));
+
             if (key === "size") {
-              if (val === "small") sizeClass = "w-full md:w-1/3";
-              if (val === "medium") sizeClass = "w-full md:w-1/2";
-              if (val === "large") sizeClass = "w-full md:w-2/3";
-              if (val === "full") sizeClass = "w-full";
+              if (val === "small") sizeClass = "!w-full md:!w-1/3";
+              if (val === "medium") sizeClass = "!w-full md:!w-1/2";
+              if (val === "large") sizeClass = "!w-full md:!w-2/3";
+              if (val === "full") sizeClass = "!w-full";
             }
+
             if (key === "align") {
-              // FIX: FORCE !block AND CLEARANCE
-              if (val === "left")
-                alignClass = "!block float-left mr-8 mb-4 clear-left";
-              if (val === "right")
-                alignClass = "!block float-right ml-8 mb-4 clear-right";
-              if (val === "center") alignClass = "!block mx-auto clear-both";
+              if (val === "left") {
+                alignClass = "!float-left !mr-8 !mb-4";
+              } else if (val === "right") {
+                alignClass = "!float-right !ml-8 !mb-4";
+              } else {
+                alignClass = "!block !mx-auto !clear-both";
+              }
             }
+
             if (key === "caption") {
               if (val.length > 0) caption = val;
             }
@@ -215,10 +200,9 @@ const contentParserOptions = {
 
           return (
             <figure
-              className={`my-8 group relative ${alignClass} ${sizeClass}`}
+              className={`group relative ${alignClass} ${sizeClass} my-8`}
             >
-              {/* FIX: FORCE WIDTH FULL ON WRAPPER TO FILL FIGURE */}
-              <div className="rounded-xl overflow-hidden shadow-2xl leading-none !w-full">
+              <div className="rounded-xl overflow-hidden shadow-2xl leading-none w-full bg-gray-100">
                 <img
                   src={url}
                   alt={caption || "blog"}
@@ -227,7 +211,7 @@ const contentParserOptions = {
                 />
               </div>
               {caption && (
-                <figcaption className="mt-3 text-center text-xs text-slate-500 font-mono tracking-widest uppercase">
+                <figcaption className="mt-3 text-center text-xs text-slate-500 font-mono tracking-widest uppercase !w-full">
                   {caption}
                 </figcaption>
               )}

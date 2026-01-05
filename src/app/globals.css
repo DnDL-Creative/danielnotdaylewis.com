@@ -207,7 +207,6 @@
     border: 1px solid rgba(0, 0, 0, 0.05);
   }
 
-  /* Neon Effects */
   .neon-text-glow {
     text-shadow: 0 0 15px rgba(var(--theme-rgb), 1);
   }
@@ -266,7 +265,6 @@
     padding-bottom: 5rem !important;
   }
 
-  /* KILLING TAILWIND 4 PREFLIGHT IN EDITOR */
   .ql-editor :where(h1, h2, h3, h4) {
     all: revert !important;
     display: block !important;
@@ -275,8 +273,6 @@
     line-height: 1.2 !important;
     font-family: inherit !important;
   }
-
-  /* EDITOR SIZES (High Specificity) */
   .ql-container.ql-snow .ql-editor h1 {
     font-size: 2.5rem !important;
     margin-top: 1.5rem !important;
@@ -297,7 +293,6 @@
     line-height: 1.8 !important;
   }
 
-  /* THEME VARIANTS */
   .dark-quill .ql-editor {
     color: rgba(var(--theme-rgb), 0.9) !important;
     text-shadow: 0 0 10px rgba(var(--theme-rgb), 0.2);
@@ -308,7 +303,6 @@
   .dark .ql-editor h2 {
     color: var(--theme-hex) !important;
   }
-
   .light-quill .ql-editor {
     color: #1e293b;
   }
@@ -316,7 +310,6 @@
     color: rgba(var(--theme-rgb), 0.9) !important;
     text-shadow: 0 0 10px rgba(var(--theme-rgb), 0.4);
   }
-
   .ql-picker-options {
     background-color: var(--picker-bg) !important;
     border: 1px solid var(--theme-hex) !important;
@@ -326,61 +319,17 @@
 }
 
 /* ==========================================================================
-   6. IMAGE ENGINE & BLOG FRONTEND
+   6. IMAGE ENGINE & BLOG FRONTEND (FIXED FOR WRAPPING)
    ========================================================================== */
 @layer components {
-  .blog-content img {
-    border-radius: 1rem;
-    box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.15);
-    margin: 2rem 0;
-    transition: transform 0.3s ease;
-  }
-  .blog-content figcaption {
-    text-align: center;
-    font-size: 0.875rem;
-    color: #94a3b8;
-    margin-top: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    clear: both;
-  }
-
-  @media (min-width: 768px) {
-    img.blog-size-sm {
-      width: 30%;
-    }
-    img.blog-size-md {
-      width: 48%;
-    }
-    img.blog-size-lg {
-      width: 100%;
-    }
-    img.blog-align-left {
-      float: left;
-      margin-right: 2rem;
-      margin-top: 0.5rem;
-      margin-bottom: 1.5rem;
-    }
-    img.blog-align-right {
-      float: right;
-      margin-left: 2rem;
-      margin-top: 0.5rem;
-      margin-bottom: 1.5rem;
-    }
-    img.blog-align-center {
-      float: none;
-      margin-left: auto;
-      margin-right: auto;
-      display: block;
-    }
-  }
-
+  /* GENERAL BLOG TEXT */
   .blog-content {
     color: #334155;
     line-height: 1.8;
     font-size: 1.125rem;
   }
+
+  /* HEADINGS */
   .blog-content h2 {
     font-size: 1.875rem;
     font-weight: 900;
@@ -389,6 +338,7 @@
     margin-bottom: 1.5rem;
     letter-spacing: -0.025em;
     line-height: 1.2;
+    clear: both; /* Ensure headings clear floated images */
   }
   .blog-content h3 {
     font-size: 1.5rem;
@@ -396,7 +346,10 @@
     color: #1e293b;
     margin-top: 2.5rem;
     margin-bottom: 1rem;
+    clear: both;
   }
+
+  /* LISTS */
   .blog-content ul {
     list-style: none !important;
     margin: 2rem 0;
@@ -420,6 +373,73 @@
       0 0 10px #14b8a6,
       0 0 20px rgba(20, 184, 166, 0.4);
     transition: transform 0.3s ease;
+  }
+
+  /* --- FIGURE & IMAGE LAYOUT ENGINE --- */
+
+  /* 1. Base Figure Styling (The Wrapper) */
+  .blog-content figure {
+    margin: 2rem 0;
+    display: block;
+    max-width: 100%;
+  }
+
+  /* 2. Base Image Styling */
+  .blog-content img {
+    border-radius: 1rem;
+    box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.15);
+    transition: transform 0.3s ease;
+    display: block;
+    width: 100%;
+    height: auto;
+    /* REMOVED generic margin to allow figure to control spacing */
+    margin: 0;
+  }
+
+  /* 3. Captions */
+  .blog-content figcaption {
+    text-align: center;
+    font-size: 0.75rem;
+    color: #94a3b8;
+    margin-top: 0.5rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    display: block;
+    width: 100%;
+  }
+
+  /* 4. ALIGNMENT & SIZING OVERRIDES (Desktop Only) */
+  @media (min-width: 768px) {
+    /* FLOATS: Using !important to fight 'prose' defaults */
+    figure.float-left,
+    .float-left {
+      float: left !important;
+      margin-right: 2rem !important;
+      margin-bottom: 1rem !important;
+      margin-top: 0.5rem !important;
+      max-width: 50%; /* Prevent wide images from breaking flow */
+    }
+
+    figure.float-right,
+    .float-right {
+      float: right !important;
+      margin-left: 2rem !important;
+      margin-bottom: 1rem !important;
+      margin-top: 0.5rem !important;
+      max-width: 50%;
+    }
+
+    /* CLEARANCE */
+    .clear-both {
+      clear: both;
+    }
+    .clear-left {
+      clear: left;
+    }
+    .clear-right {
+      clear: right;
+    }
   }
 }
 

@@ -12,6 +12,8 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 export default function VibeImageStudio({
@@ -47,6 +49,7 @@ export default function VibeImageStudio({
   });
 
   const [selectedGalleryImages, setSelectedGalleryImages] = useState([]);
+  const [galleryIndex, setGalleryIndex] = useState(0); // Tracks preview carousel
   const [videoUrl, setVideoUrl] = useState("");
   const [audioUrl, setAudioUrl] = useState("");
 
@@ -93,12 +96,24 @@ export default function VibeImageStudio({
         setSelectedGalleryImages((prev) => prev.filter((i) => i !== url));
       }
     } else {
-      if (selectedGalleryImages.length < 3) {
+      if (selectedGalleryImages.length < 5) {
         setSelectedGalleryImages((prev) => [...prev, url]);
       } else {
-        alert("Max 3 images for a gallery row.");
+        alert("Max 5 images for a gallery.");
       }
     }
+  };
+
+  // --- PREVIEW NAVIGATION ---
+  const nextSlide = () => {
+    setGalleryIndex((prev) => (prev + 1) % selectedGalleryImages.length);
+  };
+
+  const prevSlide = () => {
+    setGalleryIndex(
+      (prev) =>
+        (prev - 1 + selectedGalleryImages.length) % selectedGalleryImages.length
+    );
   };
 
   const generateCode = () => {
@@ -115,7 +130,7 @@ export default function VibeImageStudio({
     if (activeTab === "gallery") {
       const count = selectedGalleryImages.length;
       if (count < 2) return alert("Select at least 2 images for a gallery.");
-      const type = count === 2 ? "duo" : "trio";
+      const type = count === 2 ? "duo" : "trio"; // Logic falls back to trio style for >3 usually
       let code = `[[${type}:${selectedGalleryImages.join("|")}`;
       if (layout.caption) code += `|caption=${layout.caption}`;
       code += "]]";
@@ -136,9 +151,14 @@ export default function VibeImageStudio({
       imageUrl.includes("vimeo") ||
       imageUrl.includes("spotify"));
 
+  // Gallery Indices
+  const nextIndex = (galleryIndex + 1) % selectedGalleryImages.length;
+  const nextNextIndex = (galleryIndex + 2) % selectedGalleryImages.length;
+
   return (
     <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/90 backdrop-blur-md animate-in fade-in duration-200 p-4">
       <div className="w-[800px] h-[90vh] max-h-[900px] bg-[#0f172a] border border-teal-500/30 rounded-2xl flex flex-col overflow-hidden shadow-2xl relative">
+        {/* Header */}
         <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-10 pointer-events-none">
           <div className="bg-black/50 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 pointer-events-auto">
             <h3 className="font-black uppercase tracking-widest text-teal-400 text-xs flex items-center gap-2">
@@ -153,107 +173,154 @@ export default function VibeImageStudio({
           </button>
         </div>
 
+        {/* --- TOP: PREVIEW AREA (60%) --- */}
         <div className="h-[60%] bg-[#02020a] relative flex items-center justify-center p-8 overflow-hidden border-b border-white/10">
-          <div
-            className={`transition-all duration-500 flex gap-4 ${activeTab === "layout" && layout.size === "small" ? "w-1/3" : activeTab === "layout" && layout.size === "medium" ? "w-1/2" : activeTab === "layout" && layout.size === "large" ? "w-2/3" : "w-full max-w-3xl"}`}
-          >
-            {activeTab === "layout" && imageUrl && !isMedia && (
-              <img
-                src={imageUrl}
-                className="w-full h-auto max-h-[50vh] object-cover rounded-lg shadow-2xl border border-white/10"
-                alt="Preview"
-              />
-            )}
+          {/* SINGLE IMAGE PREVIEW */}
+          {activeTab === "layout" && (
+            <div
+              className={`transition-all duration-500 relative ${layout.size === "small" ? "w-1/3" : layout.size === "medium" ? "w-1/2" : "w-2/3"}`}
+            >
+              {imageUrl && !isMedia ? (
+                <img
+                  src={imageUrl}
+                  className="w-full h-auto max-h-[50vh] object-cover rounded-lg shadow-2xl border border-white/10"
+                  alt="Preview"
+                />
+              ) : (
+                <div className="w-full h-64 flex flex-col items-center justify-center text-slate-500 border border-white/10 rounded-lg bg-white/5">
+                  <ImageIcon size={48} className="mb-4 opacity-50" />
+                  <span className="text-xs uppercase font-bold tracking-widest">
+                    {isMedia ? "Switch to Media Tab" : "No Image Selected"}
+                  </span>
+                </div>
+              )}
+              {layout.caption && (
+                <div className="absolute -bottom-10 left-0 right-0 text-center">
+                  <span className="bg-black/80 text-slate-300 px-3 py-1 rounded-full text-[10px] border border-white/10">
+                    {layout.caption}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
 
-            {activeTab === "layout" && (!imageUrl || isMedia) && (
-              <div className="w-full h-64 flex flex-col items-center justify-center text-slate-500 border border-white/10 rounded-lg bg-white/5">
-                <ImageIcon size={48} className="mb-4 opacity-50" />
-                <span className="text-xs uppercase font-bold tracking-widest">
-                  {isMedia ? "Switch to Video/Audio Tab" : "No Image Selected"}
-                </span>
-              </div>
-            )}
+          {/* GALLERY CAROUSEL PREVIEW (Interactive Deck) */}
+          {activeTab === "gallery" && (
+            <div className="relative w-full max-w-lg aspect-video flex items-center justify-center">
+              {selectedGalleryImages.length > 0 ? (
+                <div className="relative w-full h-full">
+                  {/* Stack Background Layers */}
+                  {selectedGalleryImages.length > 2 && (
+                    <div className="absolute inset-0 w-full h-full transform translate-x-3 translate-y-3 rotate-3 opacity-40 rounded-xl bg-gray-800 border border-white/10 overflow-hidden">
+                      <img
+                        src={selectedGalleryImages[nextNextIndex]}
+                        className="w-full h-full object-cover grayscale"
+                      />
+                    </div>
+                  )}
+                  {selectedGalleryImages.length > 1 && (
+                    <div className="absolute inset-0 w-full h-full transform -translate-x-3 translate-y-2 -rotate-2 opacity-70 rounded-xl bg-gray-800 border border-white/10 overflow-hidden">
+                      <img
+                        src={selectedGalleryImages[nextIndex]}
+                        className="w-full h-full object-cover grayscale"
+                      />
+                    </div>
+                  )}
 
-            {activeTab === "gallery" && (
-              <div className="flex gap-4 w-full justify-center h-[50vh]">
-                {selectedGalleryImages.map((url, i) => (
-                  <div
-                    key={i}
-                    className="relative rounded-lg overflow-hidden shadow-2xl border border-white/10 flex-1 aspect-[2/3] bg-black"
-                  >
+                  {/* Active Card */}
+                  <div className="absolute inset-0 w-full h-full z-20 rounded-xl overflow-hidden shadow-2xl border border-white/20 bg-black">
                     <img
-                      src={url}
+                      src={selectedGalleryImages[galleryIndex]}
                       className="w-full h-full object-cover"
-                      alt={`Gallery ${i}`}
                     />
-                    <div className="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] px-2 rounded-full border border-white/20">
-                      {i + 1}
+
+                    {/* Overlay Controls */}
+                    <div className="absolute inset-0 flex items-center justify-between px-4 opacity-0 hover:opacity-100 transition-opacity bg-black/20">
+                      <button
+                        onClick={prevSlide}
+                        className="p-2 rounded-full bg-black/50 text-white hover:bg-teal-500 hover:text-black transition-colors"
+                      >
+                        <ChevronLeft size={20} />
+                      </button>
+                      <button
+                        onClick={nextSlide}
+                        className="p-2 rounded-full bg-black/50 text-white hover:bg-teal-500 hover:text-black transition-colors"
+                      >
+                        <ChevronRight size={20} />
+                      </button>
+                    </div>
+
+                    {/* Count */}
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/60 px-3 py-1 rounded-full text-[9px] font-bold tracking-widest text-white border border-white/10">
+                      {galleryIndex + 1} / {selectedGalleryImages.length}
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
+                </div>
+              ) : (
+                <div className="text-slate-500 flex flex-col items-center">
+                  <Grid size={48} className="opacity-20 mb-2" />
+                  <span className="text-xs uppercase font-bold tracking-widest opacity-50">
+                    Select Images Below
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
 
-            {activeTab === "video" && (
-              <div className="w-full aspect-video bg-black rounded-xl border border-white/10 overflow-hidden shadow-2xl relative flex items-center justify-center">
-                {videoUrl ? (
+          {/* VIDEO PREVIEW */}
+          {activeTab === "video" && (
+            <div className="w-full max-w-2xl aspect-video bg-black rounded-xl border border-white/10 overflow-hidden shadow-2xl relative flex items-center justify-center">
+              {videoUrl ? (
+                <iframe
+                  src={getEmbedUrl(videoUrl)}
+                  className="w-full h-full"
+                  frameBorder="0"
+                  allowFullScreen
+                />
+              ) : (
+                <div className="text-slate-600 flex flex-col items-center gap-2">
+                  <Video size={48} className="opacity-20" />
+                  <span className="text-xs uppercase font-bold tracking-widest opacity-50">
+                    Video Preview
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* AUDIO PREVIEW */}
+          {activeTab === "audio" && (
+            <div className="w-full max-w-xl bg-black/50 rounded-xl border border-white/10 p-8 shadow-2xl flex flex-col items-center justify-center gap-4">
+              {audioUrl ? (
+                audioUrl.includes("spotify.com") ? (
                   <iframe
-                    src={getEmbedUrl(videoUrl)}
-                    className="w-full h-full"
+                    style={{ borderRadius: "12px" }}
+                    src={getSpotifyEmbed(audioUrl)}
+                    width="100%"
+                    height="152"
                     frameBorder="0"
-                    allowFullScreen
-                  />
+                    allowFullScreen=""
+                    allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                    loading="lazy"
+                  ></iframe>
                 ) : (
-                  <div className="text-slate-600 flex flex-col items-center gap-2">
-                    <Video size={48} className="opacity-20" />
-                    <span className="text-xs uppercase font-bold tracking-widest opacity-50">
-                      Video Preview
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {activeTab === "audio" && (
-              <div className="w-full max-w-xl bg-black/50 rounded-xl border border-white/10 p-8 shadow-2xl flex flex-col items-center justify-center gap-4">
-                {audioUrl ? (
-                  audioUrl.includes("spotify.com") ? (
-                    <iframe
-                      style={{ borderRadius: "12px" }}
-                      src={getSpotifyEmbed(audioUrl)}
-                      width="100%"
-                      height="152"
-                      frameBorder="0"
-                      allowFullScreen=""
-                      allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                      loading="lazy"
-                    ></iframe>
-                  ) : (
-                    <audio controls className="w-full" src={audioUrl}>
-                      Your browser does not support audio.
-                    </audio>
-                  )
-                ) : (
-                  <div className="text-slate-600 flex flex-col items-center gap-2">
-                    <Music size={48} className="opacity-20" />
-                    <span className="text-xs uppercase font-bold tracking-widest opacity-50">
-                      Audio Preview
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {layout.caption && activeTab === "layout" && (
-            <div className="absolute bottom-6 left-0 right-0 text-center pointer-events-none">
-              <span className="bg-black/80 backdrop-blur text-slate-300 px-4 py-2 rounded-full text-[10px] font-mono border border-white/10 shadow-xl">
-                {layout.caption}
-              </span>
+                  <audio controls className="w-full" src={audioUrl}>
+                    Your browser does not support audio.
+                  </audio>
+                )
+              ) : (
+                <div className="text-slate-600 flex flex-col items-center gap-2">
+                  <Music size={48} className="opacity-20" />
+                  <span className="text-xs uppercase font-bold tracking-widest opacity-50">
+                    Audio Preview
+                  </span>
+                </div>
+              )}
             </div>
           )}
         </div>
 
+        {/* --- BOTTOM: CONTROLS (40%) --- */}
         <div className="h-[40%] bg-[#0f172a] flex flex-col">
           <div className="flex-1 p-6 overflow-y-auto custom-scrollbar">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -276,7 +343,7 @@ export default function VibeImageStudio({
                     ))}
                   </div>
                 </div>
-                {activeTab === "layout" && (
+                {(activeTab === "layout" || activeTab === "gallery") && (
                   <div>
                     <label className="text-[10px] font-bold uppercase text-slate-500 mb-2 block tracking-widest">
                       Caption
@@ -336,7 +403,7 @@ export default function VibeImageStudio({
                 {activeTab === "gallery" && (
                   <div>
                     <label className="text-[10px] font-bold uppercase text-slate-500 mb-2 block tracking-widest">
-                      Select Images (2-3)
+                      Select Images (2-5)
                     </label>
                     <div className="grid grid-cols-4 gap-2 h-32 overflow-y-auto custom-scrollbar pr-2">
                       {availableImages
