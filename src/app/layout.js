@@ -26,6 +26,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        {/* 🚨 FIX: Explicit crossOrigin="anonymous" ensures the handshake works for Images */}
         <link
           rel="preconnect"
           href="https://gpjgvdpicjqrerqqzhyx.supabase.co"
@@ -38,9 +39,6 @@ export default function RootLayout({ children }) {
       </head>
       <body
         suppressHydrationWarning={true}
-        // 🚨 THE FIX IS HERE:
-        // 1. bg-[#fafaf9]: Solid "Warm Cream" color for Mobile (Zero GPU cost)
-        // 2. md:bg-[linear-gradient...]: The fancy gradient ONLY loads on Desktop/Tablet
         className={`${nunito.className} antialiased bg-[#fafaf9] md:bg-[linear-gradient(to_bottom_right,#fafaf9,#f0f9f9,#eef2ff)] text-slate-800 selection:bg-teal-200`}
       >
         <ThemeProvider

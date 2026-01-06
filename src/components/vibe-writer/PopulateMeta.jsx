@@ -32,9 +32,9 @@ export default function PopulateMeta({
   setTag,
   imageCaption,
   setImageCaption,
-  heroImage, // images.main passed here
-  onUpload, // Parent handleFileUpload
-  onOpenStudio, // Parent openStudio
+  heroImage,
+  onUpload,
+  onOpenStudio,
   uploadingSlot,
   isDark,
   themeBorderClass,
@@ -43,15 +43,20 @@ export default function PopulateMeta({
 
   return (
     <div
-      className={`p-8 rounded-[2.5rem] border-2 mb-8 ${
+      // 🚨 RESPONSIVE FIX: Changed p-8 to 'p-5 md:p-8' to save space on mobile
+      className={`p-5 md:p-8 rounded-[2.5rem] border-2 mb-8 ${
         isDark
           ? `bg-black/20 backdrop-blur-md ${themeBorderClass} border-opacity-60`
           : "bg-white border-slate-200"
       }`}
     >
       <div className="space-y-6">
-        {/* ROW 1: Date & Author */}
-        <div className="flex gap-2">
+        {/* ROW 1: Date & Author 
+            🚨 RESPONSIVE FIX: 'flex-col md:flex-row' 
+            This forces them to stack vertically on mobile (fixing the overlap) 
+            and sit side-by-side on desktop.
+        */}
+        <div className="flex flex-col md:flex-row gap-4 md:gap-2">
           <div className="relative flex-1">
             <Calendar
               size={14}
@@ -147,7 +152,7 @@ export default function PopulateMeta({
             />
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <button
               onClick={() => onOpenStudio(heroImage)}
               disabled={!heroImage}

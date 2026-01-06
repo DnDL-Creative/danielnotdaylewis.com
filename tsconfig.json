@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
-    "target": "ES2017",
+    // 🚨 CHANGED: ES2017 -> ES2022 (Removes unnecessary polyfills)
+    "target": "ES2022",
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,

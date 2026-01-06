@@ -49,7 +49,7 @@ export default function ActorPage() {
 
             <div className="relative w-full h-full rounded-full overflow-hidden shadow-2xl border-[6px] border-white">
               <Image
-                src="/images/dndl-headshot.webp"
+                src="https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/site-images/(marketing)/actor/dndl-headshot.webp"
                 alt="Daniel Lewis Headshot"
                 fill
                 className="object-cover object-top scale-105 group-hover:scale-100 transition-transform duration-700"
@@ -147,7 +147,7 @@ export default function ActorPage() {
             <div className="relative bg-white p-3 pb-16 rounded shadow-[0_20px_50px_rgba(0,0,0,0.15)] rotate-3 group-hover:rotate-0 transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] w-72 md:w-[320px] mx-auto border border-slate-100">
               <div className="relative aspect-[4/3] bg-gray-100 overflow-hidden filter contrast-110">
                 <Image
-                  src="/images/dndl-website-pd.webp"
+                  src="https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/site-images/(marketing)/actor/dndl-website-pd.webp"
                   alt="Chicago PD Role"
                   fill
                   className="object-cover grayscale group-hover:grayscale-0 transition-all duration-700"
@@ -429,19 +429,19 @@ function StatCard({ number, label, suffix, icon }) {
 function Carousel() {
   const slides = [
     {
-      img: "/images/dndl-website-little-crush.webp",
+      img: "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/site-images/(marketing)/actor/a-little-crush.webp",
       title: "A Little Crush",
       subtitle: "by Kelsie Rae",
       link: "https://www.audible.com/pd/A-Little-Crush-Audiobook/B0FH5JTBXF",
     },
     {
-      img: "/images/never-far.png",
+      img: "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/site-images/(marketing)/actor/never-far.webp",
       title: "Never Far",
       subtitle: "by A.A. Dark",
       link: "https://www.audible.com/pd/Never-Far-The-Foundation-of-Boston-Marks-Audiobook/B0F6GV9HLR",
     },
     {
-      img: "/images/dndl-website-rtibw.webp",
+      img: "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/site-images/(marketing)/actor/dndl-website-rtibw.webp",
       title: "Right There",
       subtitle: "by Jim Christ",
       link: "https://www.audible.com/pd/Right-There-in-Black-and-White-Audiobook/B0FXMY6NMK?eac_link=JSXfDOmBWfUU&ref=web_search_eac_asin_1&eac_selected_type=asin&eac_selected=B0FXMY6NMK&qid=cXEr7S3LLq&eac_id=142-9941246-1525314_cXEr7S3LLq&sr=1-1",

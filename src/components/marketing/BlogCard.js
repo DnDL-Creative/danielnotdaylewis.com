@@ -35,7 +35,8 @@ export default function BlogCard({ post, delay = 0 }) {
                 src={post.image}
                 alt={post.title}
                 fill
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                // 🚨 CHANGED: Adjusted mobile size from 100vw to 90vw to match actual card width with padding
+                sizes="(max-width: 768px) 90vw, (max-width: 1200px) 50vw, 33vw"
                 decoding="async"
                 quality={75}
                 className="object-cover transition-transform duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] group-hover:scale-105"

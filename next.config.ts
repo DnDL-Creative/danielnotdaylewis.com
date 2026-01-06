@@ -1,9 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Transpiling ensures the editor styles/logic are properly handled by Next.js
   transpilePackages: ["react-quill-new"],
   images: {
+    // 1. Prioritize AVIF (up to 50% smaller than WebP)
+    formats: ["image/avif", "image/webp"],
+    // 2. Add smaller mobile breakpoints (360, 480)
+    deviceSizes: [360, 480, 640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     remotePatterns: [
       {
         protocol: "https",

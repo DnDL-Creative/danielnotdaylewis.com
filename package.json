@@ -50,8 +50,7 @@
     "safari >= 14",
     "edge >= 80",
     "ios >= 14",
-    "not dead",
-    "not op_mini all"
+    "not dead"
   ],
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

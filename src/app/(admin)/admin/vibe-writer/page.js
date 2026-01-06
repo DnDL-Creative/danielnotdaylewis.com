@@ -24,7 +24,6 @@ import {
   CloudDownload,
   AlertTriangle,
   Rocket,
-  ChevronLeft,
   LogOut,
 } from "lucide-react";
 import { FaHotdog } from "react-icons/fa6";
@@ -170,9 +169,9 @@ export default function MasterEditorPage() {
           btnPrimary: `${commonBtn} bg-yellow-500 text-black hover:bg-yellow-400 shadow-[0_0_20px_rgba(234,179,8,0.4)] hover:shadow-[0_0_30px_rgba(234,179,8,0.6)]`,
           btnSecondary: `${commonBtn} bg-yellow-900/20 border border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/20 hover:border-yellow-400`,
           btnGhost: `${commonBtn} bg-transparent border border-transparent text-yellow-700 hover:text-yellow-400 hover:bg-yellow-500/5`,
-          btnDanger: `${commonBtn} bg-red-900/20 border border-red-500 text-red-400 hover:bg-red-500 hover:text-white`,
+          btnDanger: `${commonBtn} bg-red-900/20 border border-red-500 text-red-400 hover:bg-red-50 hover:text-white`,
           backBtn:
-            "absolute top-6 left-6 px-4 py-2 rounded-full border border-yellow-500/30 bg-black/50 backdrop-blur-md flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-yellow-500 hover:bg-yellow-500 hover:text-black transition-all z-50",
+            "fixed top-6 left-6 px-4 py-2 rounded-full border border-yellow-500/30 bg-black/50 backdrop-blur-md flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-yellow-500 hover:bg-yellow-500 hover:text-black transition-all z-50",
           logo: "text-yellow-500 drop-shadow-[0_0_10px_rgba(234,179,8,0.5)]",
         };
 
@@ -188,7 +187,7 @@ export default function MasterEditorPage() {
           btnGhost: `${commonBtn} text-slate-400 hover:text-slate-600 hover:bg-slate-100`,
           btnDanger: `${commonBtn} bg-white border border-red-200 text-red-500 hover:bg-red-50 hover:border-red-500`,
           backBtn:
-            "absolute top-6 left-6 px-4 py-2 rounded-full border border-slate-200 bg-white/80 backdrop-blur-md flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-blue-600 hover:border-blue-200 transition-all z-50 shadow-sm",
+            "fixed top-6 left-6 px-4 py-2 rounded-full border border-slate-200 bg-white/80 backdrop-blur-md flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-blue-600 hover:border-blue-200 transition-all z-50 shadow-sm",
           logo: "text-slate-900",
         };
 
@@ -204,7 +203,7 @@ export default function MasterEditorPage() {
           btnGhost: `${commonBtn} bg-transparent border border-transparent text-slate-500 hover:text-teal-400 hover:bg-teal-500/5`,
           btnDanger: `${commonBtn} bg-red-900/20 border border-red-500 text-red-400 hover:bg-red-500 hover:text-white`,
           backBtn:
-            "absolute top-6 left-6 px-4 py-2 rounded-full border border-teal-500/30 bg-black/50 backdrop-blur-md flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-teal-400 hover:bg-teal-500 hover:text-black transition-all z-50",
+            "fixed top-6 left-6 px-4 py-2 rounded-full border border-teal-500/30 bg-black/50 backdrop-blur-md flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-teal-400 hover:bg-teal-500 hover:text-black transition-all z-50",
           logo: "text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]",
         };
     }
@@ -283,7 +282,6 @@ export default function MasterEditorPage() {
     showToast("Media Link Added");
   };
 
-  // --- NEW: REORDER LOGIC ---
   const handleAssetReorder = (dragIndex, dropIndex) => {
     const slots = ["img2", "img3", "img4", "img5", "img6"];
     if (
@@ -455,8 +453,13 @@ ON CONFLICT (slug) DO UPDATE SET title = EXCLUDED.title, content = EXCLUDED.cont
   const handleLexicalChange = (htmlString) => setContent(htmlString);
 
   return (
+    // 🚨 FIX: Mobile = 'fixed inset-0 overflow-hidden' (Locked App Shell)
+    // 🚨 FIX: Desktop = 'md:relative md:inset-auto md:overflow-visible' (Normal Scroll)
     <div
-      className={`transition-all duration-1000 min-h-screen relative font-sans`}
+      className={`font-sans transition-all duration-1000
+        fixed inset-0 overflow-hidden 
+        md:relative md:inset-auto md:overflow-visible md:min-h-screen
+      `}
       style={{
         backgroundColor: themeStyle.bg,
         color: isDark ? "white" : "#0f172a",
@@ -481,7 +484,7 @@ ON CONFLICT (slug) DO UPDATE SET title = EXCLUDED.title, content = EXCLUDED.cont
       />
 
       {isDark && (
-        <div className="fixed inset-0 z-0 opacity-100 pointer-events-none">
+        <div className="absolute inset-0 z-0 opacity-100 pointer-events-none">
           <Suspense fallback={null}>
             <Canvas camera={{ position: [0, 0, 10], fov: 60 }}>
               <color attach="background" args={[themeStyle.bg]} />
@@ -492,12 +495,171 @@ ON CONFLICT (slug) DO UPDATE SET title = EXCLUDED.title, content = EXCLUDED.cont
         </div>
       )}
 
-      {/* --- BACK BUTTON (Styled & Positioned) --- */}
+      {/* --- BACK BUTTON (Fixed Position) --- */}
       <Link href="/" className={themeStyle.backBtn}>
         <LogOut size={14} /> Exit Studio
       </Link>
 
-      {/* --- MODALS --- */}
+      {/* --- SCROLLABLE INNER CONTAINER --- 
+          Mobile: Takes up full locked shell, handles own scroll.
+          Desktop: Just a wrapper, lets browser handle scroll.
+      */}
+      <div className="h-full w-full overflow-y-auto overscroll-none md:h-auto md:overflow-visible md:overscroll-auto pb-24 md:pb-0">
+        {/* --- HEADER TOOLBAR --- */}
+        <div className="relative z-10 pt-16 pb-10 px-4 md:px-16 max-w-[1600px] mx-auto">
+          <header className="flex flex-col xl:flex-row items-center justify-between mb-12 gap-6">
+            <h1
+              className={`text-3xl font-black uppercase tracking-[0.4em] cursor-default transition-all duration-300 ${themeStyle.logo} ${
+                isDark && vibeMode === "sexy"
+                  ? "sexy-text"
+                  : isDark
+                    ? "glitch-text"
+                    : ""
+              }`}
+            >
+              VibeWriter™
+            </h1>
+
+            <div className="flex flex-wrap justify-center items-center gap-3 mt-4 xl:mt-0">
+              <div className="flex gap-2 mr-2">
+                <button
+                  onClick={() => setShowClearConfirm(true)}
+                  className={themeStyle.btnGhost}
+                >
+                  <FilePlus size={14} /> Reset
+                </button>
+                <button
+                  onClick={generateAndShowSql}
+                  className={themeStyle.btnGhost}
+                >
+                  <Database size={14} /> SQL
+                </button>
+              </div>
+
+              <div
+                className={`w-px h-8 mx-2 hidden md:block ${isDark ? "bg-white/10" : "bg-slate-300"}`}
+              ></div>
+
+              <button onClick={fetchDrafts} className={themeStyle.btnSecondary}>
+                <Archive size={16} /> Archive
+              </button>
+
+              <button
+                onClick={() => handleDatabaseAction("DRAFT")}
+                className={themeStyle.btnSecondary}
+              >
+                {isSaving ? (
+                  <Loader2 className="animate-spin" size={16} />
+                ) : (
+                  <Save size={16} />
+                )}
+                Save Draft
+              </button>
+
+              {isPublished ? (
+                <button
+                  onClick={() => handleDatabaseAction("UNPUBLISH")}
+                  className={themeStyle.btnDanger}
+                >
+                  <Ban size={16} /> Unpublish
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleDatabaseAction("PUBLISH")}
+                  className={themeStyle.btnPrimary}
+                >
+                  <Rocket size={16} /> Go Live
+                </button>
+              )}
+
+              <div
+                className={`flex gap-2 ml-4 pl-4 border-l ${isDark ? "border-white/10" : "border-slate-300"}`}
+              >
+                {isDark && (
+                  <button
+                    onClick={toggleVibeMode}
+                    className={`p-3 rounded-xl border transition-all ${vibeMode === "sexy" ? "bg-pink-500/20 border-pink-500 text-pink-500 shadow-[0_0_10px_rgba(236,72,153,0.3)]" : "bg-white/5 border-white/10 text-slate-400 hover:text-white"}`}
+                    title="Vibe Mode"
+                  >
+                    {vibeMode === "sexy" ? (
+                      <Flame size={16} className="animate-pulse" />
+                    ) : (
+                      <Zap size={16} />
+                    )}
+                  </button>
+                )}
+                <button
+                  onClick={toggleTheme}
+                  className={`p-3 rounded-xl border transition-all ${theme === "light" ? "bg-white border-slate-200 text-amber-500 shadow-sm" : "bg-white/5 border-white/10 hover:text-white"}`}
+                >
+                  {theme === "light" ? (
+                    <Sun size={16} />
+                  ) : theme === "teal" ? (
+                    <Cpu size={16} className="text-teal-400" />
+                  ) : (
+                    <FaHotdog size={16} className="text-yellow-400" />
+                  )}
+                </button>
+              </div>
+            </div>
+          </header>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+            {/* 🚨 2. FIX: REORDERED (Meta First on Mobile) */}
+            <div className="lg:col-span-4 space-y-8 order-1 lg:order-1">
+              <PopulateMeta
+                date={date}
+                setDate={setDate}
+                author={author}
+                setAuthor={setAuthor}
+                urlPath={urlPath}
+                setUrlPath={setUrlPath}
+                tag={tag}
+                setTag={setTag}
+                imageCaption={imageCaption}
+                setImageCaption={setImageCaption}
+                heroImage={images.main}
+                onUpload={handleFileUpload}
+                onOpenStudio={openStudio}
+                uploadingSlot={uploadingSlot}
+                isDark={isDark}
+                themeBorderClass={themeStyle.border}
+              />
+              <AssetSidebar
+                images={images}
+                onUpload={handleFileUpload}
+                onManualInput={handleManualAsset}
+                onOpenStudio={openStudio}
+                onReorder={handleAssetReorder}
+                uploadingSlot={uploadingSlot}
+                isDark={isDark}
+              />
+            </div>
+
+            <div className="lg:col-span-8 space-y-8 order-2 lg:order-2">
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="TRANSMISSION TITLE"
+                className={`w-full p-2 md:p-4 text-2xl md:text-4xl lg:text-5xl font-black outline-none bg-transparent border-b-2 transition-colors duration-300 ${themeStyle.title}`}
+              />
+              <VibeEditor
+                initialContent={content}
+                onChange={handleLexicalChange}
+                theme={theme}
+              />
+              <div
+                className={`flex justify-between text-[10px] font-mono opacity-50 uppercase tracking-widest ${isDark ? "text-white" : "text-slate-500"}`}
+              >
+                <span>VibeLexical Engine Active</span>
+                <span>ID: {postId || "UNSAVED"}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* --- MODALS (Placed outside the scroll container) --- */}
       <VibeImageStudio
         isOpen={showStudio}
         onClose={() => setShowStudio(false)}
@@ -514,7 +676,6 @@ ON CONFLICT (slug) DO UPDATE SET title = EXCLUDED.title, content = EXCLUDED.cont
         initialTab={studioInitialTab}
       />
 
-      {/* --- SQL MODAL --- */}
       {showSqlModal && (
         <div className="fixed inset-0 z-[150] bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
           <div
@@ -558,7 +719,6 @@ ON CONFLICT (slug) DO UPDATE SET title = EXCLUDED.title, content = EXCLUDED.cont
         </div>
       )}
 
-      {/* --- LOAD DRAFT MODAL --- */}
       {showLoadModal && (
         <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div
@@ -631,165 +791,6 @@ ON CONFLICT (slug) DO UPDATE SET title = EXCLUDED.title, content = EXCLUDED.cont
           </div>
         </div>
       )}
-
-      {/* --- HEADER TOOLBAR --- */}
-      <div className="relative z-10 pt-16 pb-10 px-4 md:px-16 max-w-[1600px] mx-auto">
-        <header className="flex flex-col xl:flex-row items-center justify-between mb-12 gap-6">
-          {/* LOGO */}
-          <h1
-            className={`text-3xl font-black uppercase tracking-[0.4em] cursor-default transition-all duration-300 ${themeStyle.logo} ${
-              isDark && vibeMode === "sexy"
-                ? "sexy-text"
-                : isDark
-                  ? "glitch-text"
-                  : ""
-            }`}
-          >
-            VibeWriter™
-          </h1>
-
-          {/* ACTIONS */}
-          <div className="flex flex-wrap justify-center items-center gap-3 mt-4 xl:mt-0">
-            {/* Tertiary Actions */}
-            <div className="flex gap-2 mr-2">
-              <button
-                onClick={() => setShowClearConfirm(true)}
-                className={themeStyle.btnGhost}
-              >
-                <FilePlus size={14} /> Reset
-              </button>
-              <button
-                onClick={generateAndShowSql}
-                className={themeStyle.btnGhost}
-              >
-                <Database size={14} /> SQL
-              </button>
-            </div>
-
-            {/* Divider */}
-            <div
-              className={`w-px h-8 mx-2 hidden md:block ${isDark ? "bg-white/10" : "bg-slate-300"}`}
-            ></div>
-
-            {/* Secondary Actions */}
-            <button onClick={fetchDrafts} className={themeStyle.btnSecondary}>
-              <Archive size={16} /> Archive
-            </button>
-
-            <button
-              onClick={() => handleDatabaseAction("DRAFT")}
-              className={themeStyle.btnSecondary}
-            >
-              {isSaving ? (
-                <Loader2 className="animate-spin" size={16} />
-              ) : (
-                <Save size={16} />
-              )}
-              Save Draft
-            </button>
-
-            {/* Primary Action (Publish/Unpublish) */}
-            {isPublished ? (
-              <button
-                onClick={() => handleDatabaseAction("UNPUBLISH")}
-                className={themeStyle.btnDanger}
-              >
-                <Ban size={16} /> Unpublish
-              </button>
-            ) : (
-              <button
-                onClick={() => handleDatabaseAction("PUBLISH")}
-                className={themeStyle.btnPrimary}
-              >
-                <Rocket size={16} /> Go Live
-              </button>
-            )}
-
-            {/* Theme Toggles */}
-            <div
-              className={`flex gap-2 ml-4 pl-4 border-l ${isDark ? "border-white/10" : "border-slate-300"}`}
-            >
-              {isDark && (
-                <button
-                  onClick={toggleVibeMode}
-                  className={`p-3 rounded-xl border transition-all ${vibeMode === "sexy" ? "bg-pink-500/20 border-pink-500 text-pink-500 shadow-[0_0_10px_rgba(236,72,153,0.3)]" : "bg-white/5 border-white/10 text-slate-400 hover:text-white"}`}
-                  title="Vibe Mode"
-                >
-                  {vibeMode === "sexy" ? (
-                    <Flame size={16} className="animate-pulse" />
-                  ) : (
-                    <Zap size={16} />
-                  )}
-                </button>
-              )}
-              <button
-                onClick={toggleTheme}
-                className={`p-3 rounded-xl border transition-all ${theme === "light" ? "bg-white border-slate-200 text-amber-500 shadow-sm" : "bg-white/5 border-white/10 hover:text-white"}`}
-              >
-                {theme === "light" ? (
-                  <Sun size={16} />
-                ) : theme === "teal" ? (
-                  <Cpu size={16} className="text-teal-400" />
-                ) : (
-                  <FaHotdog size={16} className="text-yellow-400" />
-                )}
-              </button>
-            </div>
-          </div>
-        </header>
-
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-          <div className="lg:col-span-4 space-y-8 order-2 lg:order-1">
-            <PopulateMeta
-              date={date}
-              setDate={setDate}
-              author={author}
-              setAuthor={setAuthor}
-              urlPath={urlPath}
-              setUrlPath={setUrlPath}
-              tag={tag}
-              setTag={setTag}
-              imageCaption={imageCaption}
-              setImageCaption={setImageCaption}
-              heroImage={images.main}
-              onUpload={handleFileUpload}
-              onOpenStudio={openStudio}
-              uploadingSlot={uploadingSlot}
-              isDark={isDark}
-              themeBorderClass={themeStyle.border}
-            />
-            <AssetSidebar
-              images={images}
-              onUpload={handleFileUpload}
-              onManualInput={handleManualAsset}
-              onOpenStudio={openStudio}
-              onReorder={handleAssetReorder} // <--- Added Reorder Prop
-              uploadingSlot={uploadingSlot}
-              isDark={isDark}
-            />
-          </div>
-
-          <div className="lg:col-span-8 space-y-8 order-1 lg:order-2">
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="TRANSMISSION TITLE"
-              className={`w-full p-2 md:p-4 text-2xl md:text-4xl lg:text-5xl font-black outline-none bg-transparent border-b-2 transition-colors duration-300 ${themeStyle.title}`}
-            />
-            <VibeEditor
-              initialContent={content}
-              onChange={handleLexicalChange}
-              theme={theme}
-            />
-            <div
-              className={`flex justify-between text-[10px] font-mono opacity-50 uppercase tracking-widest ${isDark ? "text-white" : "text-slate-500"}`}
-            >
-              <span>VibeLexical Engine Active</span>
-              <span>ID: {postId || "UNSAVED"}</span>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <style jsx global>{`
         .sexy-text {

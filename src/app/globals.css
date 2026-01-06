@@ -124,14 +124,8 @@
   --color-text-muted: #9ca3af;
 }
 
-@import "tailwindcss";
-
-/* ... (Keep your @theme configuration exactly as is) ... */
-
-/* ... (Keep your :root and .dark variables exactly as is) ... */
-
 /* ==========================================================================
-   3. GLOBAL BASE STYLES - FIXED FOR MOBILE PERFORMANCE
+   3. GLOBAL BASE STYLES
    ========================================================================== */
 @layer base {
   html {
@@ -142,11 +136,11 @@
     color: var(--color-text-main);
     font-family: "Nunito Sans", sans-serif;
 
-    /* 🚨 MOBILE DEFAULT: No transition, static background interaction */
+    /* 🚨 FIX: Disable transition on Mobile to prevent disappearing text */
     transition: none;
   }
 
-  /* 🚨 DESKTOP ONLY: Apply the smooth transition here */
+  /* 🚨 FIX: Enable transition ONLY on Desktop */
   @media (min-width: 768px) {
     body {
       transition:
@@ -180,32 +174,58 @@
   }
 }
 
-/* ... (Keep the rest of your CSS exactly the same) ... */
-
 /* ==========================================================================
    4. COMPONENT UTILITIES (UI, Animations, Neon)
    ========================================================================== */
 @layer components {
+  /* 1. GRADIENT ANIMATION TEXTURE */
   .animate-gradient-x {
-    background-size: 200% 200%;
-    animation: var(--animate-gradient-x);
+    /* 🚨 MOBILE: Static 100% size (Saves GPU Memory) */
+    background-size: 100% 100%;
+    animation: none;
   }
+
   .animate-ticker {
     animation: var(--animate-ticker);
   }
+
   .glitch-title {
     position: relative;
-    animation: var(--animate-glitch);
+    /* 🚨 MOBILE: No glitch animation */
+    animation: none;
   }
 
+  /* 2. GLOW HEADING */
   .glow-heading {
     @apply text-transparent bg-clip-text bg-gradient-to-r from-teal-500 via-indigo-500 to-purple-500;
-    @apply bg-[length:200%_200%] animate-gradient-xy;
-    filter: drop-shadow(0 0 8px rgba(20, 184, 166, 0.35))
-      drop-shadow(0 0 20px rgba(129, 140, 248, 0.2));
     @apply tracking-tight font-black uppercase;
+
+    /* 🚨 MOBILE: Static background, simple shadow */
+    background-size: 100% 100%;
+    filter: drop-shadow(0 0 2px rgba(20, 184, 166, 0.2));
   }
 
+  /* 🚨 DESKTOP OVERRIDES: Enable Heavy Animations & 200% Textures */
+  @media (min-width: 768px) {
+    .animate-gradient-x {
+      background-size: 200% 200%;
+      animation: var(--animate-gradient-x);
+    }
+
+    .glitch-title {
+      animation: var(--animate-glitch);
+    }
+
+    .glow-heading {
+      /* Restore the moving gradient on desktop */
+      background-size: 200% 200%;
+      animation: var(--animate-gradient-xy);
+      filter: drop-shadow(0 0 8px rgba(20, 184, 166, 0.35))
+        drop-shadow(0 0 20px rgba(129, 140, 248, 0.2));
+    }
+  }
+
+  /* CARDS & PANELS (Unchanged) */
   .glass-panel {
     @apply backdrop-blur-xl border border-white/10 shadow-xl;
     background: rgba(255, 255, 255, 0.6);
@@ -225,6 +245,7 @@
     border: 1px solid rgba(0, 0, 0, 0.05);
   }
 
+  /* NEON UTILS (Unchanged) */
   .neon-text-glow {
     text-shadow: 0 0 15px rgba(var(--theme-rgb), 1);
   }
@@ -347,13 +368,13 @@
     font-size: 1.125rem;
   }
 
-  /* PARAGRAPHS (The Fix) */
+  /* PARAGRAPHS */
   .blog-content p {
-    margin-bottom: 1.5rem; /* Adds the missing space */
+    margin-bottom: 1.5rem;
     margin-top: 0;
   }
 
-  /* Prevent empty paragraphs (ghost lines) from taking up space */
+  /* Prevent empty paragraphs */
   .blog-content p:empty {
     display: none;
   }
@@ -387,7 +408,7 @@
   .blog-content li {
     position: relative;
     padding-left: 2rem;
-    margin-bottom: 0.75rem; /* Added spacing between list items */
+    margin-bottom: 0.75rem;
   }
   .blog-content li::before {
     content: "";
@@ -404,7 +425,7 @@
     transition: transform 0.3s ease;
   }
 
-  /* BLOCKQUOTES (Optional addition for your quotes) */
+  /* BLOCKQUOTES */
   .blog-content blockquote {
     border-left: 4px solid #14b8a6;
     padding-left: 1.5rem;
@@ -418,15 +439,11 @@
   }
 
   /* --- FIGURE & IMAGE LAYOUT ENGINE --- */
-
-  /* 1. Base Figure Styling (The Wrapper) */
   .blog-content figure {
-    margin: 2.5rem 0; /* Increased spacing for breathing room */
+    margin: 2.5rem 0;
     display: block;
     max-width: 100%;
   }
-
-  /* 2. Base Image Styling */
   .blog-content img {
     border-radius: 1rem;
     box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.15);
@@ -436,8 +453,6 @@
     height: auto;
     margin: 0;
   }
-
-  /* 3. Captions */
   .blog-content figcaption {
     text-align: center;
     font-size: 0.75rem;
@@ -450,7 +465,7 @@
     width: 100%;
   }
 
-  /* 4. ALIGNMENT & SIZING OVERRIDES (Desktop Only) */
+  /* ALIGNMENT & SIZING OVERRIDES (Desktop Only) */
   @media (min-width: 768px) {
     figure.float-left,
     .float-left {
@@ -570,11 +585,20 @@
     z-index: 2;
   }
 
+  /* 🚨 FIX: Wavy Character - Disabled on Mobile, Enabled on Desktop */
   .wave-char {
     display: inline-block;
-    animation: wavy-color-jump 6s ease-in-out infinite;
-    will-change: transform, color;
+    color: #0d9488;
+    animation: none; /* Static by default (Mobile) */
   }
+
+  @media (min-width: 768px) {
+    .wave-char {
+      animation: wavy-color-jump 6s ease-in-out infinite;
+      will-change: transform, color;
+    }
+  }
+
   @keyframes wavy-color-jump {
     0%,
     100% {

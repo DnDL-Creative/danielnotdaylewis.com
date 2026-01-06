@@ -5,9 +5,9 @@ import { Points, PointMaterial, useTexture, Plane } from "@react-three/drei";
 import * as THREE from "three";
 
 const BACKDROPS = {
-  teal: "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/site-images/Gemini_Generated_Image_x2w1c9x2w1c9x2w1.jpeg",
+  teal: "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/site-images/(admin)/admin/vibe-writer/Gemini_Generated_Image_x2w1c9x2w1c9x2w1.jpeg",
   yellow:
-    "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/site-images/vibewriter-skyline-newcincinnati-cyberpunk.jpeg",
+    "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/site-images/(admin)/admin/vibe-writer/vibewriter-skyline-newcincinnati-cyberpunk.jpeg",
 };
 
 const SNOW_COLORS = {

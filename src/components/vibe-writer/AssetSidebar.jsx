@@ -16,7 +16,7 @@ import {
   ChevronLeft,
   ChevronUp,
   ChevronDown,
-  Images, // Icon for Gallery/Image combo
+  Images,
 } from "lucide-react";
 
 export default function AssetSidebar({
@@ -32,7 +32,7 @@ export default function AssetSidebar({
 
   // UI States
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
-  const [activeInputMode, setActiveInputMode] = useState(null); // 'video' | 'audio'
+  const [activeInputMode, setActiveInputMode] = useState(null);
   const [manualUrl, setManualUrl] = useState("");
 
   // CONTENT SLOTS
@@ -64,7 +64,6 @@ export default function AssetSidebar({
   // --- REORDER HANDLERS ---
   const moveAsset = (currentIndex, direction) => {
     const newIndex = currentIndex + direction;
-    // Check bounds
     if (newIndex < 0 || newIndex >= contentSlots.length) return;
     onReorder(currentIndex, newIndex);
   };
@@ -108,7 +107,7 @@ export default function AssetSidebar({
           </button>
           <button
             onClick={() => moveAsset(index, 1)}
-            disabled={index === 4} // Limit to 5 slots (0-4)
+            disabled={index === 4}
             className={`p-1 rounded hover:bg-white/10 ${index === 4 ? "opacity-20 cursor-not-allowed" : "text-slate-400 hover:text-white"}`}
           >
             <ChevronDown size={10} />
@@ -144,7 +143,6 @@ export default function AssetSidebar({
 
         {/* ACTIONS */}
         <div className="flex gap-1 items-center">
-          {/* STUDIO SHORTCODE */}
           <button
             onClick={() => onOpenStudio(url)}
             className={`p-2 rounded-lg transition-all ${isDark ? "hover:bg-teal-500/10 hover:text-teal-400 text-slate-500" : "hover:bg-teal-50 hover:text-teal-600 text-slate-400"}`}
@@ -153,7 +151,6 @@ export default function AssetSidebar({
             <Code size={14} />
           </button>
 
-          {/* DELETE BUTTON */}
           <button
             onClick={() => {
               if (confirm("Remove this asset?")) onManualInput("", assetKey);
@@ -170,7 +167,15 @@ export default function AssetSidebar({
 
   return (
     <div
-      className={`h-full rounded-[2.5rem] border-2 overflow-hidden flex flex-col ${isDark ? "bg-black/20 backdrop-blur-md border-white/10" : "bg-white border-slate-200"}`}
+      // 🚨 RESPONSIVE FIX:
+      // Mobile: h-[500px] (Enough for ~5-6 cards + add button)
+      // Desktop (lg): h-[750px] (Enough for 8+ cards + add button)
+      // This keeps the sidebar strictly sized "like 7-8 slots worth" on larger screens.
+      className={`w-full h-[500px] lg:h-[750px] rounded-[2.5rem] border-2 overflow-hidden flex flex-col ${
+        isDark
+          ? "bg-black/20 backdrop-blur-md border-white/10"
+          : "bg-white border-slate-200"
+      }`}
     >
       <div
         className={`p-6 border-b ${isDark ? "border-white/10" : "border-slate-100"}`}
@@ -225,7 +230,6 @@ export default function AssetSidebar({
             <div
               className={`rounded-xl border p-2 animate-in zoom-in-95 duration-200 ${isDark ? "bg-black/40 border-teal-500/30" : "bg-white border-slate-200 shadow-lg"}`}
             >
-              {/* MENU HEADER */}
               <div className="flex justify-between items-center mb-3 px-2 pt-1">
                 <div className="flex items-center gap-2">
                   {activeInputMode && (
@@ -250,10 +254,8 @@ export default function AssetSidebar({
                 </button>
               </div>
 
-              {/* 3-BUTTON MENU (Simplified) */}
               {!activeInputMode ? (
                 <div className="grid grid-cols-1 gap-2">
-                  {/* 1. Add Image / Gallery (Triggers Upload) */}
                   <button
                     onClick={() => triggerUpload(nextEmptySlot)}
                     className={`p-3 rounded-lg flex items-center justify-center gap-2 transition-all ${isDark ? "bg-white/5 hover:bg-white/10 text-slate-300" : "bg-slate-50 hover:bg-slate-100 text-slate-600"}`}
@@ -288,7 +290,6 @@ export default function AssetSidebar({
                 </div>
               ) : null}
 
-              {/* URL INPUTS */}
               {(activeInputMode === "video" || activeInputMode === "audio") && (
                 <div className="space-y-2">
                   <input

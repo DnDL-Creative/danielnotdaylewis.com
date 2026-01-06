@@ -362,7 +362,7 @@ export default function SchedulerPage() {
                 <span className="text-red-300 text-[10px] md:text-xs absolute top-1 md:top-2 left-1 md:left-2">
                   {day}
                 </span>
-                <span className="text-red-400/80 text-[10px] md:text-xs font-black uppercase -rotate-12 tracking-wider">
+                <span className="text-red-400/80 text-[6px] md:text-[10px] md:text-xs font-black uppercase -rotate-12 tracking-wider">
                   Booked
                 </span>
               </>

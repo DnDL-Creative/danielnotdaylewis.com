@@ -325,13 +325,6 @@ export default async function BlogPost({ params }) {
       {/* --- POPULAR POSTS WIDGET --- */}
       <div className="w-full px-4 md:px-6 py-16 clear-both">
         <div className="max-w-7xl mx-auto">
-          <div className="flex items-center gap-4 mb-12">
-            <div className="h-px bg-slate-200 flex-1" />
-            <span className="text-xs font-black uppercase tracking-widest text-slate-300">
-              More to Read
-            </span>
-            <div className="h-px bg-slate-200 flex-1" />
-          </div>
           <PopularPosts currentSlug={slug} />
         </div>
       </div>
