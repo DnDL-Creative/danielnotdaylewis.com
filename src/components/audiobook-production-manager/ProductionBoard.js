@@ -18,6 +18,10 @@ import {
   Lock,
   Zap,
   Coffee,
+  Trash2,
+  PauseCircle,
+  Users,
+  Plus,
 } from "lucide-react";
 
 const supabase = createClient(
@@ -48,7 +52,6 @@ const CRX_STATUSES = [
   "Clear",
 ];
 
-// --- DATE FIXER ---
 const parseLocalDate = (dateStr) => {
   if (!dateStr) return null;
   const [year, month, day] = dateStr.split("-").map(Number);
@@ -61,6 +64,7 @@ export default function ProductionBoard() {
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
 
+  // --- FETCH ---
   const fetchProductionItems = async () => {
     setLoading(true);
     const { data, error } = await supabase
@@ -69,13 +73,16 @@ export default function ProductionBoard() {
         `
         *,
         request:2_booking_requests!inner (
-          id, book_title, client_name, client_type, cover_image_url, email_thread_link, word_count
+          id, book_title, client_name, client_type, cover_image_url, email_thread_link, word_count, status
         )
       `
       )
+      .neq("request.status", "deleted") // STOP ZOMBIES
+      .neq("request.status", "archived") // STOP ZOMBIES
       .order("recording_due_date", { ascending: true });
 
     if (!error) {
+      // Deduplicate just in case
       const unique = [];
       const seen = new Set();
       (data || []).forEach((i) => {
@@ -93,6 +100,8 @@ export default function ProductionBoard() {
     fetchProductionItems();
   }, []);
 
+  // --- ACTIONS ---
+
   const handleSave = async (id) => {
     const { error } = await supabase
       .from("4_production")
@@ -101,6 +110,7 @@ export default function ProductionBoard() {
         files_sent_date: editForm.files_sent_date,
         crx_status: editForm.crx_status,
         crx_due_date: editForm.crx_due_date,
+        characters: editForm.characters, // Save Character Bible
       })
       .eq("id", id);
 
@@ -112,6 +122,59 @@ export default function ProductionBoard() {
     }
   };
 
+  const handleUniversalDelete = async (item) => {
+    if (
+      !confirm(
+        `PERMANENTLY DELETE "${item.request.book_title}"? This removes it from Pending, Invoices, and Logs.`
+      )
+    )
+      return;
+
+    // We delete the PARENT request. The SQL CASCADE handles the rest.
+    await supabase
+      .from("2_booking_requests")
+      .delete()
+      .eq("id", item.request.id);
+
+    // Optimistic UI Update
+    setItems((prev) => prev.filter((i) => i.id !== item.id));
+  };
+
+  const handlePostpone = async (item) => {
+    if (!confirm(`Move "${item.request.book_title}" back to Postponed?`))
+      return;
+
+    await supabase
+      .from("2_booking_requests")
+      .update({ status: "postponed" })
+      .eq("id", item.request.id);
+
+    setItems((prev) => prev.filter((i) => i.id !== item.id));
+  };
+
+  // --- CHARACTER BIBLE LOGIC ---
+  const addCharacter = () => {
+    setEditForm((prev) => ({
+      ...prev,
+      characters: [
+        ...(prev.characters || []),
+        { name: "", voice: "", ref: "" },
+      ],
+    }));
+  };
+
+  const updateCharacter = (index, field, value) => {
+    const newChars = [...(editForm.characters || [])];
+    newChars[index][field] = value;
+    setEditForm((prev) => ({ ...prev, characters: newChars }));
+  };
+
+  const removeCharacter = (index) => {
+    const newChars = [...(editForm.characters || [])];
+    newChars.splice(index, 1);
+    setEditForm((prev) => ({ ...prev, characters: newChars }));
+  };
+
   const startEditing = (item) => {
     setEditingId(item.id);
     setEditForm({
@@ -121,9 +184,11 @@ export default function ProductionBoard() {
       crx_due_date: item.crx_due_date,
       recording_start_date: item.recording_start_date,
       recording_due_date: item.recording_due_date,
+      characters: item.characters || [], // Load existing characters
     });
   };
 
+  // --- HELPERS ---
   const setCrxSpeed = (days) => {
     const today = new Date();
     today.setDate(today.getDate() + days);
@@ -243,7 +308,7 @@ export default function ProductionBoard() {
                           </div>
                         )}
                       </div>
-                      <div className="py-1 flex flex-col justify-between">
+                      <div className="py-1 flex flex-col justify-between w-full">
                         <div>
                           <div className="flex items-center gap-2 mb-2">
                             <span
@@ -272,91 +337,217 @@ export default function ProductionBoard() {
                             <ExternalLink size={10} /> Open Email
                           </a>
                         )}
-                      </div>
-                    </div>
-                  </td>
 
-                  <td className="p-6 align-top">
-                    <div className="flex flex-col gap-3">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-slate-100 text-slate-500 rounded-lg">
-                          <Calculator size={16} />
-                        </div>
-                        <div>
-                          <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wide">
-                            Est. PFH
-                          </span>
-                          <span className="text-base font-black text-slate-700">
-                            {pfh} hrs
-                          </span>
-                        </div>
-                      </div>
-                      <div
-                        className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${
-                          item.status === "Text Prep"
-                            ? "bg-indigo-50 border-indigo-200 text-indigo-700"
-                            : "bg-white border-slate-100 text-slate-400"
-                        }`}
-                      >
-                        <Book size={14} />
-                        <span className="text-[10px] font-bold uppercase">
-                          {item.status === "Text Prep"
-                            ? "Reading..."
-                            : "Text Read"}
-                        </span>
-                        {item.status !== "Text Prep" &&
-                          item.status !== "Scheduled" && (
-                            <CheckCircle2
-                              size={14}
-                              className="ml-auto text-emerald-500"
-                            />
+                        {/* CHARACTER BIBLE PREVIEW (VIEW MODE) */}
+                        {!isEditing &&
+                          item.characters &&
+                          item.characters.length > 0 && (
+                            <div className="mt-3 pt-3 border-t border-slate-100">
+                              <div className="flex items-center gap-2 text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">
+                                <Users size={10} /> Character Bible (
+                                {item.characters.length})
+                              </div>
+                              <div className="flex flex-wrap gap-1">
+                                {item.characters
+                                  .slice(0, 3)
+                                  .map((char, idx) => (
+                                    <span
+                                      key={idx}
+                                      className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-[9px] font-bold border border-slate-200"
+                                      title={char.voice}
+                                    >
+                                      {char.name}
+                                    </span>
+                                  ))}
+                                {item.characters.length > 3 && (
+                                  <span className="text-[9px] text-slate-400">
+                                    +{item.characters.length - 3} more
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           )}
                       </div>
                     </div>
                   </td>
 
-                  <td className="p-6 align-top">
-                    <div className="space-y-3">
-                      <div className="relative pl-3 border-l-2 border-slate-200">
-                        <span className="text-[9px] font-bold text-slate-400 block uppercase tracking-wider mb-0.5">
-                          Start
-                        </span>
-                        <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
-                          {formatDate(item.recording_start_date)}{" "}
-                          <Lock size={10} className="text-slate-300" />
+                  {/* CHARACTER BIBLE EDITING UI */}
+                  {isEditing ? (
+                    <td
+                      colSpan={4}
+                      className="p-6 align-top bg-slate-50/50 rounded-xl border border-slate-200 m-4"
+                    >
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <h4 className="font-black uppercase text-xs text-slate-500 flex items-center gap-2">
+                            <Users size={14} /> Character Bible
+                          </h4>
+                          <button
+                            onClick={addCharacter}
+                            className="text-[10px] font-bold uppercase bg-slate-200 px-2 py-1 rounded hover:bg-slate-300 transition-colors flex items-center gap-1"
+                          >
+                            <Plus size={10} /> Add Character
+                          </button>
                         </div>
-                      </div>
-                      <div className="relative pl-3 border-l-2 border-slate-200">
-                        <span className="text-[9px] font-bold text-slate-400 block uppercase tracking-wider mb-0.5">
-                          Due
-                        </span>
-                        <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
-                          {formatDate(item.recording_due_date)}{" "}
-                          <Lock size={10} className="text-slate-300" />
-                        </div>
-                      </div>
-                      {!isRecDone &&
-                        getCountdownBadge(item.recording_due_date, false)}
-                    </div>
-                  </td>
 
-                  <td className="p-6 align-top">
-                    <div className="space-y-3">
-                      {isEditing ? (
-                        <select
-                          value={editForm.status}
-                          onChange={(e) =>
-                            setEditForm({ ...editForm, status: e.target.value })
-                          }
-                          className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold outline-none"
-                        >
-                          {PROD_STATUSES.map((s) => (
-                            <option key={s} value={s}>
-                              {s}
-                            </option>
+                        <div className="max-h-60 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                          {(editForm.characters || []).map((char, idx) => (
+                            <div key={idx} className="flex gap-2 items-start">
+                              <input
+                                placeholder="Name"
+                                className="w-1/4 p-2 rounded border text-xs font-bold"
+                                value={char.name}
+                                onChange={(e) =>
+                                  updateCharacter(idx, "name", e.target.value)
+                                }
+                              />
+                              <input
+                                placeholder="Voice / Specs / Accent"
+                                className="w-1/2 p-2 rounded border text-xs"
+                                value={char.voice}
+                                onChange={(e) =>
+                                  updateCharacter(idx, "voice", e.target.value)
+                                }
+                              />
+                              <input
+                                placeholder="Ref (00:00)"
+                                className="w-1/6 p-2 rounded border text-xs font-mono"
+                                value={char.ref}
+                                onChange={(e) =>
+                                  updateCharacter(idx, "ref", e.target.value)
+                                }
+                              />
+                              <button
+                                onClick={() => removeCharacter(idx)}
+                                className="p-2 text-slate-300 hover:text-red-500"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
                           ))}
-                        </select>
-                      ) : (
+                          {(editForm.characters || []).length === 0 && (
+                            <p className="text-xs text-slate-400 italic text-center py-4">
+                              No characters added yet.
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="border-t border-slate-200 my-4"></div>
+
+                        {/* STATUS & CRX EDITING (Nested inside edit mode) */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-[9px] font-bold text-slate-400 block mb-1 uppercase">
+                              Production Status
+                            </label>
+                            <select
+                              value={editForm.status}
+                              onChange={(e) =>
+                                setEditForm({
+                                  ...editForm,
+                                  status: e.target.value,
+                                })
+                              }
+                              className="w-full p-2 border rounded-lg text-xs font-bold"
+                            >
+                              {PROD_STATUSES.map((s) => (
+                                <option key={s} value={s}>
+                                  {s}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[9px] font-bold text-slate-400 block mb-1 uppercase">
+                              CRX Pipeline
+                            </label>
+                            <select
+                              value={editForm.crx_status}
+                              onChange={(e) =>
+                                setEditForm({
+                                  ...editForm,
+                                  crx_status: e.target.value,
+                                })
+                              }
+                              className="w-full p-2 border rounded-lg text-xs font-bold"
+                            >
+                              {CRX_STATUSES.map((s) => (
+                                <option key={s} value={s}>
+                                  {s}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                  ) : (
+                    <>
+                      <td className="p-6 align-top">
+                        <div className="flex flex-col gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-slate-100 text-slate-500 rounded-lg">
+                              <Calculator size={16} />
+                            </div>
+                            <div>
+                              <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wide">
+                                Est. PFH
+                              </span>
+                              <span className="text-base font-black text-slate-700">
+                                {pfh} hrs
+                              </span>
+                            </div>
+                          </div>
+                          <div
+                            className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${
+                              item.status === "Text Prep"
+                                ? "bg-indigo-50 border-indigo-200 text-indigo-700"
+                                : "bg-white border-slate-100 text-slate-400"
+                            }`}
+                          >
+                            <Book size={14} />
+                            <span className="text-[10px] font-bold uppercase">
+                              {item.status === "Text Prep"
+                                ? "Reading..."
+                                : "Text Read"}
+                            </span>
+                            {item.status !== "Text Prep" &&
+                              item.status !== "Scheduled" && (
+                                <CheckCircle2
+                                  size={14}
+                                  className="ml-auto text-emerald-500"
+                                />
+                              )}
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="p-6 align-top">
+                        <div className="space-y-3">
+                          <div className="relative pl-3 border-l-2 border-slate-200">
+                            <span className="text-[9px] font-bold text-slate-400 block uppercase tracking-wider mb-0.5">
+                              Start
+                            </span>
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+                              {formatDate(item.recording_start_date)}{" "}
+                              <Lock size={10} className="text-slate-300" />
+                            </div>
+                          </div>
+                          <div className="relative pl-3 border-l-2 border-slate-200">
+                            <span className="text-[9px] font-bold text-slate-400 block uppercase tracking-wider mb-0.5">
+                              Due
+                            </span>
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+                              {formatDate(item.recording_due_date)}{" "}
+                              <Lock size={10} className="text-slate-300" />
+                            </div>
+                          </div>
+                          {!isRecDone &&
+                            getCountdownBadge(item.recording_due_date, false)}
+                        </div>
+                      </td>
+
+                      <td className="p-6 align-top">
                         <span
                           className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider border shadow-sm ${getStatusBadge(
                             item.status
@@ -367,102 +558,23 @@ export default function ProductionBoard() {
                           )}
                           {item.status}
                         </span>
-                      )}
-
-                      {isEditing ? (
-                        <div className="pt-2">
-                          <label className="text-[9px] text-slate-400 font-black uppercase block mb-1">
-                            Finished On
-                          </label>
-                          <input
-                            type="date"
-                            value={editForm.files_sent_date || ""}
-                            onChange={(e) =>
-                              setEditForm({
-                                ...editForm,
-                                files_sent_date: e.target.value,
-                              })
-                            }
-                            className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold outline-none"
-                          />
-                        </div>
-                      ) : (
-                        item.files_sent_date && (
-                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-3 py-2 rounded-lg border border-emerald-100">
+                        {item.files_sent_date && (
+                          <div className="mt-2 flex items-center gap-1.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-3 py-2 rounded-lg border border-emerald-100">
                             <CheckCircle2 size={12} /> Done:{" "}
                             {formatDate(item.files_sent_date)}
                           </div>
-                        )
-                      )}
-                    </div>
-                  </td>
+                        )}
+                      </td>
 
-                  <td className="p-6 align-top">
-                    <div className="space-y-3">
-                      {isEditing ? (
-                        <>
-                          <select
-                            value={editForm.crx_status}
-                            onChange={(e) =>
-                              setEditForm({
-                                ...editForm,
-                                crx_status: e.target.value,
-                              })
-                            }
-                            className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold mb-2"
-                          >
-                            {CRX_STATUSES.map((s) => (
-                              <option key={s} value={s}>
-                                {s}
-                              </option>
-                            ))}
-                          </select>
-                          {editForm.crx_status === "Pickups Received" && (
-                            <div className="flex gap-1 mb-2">
-                              <button
-                                onClick={() => setCrxSpeed(1)}
-                                className="flex-1 py-1 bg-red-100 text-red-600 rounded text-[9px] font-bold"
-                              >
-                                <Zap size={10} className="mx-auto" />
-                              </button>
-                              <button
-                                onClick={() => setCrxSpeed(3)}
-                                className="flex-1 py-1 bg-blue-100 text-blue-600 rounded text-[9px] font-bold"
-                              >
-                                <Clock size={10} className="mx-auto" />
-                              </button>
-                              <button
-                                onClick={() => setCrxSpeed(5)}
-                                className="flex-1 py-1 bg-emerald-100 text-emerald-600 rounded text-[9px] font-bold"
-                              >
-                                <Coffee size={10} className="mx-auto" />
-                              </button>
-                            </div>
-                          )}
-                          <label className="text-[9px] text-slate-400 font-black uppercase block mb-1">
-                            CRX Due
-                          </label>
-                          <input
-                            type="date"
-                            value={editForm.crx_due_date || ""}
-                            onChange={(e) =>
-                              setEditForm({
-                                ...editForm,
-                                crx_due_date: e.target.value,
-                              })
-                            }
-                            className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold outline-none"
-                          />
-                        </>
-                      ) : (
-                        <>
+                      <td className="p-6 align-top">
+                        <div className="space-y-2">
                           <div
                             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase w-fit border ${
                               item.crx_status === "Clear"
                                 ? "bg-emerald-100 text-emerald-700 border-emerald-200"
                                 : item.crx_status?.includes("Delay")
-                                ? "bg-red-100 text-red-700 border-red-200"
-                                : "bg-slate-50 text-slate-500 border-slate-200"
+                                  ? "bg-red-100 text-red-700 border-red-200"
+                                  : "bg-slate-50 text-slate-500 border-slate-200"
                             }`}
                           >
                             <FileAudio size={12} /> {item.crx_status || "-"}
@@ -475,35 +587,58 @@ export default function ProductionBoard() {
                                 {formatDate(item.crx_due_date)}
                               </div>
                             )}
-                        </>
-                      )}
-                    </div>
-                  </td>
+                        </div>
+                      </td>
+                    </>
+                  )}
 
                   <td className="p-6 pr-8 align-top text-right">
-                    <div className="flex justify-end gap-2">
+                    <div className="flex flex-col gap-2 justify-end items-end">
                       {isEditing ? (
                         <>
                           <button
                             onClick={() => handleSave(item.id)}
-                            className="p-3 bg-emerald-500 text-white rounded-xl shadow-lg shadow-emerald-200"
+                            className="p-3 bg-emerald-500 text-white rounded-xl shadow-lg shadow-emerald-200 hover:bg-emerald-600 transition-all"
+                            title="Save Changes"
                           >
                             <Save size={16} />
                           </button>
                           <button
                             onClick={() => setEditingId(null)}
-                            className="p-3 bg-white border border-slate-200 text-slate-400 rounded-xl"
+                            className="p-3 bg-white border border-slate-200 text-slate-400 rounded-xl hover:text-slate-600"
+                            title="Cancel"
                           >
                             <X size={16} />
                           </button>
                         </>
                       ) : (
-                        <button
-                          onClick={() => startEditing(item)}
-                          className="p-3 bg-white border border-slate-200 text-slate-400 rounded-xl hover:border-slate-300"
-                        >
-                          <Pencil size={16} />
-                        </button>
+                        <>
+                          <button
+                            onClick={() => startEditing(item)}
+                            className="p-3 bg-white border border-slate-200 text-slate-400 rounded-xl hover:border-slate-300 hover:text-blue-500 transition-all"
+                            title="Edit Project & Bible"
+                          >
+                            <Pencil size={16} />
+                          </button>
+
+                          {/* UNIVERSAL POSTPONE */}
+                          <button
+                            onClick={() => handlePostpone(item)}
+                            className="p-3 bg-white border border-slate-200 text-slate-400 rounded-xl hover:border-amber-300 hover:text-amber-600 transition-all"
+                            title="Postpone Project"
+                          >
+                            <PauseCircle size={16} />
+                          </button>
+
+                          {/* UNIVERSAL DELETE */}
+                          <button
+                            onClick={() => handleUniversalDelete(item)}
+                            className="p-3 bg-white border border-slate-200 text-slate-400 rounded-xl hover:border-red-300 hover:text-red-600 transition-all"
+                            title="Permanently Delete"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </>
                       )}
                     </div>
                   </td>

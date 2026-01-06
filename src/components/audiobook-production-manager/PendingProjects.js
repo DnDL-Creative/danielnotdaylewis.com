@@ -8,15 +8,10 @@ import {
   PauseCircle,
   CheckCircle2,
   PlayCircle,
-  Ban,
   Undo2,
   Trash2,
   AlertCircle,
   User,
-  Mail,
-  CalendarDays,
-  FileText,
-  Loader2,
   ExternalLink,
   UploadCloud,
   Image as ImageIcon,
@@ -26,8 +21,13 @@ import {
   Pencil,
   Save,
   Calculator,
+  CalendarDays,
+  FileText,
+  Loader2,
+  Archive,
+  AlertTriangle,
   ArrowRight,
-  X as XIcon,
+  Skull,
 } from "lucide-react";
 
 const supabase = createClient(
@@ -37,6 +37,8 @@ const supabase = createClient(
 
 // --- CONFIG ---
 const TRACKER_TABLE = "3_onboarding_first_15";
+const STATUS_ROSTER = "first_15";
+const STATUS_DIRECT = "onboarding";
 
 const TABS = [
   { id: "pending", label: "Pending", icon: BookOpen },
@@ -58,19 +60,14 @@ const cleanNumber = (value) => {
 
 const calcPFH = (words) => (words ? (words / 9300).toFixed(1) : "0.0");
 
-// *** FIX: Manual Date Parsing to ignore Timezones ***
 const formatDate = (dateStr) => {
   if (!dateStr) return "-";
-  // Split the string "YYYY-MM-DD" directly to avoid UTC conversion issues
   const parts = dateStr.split("T")[0].split("-");
   if (parts.length !== 3) return dateStr;
-
   const year = parseInt(parts[0]);
-  const monthIndex = parseInt(parts[1]) - 1; // Month is 0-indexed
+  const monthIndex = parseInt(parts[1]) - 1;
   const day = parseInt(parts[2]);
-
   const date = new Date(year, monthIndex, day);
-
   return date.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
@@ -80,6 +77,7 @@ const formatDate = (dateStr) => {
 
 export default function PendingProjects({ onUpdate }) {
   const [requests, setRequests] = useState([]);
+  const [trackedIds, setTrackedIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("pending");
 
@@ -87,6 +85,7 @@ export default function PendingProjects({ onUpdate }) {
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [uploadingId, setUploadingId] = useState(null);
+  const [processingId, setProcessingId] = useState(null);
 
   // Toast State
   const [toast, setToast] = useState({
@@ -100,27 +99,78 @@ export default function PendingProjects({ onUpdate }) {
     setTimeout(() => setToast({ ...toast, show: false }), 3000);
   };
 
-  const fetchRequests = async () => {
+  const fetchData = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+
+    // 1. Fetch Projects
+    const { data: requestData, error: requestError } = await supabase
       .from("2_booking_requests")
       .select("*")
+      .neq("status", "deleted") // Trash is in Archives now
+      .neq("status", "archived")
       .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error("Error fetching requests:", error);
+    if (requestError) {
+      console.error("Error fetching requests:", requestError);
       showToast("Sync failed", "error");
-    } else {
-      setRequests(data || []);
+      setLoading(false);
+      return;
     }
+
+    // 2. Fetch Tracker Table
+    const { data: trackerData } = await supabase
+      .from(TRACKER_TABLE)
+      .select("request_id");
+
+    const confirmedIds = new Set(trackerData?.map((t) => t.request_id) || []);
+
+    setRequests(requestData || []);
+    setTrackedIds(confirmedIds);
     setLoading(false);
   };
 
   useEffect(() => {
-    fetchRequests();
+    fetchData();
   }, []);
 
   // --- ACTIONS ---
+
+  // 1. BOOT LOGIC (Moves to 7_archive)
+  const handleBoot = async (item) => {
+    if (!confirm("Boot this project? It will be moved to the Booted Archives."))
+      return;
+    setProcessingId(item.id);
+
+    try {
+      // FIX 1: Changed table from "7_archive" to "6_archive"
+      // FIX 2: Removed "is_blacklisted" (it doesn't exist in your schema)
+      const { error: insertError } = await supabase.from("6_archive").insert([
+        {
+          original_data: item,
+          archived_at: new Date(),
+          reason: "Booted from Dashboard",
+        },
+      ]);
+
+      if (insertError) throw insertError;
+
+      const { error: deleteError } = await supabase
+        .from("2_booking_requests")
+        .delete()
+        .eq("id", item.id);
+
+      if (deleteError) throw deleteError;
+
+      setRequests((prev) => prev.filter((r) => r.id !== item.id));
+      showToast("Project Booted to Archives");
+      if (onUpdate) onUpdate();
+    } catch (error) {
+      console.error(error);
+      showToast("Failed to boot project", "error");
+    } finally {
+      setProcessingId(null);
+    }
+  };
 
   const startEditing = (item) => {
     setEditingId(item.id);
@@ -134,7 +184,6 @@ export default function PendingProjects({ onUpdate }) {
       word_count_display: formatNumberWithCommas(item.word_count || 0),
       genre: item.genre || "",
       narration_style: item.narration_style || "",
-      // Ensure we grab just the YYYY-MM-DD part for the input value
       start_date: item.start_date ? item.start_date.split("T")[0] : "",
       end_date: item.end_date ? item.end_date.split("T")[0] : "",
       notes: item.notes || "",
@@ -169,40 +218,44 @@ export default function PendingProjects({ onUpdate }) {
     }
   };
 
-  const handleGreenlight = async (item) => {
+  const pushToTracker = async (item) => {
+    setProcessingId(item.id);
     const isRoster = item.client_type === "Roster";
-    const targetStatus = isRoster ? "f15_production" : "approved";
+    const targetStatus = isRoster ? STATUS_ROSTER : STATUS_DIRECT;
+    const targetFile = isRoster ? "First 15" : "Onboarding";
 
     try {
-      const { data: existing } = await supabase
-        .from(TRACKER_TABLE)
-        .select("id")
-        .eq("request_id", item.id)
-        .single();
+      if (!trackedIds.has(item.id)) {
+        const { error: insertError } = await supabase
+          .from(TRACKER_TABLE)
+          .insert([{ request_id: item.id }]);
 
-      if (!existing) {
-        await supabase.from(TRACKER_TABLE).insert([{ request_id: item.id }]);
+        if (insertError) throw insertError;
       }
 
-      const { error } = await supabase
+      const { error: updateError } = await supabase
         .from("2_booking_requests")
         .update({ status: targetStatus })
         .eq("id", item.id);
 
-      if (error) throw error;
+      if (updateError) throw updateError;
 
       setRequests((prev) =>
         prev.map((r) => (r.id === item.id ? { ...r, status: targetStatus } : r))
       );
+      setTrackedIds((prev) => new Set(prev).add(item.id));
+
+      showToast(`Successfully pushed to ${targetFile}`);
       if (onUpdate) onUpdate();
-      showToast(
-        `Project Greenlit! Moved to ${isRoster ? "First 15" : "Onboarding"}`
-      );
     } catch (error) {
       console.error(error);
-      showToast("Failed to greenlight", "error");
+      showToast("Failed to push to pipeline", "error");
+    } finally {
+      setProcessingId(null);
     }
   };
+
+  const handleGreenlight = (item) => pushToTracker(item);
 
   const updateStatus = async (item, newStatus) => {
     try {
@@ -216,25 +269,30 @@ export default function PendingProjects({ onUpdate }) {
       setRequests((prev) =>
         prev.map((r) => (r.id === item.id ? { ...r, status: newStatus } : r))
       );
+      showToast("Status updated");
       if (onUpdate) onUpdate();
-      showToast(`Project moved to ${newStatus.replace("_", " ")}`);
     } catch (error) {
       console.error(error);
       showToast("Update failed", "error");
     }
   };
 
-  const deleteRequest = async (id) => {
-    if (!confirm("Are you sure you want to delete this project?")) return;
+  const toggleClientType = async (item) => {
+    const newType = item.client_type === "Roster" ? "Direct" : "Roster";
     try {
-      await supabase
+      const { error } = await supabase
         .from("2_booking_requests")
-        .update({ status: "deleted" })
-        .eq("id", id);
-      setRequests((prev) => prev.filter((r) => r.id !== id));
-      showToast("Project deleted");
+        .update({ client_type: newType })
+        .eq("id", item.id);
+
+      if (error) throw error;
+
+      setRequests((prev) =>
+        prev.map((r) => (r.id === item.id ? { ...r, client_type: newType } : r))
+      );
+      showToast(`Switched to ${newType}`);
     } catch (e) {
-      showToast("Delete failed", "error");
+      showToast("Failed to switch type", "error");
     }
   };
 
@@ -245,9 +303,7 @@ export default function PendingProjects({ onUpdate }) {
       if (!file) return;
 
       const fileExt = file.name.split(".").pop();
-      const fileName = `${Date.now()}-${Math.random()
-        .toString(36)
-        .substring(7)}.${fileExt}`;
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
       const filePath = `${fileName}`;
 
       const { error: uploadError } = await supabase.storage
@@ -282,12 +338,16 @@ export default function PendingProjects({ onUpdate }) {
     }
   };
 
-  // --- FILTER LOGIC ---
   const getTabForStatus = (status) => {
     if (status === "pending") return "pending";
     if (status === "postponed") return "postponed";
     if (status === "on_hold") return "on_hold";
-    if (["approved", "f15_production"].includes(status)) return "greenlit";
+    if (
+      status === "approved" ||
+      status === STATUS_DIRECT ||
+      status === STATUS_ROSTER
+    )
+      return "greenlit";
     return null;
   };
 
@@ -375,6 +435,9 @@ export default function PendingProjects({ onUpdate }) {
             const isRoster = item.client_type === "Roster";
             const isUploading = uploadingId === item.id;
             const isEditing = editingId === item.id;
+
+            const isInPipeline = trackedIds.has(item.id);
+            const destinationName = isRoster ? "First 15" : "Onboarding";
 
             return (
               <div
@@ -466,7 +529,58 @@ export default function PendingProjects({ onUpdate }) {
                   {/* --- DETAILS (VIEW VS EDIT) --- */}
                   <div className="flex-grow flex flex-col justify-between">
                     {isEditing ? (
-                      <div className="space-y-4">
+                      <div className="space-y-4 animate-fade-in">
+                        {/* --- DIRECT VS ROSTER SELECTOR --- */}
+                        <div className="bg-amber-50 p-4 rounded-xl border border-amber-100">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-amber-500 mb-2 block">
+                            Internal Routing (Required)
+                          </label>
+                          <div className="flex gap-4">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="client_type"
+                                value="Direct"
+                                checked={editForm.client_type === "Direct"}
+                                onChange={(e) =>
+                                  setEditForm({
+                                    ...editForm,
+                                    client_type: e.target.value,
+                                  })
+                                }
+                                className="accent-slate-900"
+                              />
+                              <span className="text-sm font-bold text-slate-700">
+                                Direct{" "}
+                                <span className="text-slate-400 font-normal text-xs">
+                                  (To Onboarding)
+                                </span>
+                              </span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="client_type"
+                                value="Roster"
+                                checked={editForm.client_type === "Roster"}
+                                onChange={(e) =>
+                                  setEditForm({
+                                    ...editForm,
+                                    client_type: e.target.value,
+                                  })
+                                }
+                                className="accent-slate-900"
+                              />
+                              <span className="text-sm font-bold text-slate-700">
+                                Roster{" "}
+                                <span className="text-slate-400 font-normal text-xs">
+                                  (To First 15)
+                                </span>
+                              </span>
+                            </label>
+                          </div>
+                        </div>
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <input
                             className="text-xl font-black text-slate-900 bg-slate-50 border-b-2 border-slate-200 focus:border-slate-900 outline-none p-2 rounded-t-lg w-full"
@@ -479,25 +593,6 @@ export default function PendingProjects({ onUpdate }) {
                             }
                             placeholder="Book Title"
                           />
-                          <select
-                            className="bg-slate-50 border-b-2 border-slate-200 focus:border-slate-900 outline-none p-2 rounded-t-lg w-full text-sm font-bold text-slate-700"
-                            value={editForm.client_type}
-                            onChange={(e) =>
-                              setEditForm({
-                                ...editForm,
-                                client_type: e.target.value,
-                              })
-                            }
-                          >
-                            <option value="Direct">Direct Client</option>
-                            <option value="Roster">Roster Client</option>
-                          </select>
-                        </div>
-                        {/* NEW: REF NUMBER EDIT */}
-                        <div>
-                          <label className="text-[9px] font-bold text-slate-400">
-                            Project Reference (Invoice #)
-                          </label>
                           <input
                             className="w-full bg-slate-50 p-2 rounded text-xs font-mono font-bold text-slate-700 uppercase"
                             value={editForm.ref_number}
@@ -510,6 +605,7 @@ export default function PendingProjects({ onUpdate }) {
                             placeholder="REF-2024-001"
                           />
                         </div>
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <input
                             className="bg-slate-50 border-b border-slate-200 focus:border-slate-400 outline-none p-2 text-sm font-medium"
@@ -630,37 +726,6 @@ export default function PendingProjects({ onUpdate }) {
                             />
                           </div>
                         </div>
-                        <div>
-                          <label className="text-[9px] font-bold text-slate-400">
-                            Email Thread Link
-                          </label>
-                          <input
-                            className="w-full bg-slate-50 p-2 rounded text-xs font-mono text-blue-600"
-                            value={editForm.email_thread_link}
-                            onChange={(e) =>
-                              setEditForm({
-                                ...editForm,
-                                email_thread_link: e.target.value,
-                              })
-                            }
-                            placeholder="https://mail.google.com..."
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[9px] font-bold text-slate-400">
-                            Notes
-                          </label>
-                          <textarea
-                            className="w-full bg-slate-50 p-2 rounded text-xs font-medium h-20 resize-none"
-                            value={editForm.notes}
-                            onChange={(e) =>
-                              setEditForm({
-                                ...editForm,
-                                notes: e.target.value,
-                              })
-                            }
-                          />
-                        </div>
 
                         <div className="flex gap-2 justify-end pt-2">
                           <button
@@ -679,18 +744,34 @@ export default function PendingProjects({ onUpdate }) {
                       </div>
                     ) : (
                       <div>
+                        {/* READ ONLY MODE */}
                         <div className="flex items-start justify-between gap-4 mb-4">
                           <div>
                             <div className="flex items-center gap-2 mb-2">
-                              <span
-                                className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest ${
-                                  isRoster
-                                    ? "bg-purple-100 text-purple-700"
-                                    : "bg-blue-50 text-blue-600"
-                                }`}
-                              >
-                                {item.client_type}
-                              </span>
+                              {/* TYPE BADGE */}
+                              {activeTab === "greenlit" ? (
+                                <button
+                                  onClick={() => toggleClientType(item)}
+                                  className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest transition-colors ${
+                                    isRoster
+                                      ? "bg-purple-100 text-purple-700 hover:bg-purple-200"
+                                      : "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                                  }`}
+                                >
+                                  {item.client_type || "Direct"} (Switch)
+                                </button>
+                              ) : (
+                                <span
+                                  className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest ${
+                                    isRoster
+                                      ? "bg-purple-100 text-purple-700"
+                                      : "bg-blue-50 text-blue-600"
+                                  }`}
+                                >
+                                  {item.client_type || "Direct"}
+                                </span>
+                              )}
+
                               <span
                                 className="text-[9px] font-bold text-slate-400 uppercase tracking-widest cursor-pointer hover:text-slate-600"
                                 title="Reference Number"
@@ -714,7 +795,7 @@ export default function PendingProjects({ onUpdate }) {
                                 className="flex items-center gap-2 px-3 py-2 bg-blue-50 text-blue-600 border border-blue-100 rounded-lg text-[10px] font-bold uppercase tracking-wide hover:bg-blue-100 transition-colors"
                                 title="Open Thread"
                               >
-                                <ExternalLink size={14} /> Open Email Thread
+                                <ExternalLink size={14} /> Open Thread
                               </a>
                             )}
                             <button
@@ -797,11 +878,13 @@ export default function PendingProjects({ onUpdate }) {
                           <button
                             onClick={() => handleGreenlight(item)}
                             className="w-full py-4 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 hover:shadow-lg hover:shadow-emerald-200 transition-all flex items-center justify-center gap-2 group/btn"
+                            disabled={processingId === item.id}
                           >
-                            <PlayCircle
-                              size={16}
-                              className="group-hover/btn:scale-110 transition-transform"
-                            />{" "}
+                            {processingId === item.id ? (
+                              <Loader2 className="animate-spin" size={16} />
+                            ) : (
+                              <PlayCircle size={16} />
+                            )}
                             Greenlight
                           </button>
                           <div className="grid grid-cols-2 gap-2">
@@ -819,13 +902,14 @@ export default function PendingProjects({ onUpdate }) {
                             </button>
                           </div>
                           <button
-                            onClick={() => updateStatus(item, "rejected")}
+                            onClick={() => handleBoot(item)}
                             className="w-full py-2 text-slate-300 hover:text-red-500 text-[10px] font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
                           >
-                            <Ban size={12} /> Reject Project
+                            <Skull size={12} /> Boot (Archive)
                           </button>
                         </>
                       )}
+
                       {activeTab === "on_hold" && (
                         <>
                           <button
@@ -842,31 +926,75 @@ export default function PendingProjects({ onUpdate }) {
                           </button>
                         </>
                       )}
+
                       {activeTab === "postponed" && (
                         <>
                           <button
                             onClick={() => updateStatus(item, "pending")}
                             className="w-full py-4 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 shadow-md transition-all flex items-center justify-center gap-2"
                           >
-                            <Undo2 size={16} /> Revive Project
+                            <Undo2 size={16} /> Revive
                           </button>
                           <button
-                            onClick={() => deleteRequest(item.id)}
+                            onClick={() => handleBoot(item)}
                             className="w-full py-3 bg-white border border-red-100 text-red-400 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-red-50 hover:text-red-600 transition-all flex items-center justify-center gap-2"
                           >
-                            <Trash2 size={14} /> Delete Forever
+                            <Skull size={14} /> Boot (Archive)
                           </button>
                         </>
                       )}
+
+                      {/* --- GREENLIT TAB LOGIC --- */}
                       {activeTab === "greenlit" && (
-                        <div className="h-full flex flex-col items-center justify-center text-emerald-500 bg-emerald-50 rounded-xl border border-emerald-100 p-4">
-                          <CheckCircle2 size={32} className="mb-2" />
-                          <span className="text-[10px] font-black uppercase tracking-widest">
-                            Active
-                          </span>
-                          <span className="text-[9px] font-medium opacity-70 mt-1">
-                            In Pipeline
-                          </span>
+                        <div className="flex flex-col gap-2">
+                          {isInPipeline ? (
+                            <div
+                              className={`flex flex-col items-center justify-center rounded-xl border p-4 mb-2 ${
+                                isRoster
+                                  ? "bg-purple-50 border-purple-100 text-purple-600"
+                                  : "bg-emerald-50 border-emerald-100 text-emerald-600"
+                              }`}
+                            >
+                              <CheckCircle2 size={32} className="mb-2" />
+                              <span className="text-[10px] font-black uppercase tracking-widest text-center">
+                                Confirmed In {destinationName}
+                              </span>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => pushToTracker(item)}
+                              disabled={processingId === item.id}
+                              className="w-full py-4 bg-red-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-600 shadow-md transition-all flex flex-col items-center justify-center gap-1 p-2"
+                            >
+                              <div className="flex items-center gap-2">
+                                <AlertTriangle size={16} />
+                                <span>Not in {destinationName}</span>
+                              </div>
+                              <div className="flex items-center gap-1 opacity-80 text-[9px]">
+                                <span>Click to Push</span>{" "}
+                                <ArrowRight size={10} />
+                              </div>
+                              {processingId === item.id && (
+                                <Loader2
+                                  className="animate-spin mt-1"
+                                  size={12}
+                                />
+                              )}
+                            </button>
+                          )}
+
+                          <button
+                            onClick={() => updateStatus(item, "pending")}
+                            className="w-full py-3 bg-white border border-slate-200 text-slate-500 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
+                          >
+                            <Undo2 size={14} /> Back to Pending
+                          </button>
+                          <button
+                            onClick={() => handleBoot(item)}
+                            className="w-full py-3 bg-white border border-red-100 text-red-400 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-red-50 hover:text-red-600 transition-all flex items-center justify-center gap-2"
+                          >
+                            <Skull size={14} /> Boot
+                          </button>
                         </div>
                       )}
                     </div>
