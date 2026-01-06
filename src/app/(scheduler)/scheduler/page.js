@@ -9,7 +9,6 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
-  ExternalLink,
   Sparkles,
   ArrowRight,
   Zap,
@@ -21,7 +20,7 @@ import {
   Pause,
   Music,
   Plus,
-  Mail, // Added Mail icon
+  Mail,
 } from "lucide-react";
 
 // --- 1. SUPABASE CONNECTION ---
@@ -253,7 +252,6 @@ export default function SchedulerPage() {
     e.preventDefault();
     setLoading(true);
 
-    // 🚨 FIX: Just stop if they try to bypass the UI for multi-voice
     if (["Dual", "Duet", "Multicast"].includes(formData.style)) {
       setLoading(false);
       showToast("Please email me for multi-voice projects.", "error");
@@ -364,10 +362,12 @@ export default function SchedulerPage() {
             look = "bg-red-50/80 border-red-100 cursor-not-allowed";
             content = (
               <>
-                <span className="text-red-300 text-[10px] md:text-xs absolute top-1.5 left-1.5">
+                {/* Number pushed to top-left and faded */}
+                <span className="text-red-300/50 text-[10px] absolute top-1 left-1.5">
                   {day}
                 </span>
-                <span className="text-red-400/80 text-[6px] md:text-[10px] md:text-xs font-black uppercase -rotate-12 tracking-wider md:static absolute bottom-1 right-1">
+                {/* Booked Text - CENTERED */}
+                <span className="text-red-400/90 text-[6px] md:text-[10px] font-black uppercase -rotate-12 tracking-widest absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
                   Booked
                 </span>
               </>
@@ -752,7 +752,7 @@ export default function SchedulerPage() {
               </select>
             </div>
 
-            {/* 🚨 FIX: Updated message per instructions */}
+            {/* Multi-Voice Warning */}
             {["Dual", "Duet", "Multicast"].includes(formData.style) ? (
               <div className="p-8 bg-indigo-50 rounded-3xl border border-indigo-100 text-center animate-fade-in">
                 <p className="text-indigo-900 font-bold text-lg mb-4">

@@ -141,7 +141,7 @@ export default function Footer() {
                 href="/actor"
                 className="hover:text-[var(--color-primary-light)] transition-colors"
               >
-                Voice Actor
+                (Voice) Actor
               </Link>
               <span className="text-gray-700">|</span>
               <Link
