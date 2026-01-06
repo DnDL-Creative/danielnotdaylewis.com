@@ -40,7 +40,6 @@ const TABS = [
   { id: "calendar", label: "Calendar Ops", icon: CalendarRange },
   { id: "onboarding", label: "Onboarding & First 15", icon: Kanban },
   { id: "production", label: "Production", icon: Briefcase },
-  // HOURS & ROI MOVED BEFORE FINANCIALS
   { id: "hours", label: "Hours & ROI", icon: Clock },
   { id: "financials", label: "Payments & Contracts", icon: DollarSign },
   { id: "archive", label: "Archive", icon: Archive },
@@ -97,26 +96,26 @@ export default function ProductionManager() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 px-6 pb-12 pt-8 md:pt-12">
+    <div className="min-h-screen bg-slate-50 px-4 md:px-6 pb-24 pt-24 md:pt-12">
       <div className="max-w-[1600px] mx-auto">
         {/* HEADER AREA */}
-        <div className="flex flex-col gap-8 mb-8">
+        <div className="flex flex-col gap-6 md:gap-8 mb-8">
           <div className="flex flex-col">
-            <h1 className="text-3xl md:text-4xl font-black uppercase text-slate-900 tracking-tight mb-2 italic">
+            <h1 className="text-2xl md:text-4xl font-black uppercase text-slate-900 tracking-tight mb-2 italic leading-none md:leading-tight">
               Daniel (not Day) Lewis: Audiobook Actor
             </h1>
-            <p className="text-slate-500 font-medium flex items-center gap-2 text-xs uppercase tracking-widest">
+            <p className="text-slate-500 font-medium flex items-center gap-2 text-[10px] md:text-xs uppercase tracking-widest">
               <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
               System Operational
             </p>
           </div>
 
-          {/* TABS BAR */}
-          <div className="w-full overflow-x-auto p-4 -ml-4">
+          {/* TABS BAR - Mobile Optimized */}
+          <div className="w-full overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 md:overflow-visible no-scrollbar">
             <div
               tabIndex={0}
               onKeyDown={handleTabNavigation}
-              className="inline-flex bg-white p-2 rounded-full border border-slate-200 shadow-sm gap-2 min-w-max focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2 focus:border-transparent transition-all cursor-pointer"
+              className="inline-flex bg-white p-1.5 md:p-2 rounded-full border border-slate-200 shadow-sm gap-2 min-w-max focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2 focus:border-transparent transition-all cursor-pointer"
             >
               {TABS.map((tab) => {
                 const Icon = tab.icon;
@@ -131,13 +130,13 @@ export default function ProductionManager() {
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     tabIndex={-1}
-                    className={`flex items-center gap-2 px-8 py-3 rounded-full text-[11px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                    className={`flex items-center gap-2 px-6 py-2.5 md:px-8 md:py-3 rounded-full text-[10px] md:text-[11px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
                       isActive
-                        ? "bg-slate-900 text-white shadow-md"
+                        ? "bg-slate-900 text-white shadow-md scale-105"
                         : "text-slate-400 hover:bg-slate-100 hover:text-slate-600"
                     }`}
                   >
-                    <Icon size={16} />
+                    <Icon size={14} className="md:w-4 md:h-4" />
                     <span>{tab.label}</span>
                     {count > 0 && (
                       <span
@@ -190,6 +189,18 @@ export default function ProductionManager() {
           {activeTab === "archive" && <Archives />}
         </div>
       </div>
+
+      <style jsx global>{`
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        .no-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        /* Hide scrollbar for IE, Edge and Firefox */
+        .no-scrollbar {
+          -ms-overflow-style: none; /* IE and Edge */
+          scrollbar-width: none; /* Firefox */
+        }
+      `}</style>
     </div>
   );
 }

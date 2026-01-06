@@ -453,8 +453,6 @@ ON CONFLICT (slug) DO UPDATE SET title = EXCLUDED.title, content = EXCLUDED.cont
   const handleLexicalChange = (htmlString) => setContent(htmlString);
 
   return (
-    // 🚨 FIX: Mobile = 'fixed inset-0 overflow-hidden' (Locked App Shell)
-    // 🚨 FIX: Desktop = 'md:relative md:inset-auto md:overflow-visible' (Normal Scroll)
     <div
       className={`font-sans transition-all duration-1000
         fixed inset-0 overflow-hidden 
@@ -495,10 +493,12 @@ ON CONFLICT (slug) DO UPDATE SET title = EXCLUDED.title, content = EXCLUDED.cont
         </div>
       )}
 
-      {/* --- SCROLLABLE INNER CONTAINER --- 
-          Mobile: Takes up full locked shell, handles own scroll.
-          Desktop: Just a wrapper, lets browser handle scroll.
-      */}
+      {/* --- BACK BUTTON (Fixed Position) --- */}
+      <Link href="/" className={themeStyle.backBtn}>
+        <LogOut size={14} /> Exit Studio
+      </Link>
+
+      {/* --- SCROLLABLE INNER CONTAINER --- */}
       <div className="h-full w-full overflow-y-auto overscroll-none md:h-auto md:overflow-visible md:overscroll-auto pb-24 md:pb-0">
         {/* --- HEADER TOOLBAR --- */}
         <div className="relative z-10 pt-16 pb-10 px-4 md:px-16 max-w-[1600px] mx-auto">
@@ -567,9 +567,41 @@ ON CONFLICT (slug) DO UPDATE SET title = EXCLUDED.title, content = EXCLUDED.cont
                 </button>
               )}
 
+              {/* 🚨 FIX: Removed divider on mobile (hidden md:flex) */}
               <div
-                className={`flex gap-2 ml-4 pl-4 border-l ${isDark ? "border-white/10" : "border-slate-300"}`}
+                className={`flex gap-2 ml-4 pl-4 border-l ${
+                  isDark ? "border-white/10" : "border-slate-300"
+                } hidden md:flex`}
               >
+                {isDark && (
+                  <button
+                    onClick={toggleVibeMode}
+                    className={`p-3 rounded-xl border transition-all ${vibeMode === "sexy" ? "bg-pink-500/20 border-pink-500 text-pink-500 shadow-[0_0_10px_rgba(236,72,153,0.3)]" : "bg-white/5 border-white/10 text-slate-400 hover:text-white"}`}
+                    title="Vibe Mode"
+                  >
+                    {vibeMode === "sexy" ? (
+                      <Flame size={16} className="animate-pulse" />
+                    ) : (
+                      <Zap size={16} />
+                    )}
+                  </button>
+                )}
+                <button
+                  onClick={toggleTheme}
+                  className={`p-3 rounded-xl border transition-all ${theme === "light" ? "bg-white border-slate-200 text-amber-500 shadow-sm" : "bg-white/5 border-white/10 hover:text-white"}`}
+                >
+                  {theme === "light" ? (
+                    <Sun size={16} />
+                  ) : theme === "teal" ? (
+                    <Cpu size={16} className="text-teal-400" />
+                  ) : (
+                    <FaHotdog size={16} className="text-yellow-400" />
+                  )}
+                </button>
+              </div>
+
+              {/* Mobile-only theme/mode buttons (outside the hidden div) */}
+              <div className="flex gap-2 md:hidden">
                 {isDark && (
                   <button
                     onClick={toggleVibeMode}

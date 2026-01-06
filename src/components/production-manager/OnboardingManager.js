@@ -9,7 +9,6 @@ import {
   Mail,
   BookOpen,
   User,
-  Clock,
   Ban,
   Calendar,
   FolderInput,
@@ -57,37 +56,25 @@ const PRODUCTION_TABLE = "4_production";
 
 // --- CONFIGURATION: UI STEPS ---
 const ONBOARDING_STEPS = [
-  { key: "contract_sent", label: "Email 1: Kickoff Sent", icon: Mail },
-  { key: "esig_sent", label: "E-Sig Request Sent", icon: PenTool },
+  { key: "contract_sent", label: "Email 1: Kickoff", icon: Mail },
+  { key: "esig_sent", label: "E-Sig Sent", icon: PenTool },
   { key: "contract_signed", label: "Contract Signed", icon: FileCheck },
-  { key: "deposit_sent", label: "Email 2: Invoice Sent", icon: CreditCard },
+  { key: "deposit_sent", label: "Email 2: Invoice", icon: CreditCard },
   { key: "deposit_paid", label: "Deposit Paid (15%)", icon: DollarSign },
-  {
-    key: "email_receipt_sent",
-    label: "Email 3: Folder Link",
-    icon: FolderInput,
-  },
-  { key: "breakdown_received", label: "Breakdown Sheet Rcvd", icon: List },
-  { key: "manuscript_received", label: "Manuscript Rcvd", icon: BookOpen },
-  { key: "added_to_contacts", label: "Added to Contacts", icon: UserPlus },
-  { key: "backend_folder", label: "Backend Folder Setup", icon: FolderInput },
-  {
-    key: "moved_to_f15",
-    label: "Graduate to First 15",
-    icon: ArrowRightCircle,
-  },
+  { key: "email_receipt_sent", label: "Email 3: Links", icon: FolderInput },
+  { key: "breakdown_received", label: "Breakdown Rcvd", icon: List },
+  { key: "manuscript_received", label: "Script Rcvd", icon: BookOpen },
+  { key: "added_to_contacts", label: "Contacts Added", icon: UserPlus },
+  { key: "backend_folder", label: "Backend Setup", icon: FolderInput },
+  { key: "moved_to_f15", label: "Grad to First 15", icon: ArrowRightCircle },
 ];
 
 const F15_STEPS = [
-  { key: "f15_sent", label: "F15 Sent to Client", icon: Send },
-  {
-    key: "f15_feedback_rcvd",
-    label: "Feedback/Notes Rcvd",
-    icon: MessageSquare,
-  },
-  { key: "f15_revision_req", label: "Revision Required?", icon: AlertTriangle },
+  { key: "f15_sent", label: "F15 Sent", icon: Send },
+  { key: "f15_feedback_rcvd", label: "Notes Rcvd", icon: MessageSquare },
+  { key: "f15_revision_req", label: "Revision Needed?", icon: AlertTriangle },
   { key: "f15_r2_sent", label: "Revision Sent", icon: Repeat },
-  { key: "f15_approved", label: "Approved & Locked", icon: ThumbsUp },
+  { key: "f15_approved", label: "Approved", icon: ThumbsUp },
 ];
 
 // --- DB MAPPING ---
@@ -199,7 +186,7 @@ const RefundModal = ({ isOpen, onConfirm, onCancel }) => {
                   : "border-slate-100 text-slate-400 hover:border-slate-300"
               }`}
             >
-              {amt === 0 ? "No Refund" : `${amt}%`}
+              {amt === 0 ? "No" : `${amt}%`}
             </button>
           ))}
         </div>
@@ -214,7 +201,7 @@ const RefundModal = ({ isOpen, onConfirm, onCancel }) => {
             onClick={() => onConfirm(refundAmount)}
             className="flex-1 py-4 bg-red-600 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-red-700 shadow-xl shadow-red-200 flex items-center justify-center gap-2"
           >
-            <Ban size={16} /> Boot Project
+            <Ban size={16} /> Boot
           </button>
         </div>
       </div>
@@ -244,8 +231,8 @@ const DateConfirmModal = ({
               isHolding
                 ? "bg-blue-100 text-blue-600"
                 : isProduction
-                ? "bg-emerald-100 text-emerald-600"
-                : "bg-slate-100 text-slate-500"
+                  ? "bg-emerald-100 text-emerald-600"
+                  : "bg-slate-100 text-slate-500"
             }`}
           >
             {isHolding ? (
@@ -264,12 +251,12 @@ const DateConfirmModal = ({
 
         {isHolding && (
           <p className="text-xs text-blue-600 font-bold text-center mb-4 bg-blue-50 py-2 rounded-lg">
-            Moving to Holding Tank until Start Date.
+            Moving to Holding Tank.
           </p>
         )}
         {isProduction && (
           <p className="text-xs text-emerald-600 font-bold text-center mb-4 bg-emerald-50 py-2 rounded-lg">
-            Set initial Production Dates.
+            Set Production Dates.
           </p>
         )}
         {!isHolding && !isProduction && (
@@ -332,15 +319,11 @@ const DateConfirmModal = ({
               isHolding
                 ? "bg-blue-600 hover:bg-blue-700"
                 : isProduction
-                ? "bg-emerald-600 hover:bg-emerald-700"
-                : "bg-slate-900 hover:bg-slate-800"
+                  ? "bg-emerald-600 hover:bg-emerald-700"
+                  : "bg-slate-900 hover:bg-slate-800"
             }`}
           >
-            {isHolding
-              ? "Move to Holding"
-              : isProduction
-              ? "Start Production"
-              : "Confirm"}
+            {isHolding ? "To Holding" : isProduction ? "Start" : "Confirm"}
           </button>
         </div>
       </div>
@@ -587,18 +570,12 @@ export default function OnboardingManager() {
     };
 
     if (existing) {
-      // Update existing record
       await supabase
         .from(PRODUCTION_TABLE)
         .update(prodPayload)
         .eq("id", existing.id);
-      console.log("Updated existing production record");
     } else {
-      // Insert new record
-      const { error: prodError } = await supabase
-        .from(PRODUCTION_TABLE)
-        .insert([prodPayload]);
-      if (prodError) console.error("Production Insert Error:", prodError);
+      await supabase.from(PRODUCTION_TABLE).insert([prodPayload]);
     }
 
     await supabase
@@ -621,7 +598,6 @@ export default function OnboardingManager() {
       recording_due_date: recDue,
     };
 
-    // Check if Production Record Exists First (Deduplication)
     const { data: existing } = await supabase
       .from(PRODUCTION_TABLE)
       .select("id")
@@ -644,7 +620,6 @@ export default function OnboardingManager() {
     showToast("Activated to Production!");
   };
 
-  // ... (Rest of the component remains unchanged) ...
   const handleNudge = async (item) => {
     const now = new Date().toISOString().split("T")[0];
     const newStrikes = Math.min((item.strike_count || 0) + 1, 3);
@@ -712,26 +687,26 @@ export default function OnboardingManager() {
   const getNudgeStyles = (count) => {
     if (!count || count === 0)
       return {
-        label: "Send Nudge",
+        label: "Nudge",
         style:
           "bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50",
         icon: Send,
       };
     if (count === 1)
       return {
-        label: "Nudge Again (1)",
+        label: "Again (1)",
         style: "bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100",
         icon: Megaphone,
       };
     if (count === 2)
       return {
-        label: "Firm Nudge (2)",
+        label: "Firm (2)",
         style:
           "bg-orange-50 border-orange-200 text-orange-600 hover:bg-orange-100",
         icon: AlertTriangle,
       };
     return {
-      label: "RED ALERT (3)",
+      label: "ALERT (3)",
       style:
         "bg-red-50 border-red-200 text-red-600 hover:bg-red-100 animate-pulse",
       icon: ShieldAlert,
@@ -782,17 +757,17 @@ export default function OnboardingManager() {
     );
 
   return (
-    <div className="relative w-full space-y-12 pb-24">
+    <div className="relative w-full space-y-8 pb-24">
       <DateConfirmModal
         isOpen={dateModal.isOpen}
         title={
           dateModal.stepKey === "moved_to_f15"
-            ? "Graduate to First 15?"
+            ? "Graduate?"
             : dateModal.stepKey === "f15_approved"
-            ? dateModal.item?.step_dates?.is_advanced_booking
-              ? "Move to Holding Tank?"
-              : "Start Production?"
-            : "Mark Step Complete"
+              ? dateModal.item?.step_dates?.is_advanced_booking
+                ? "Move to Holding?"
+                : "Start Production?"
+              : "Mark Complete"
         }
         isHolding={
           dateModal.stepKey === "f15_approved" &&
@@ -819,8 +794,8 @@ export default function OnboardingManager() {
       />
       <SafetyCheckModal
         isOpen={safetyModal.isOpen}
-        title="Undo Completed Step?"
-        message="This will remove the completion date and mark this step as pending. Proceed?"
+        title="Undo Step?"
+        message="Remove completion date and mark as pending?"
         onConfirm={safetyModal.onConfirm}
         onCancel={() => setSafetyModal({ isOpen: false, onConfirm: null })}
       />
@@ -834,59 +809,62 @@ export default function OnboardingManager() {
         }
       />
 
-      {/* HEADER TABS & FILTER */}
+      {/* HEADER TABS & FILTER - MOBILE OPTIMIZED */}
       <div className="sticky top-4 z-40 space-y-4">
-        <div className="flex justify-center">
-          <div className="bg-white/80 backdrop-blur-md p-1.5 rounded-full border border-slate-200 shadow-xl flex">
+        {/* TABS CONTAINER - SCROLLABLE ON MOBILE */}
+        <div className="w-full overflow-x-auto pb-2 px-1 -mx-1 scrollbar-hide">
+          <div className="bg-white/90 backdrop-blur-md p-1.5 rounded-full border border-slate-200 shadow-xl flex min-w-max">
             <button
               onClick={() => setSubTab("checklist")}
-              className={`flex items-center gap-2 px-8 py-3 rounded-full text-xs font-black uppercase tracking-widest transition-all ${
+              className={`flex items-center gap-2 px-6 py-3 rounded-full text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${
                 subTab === "checklist"
-                  ? "bg-slate-900 text-white shadow-lg scale-105"
+                  ? "bg-slate-900 text-white shadow-lg"
                   : "text-slate-400 hover:text-slate-600"
               }`}
             >
-              <BookOpen size={16} /> Onboarding{" "}
+              <BookOpen size={14} /> Onboard{" "}
               <span className="opacity-40 ml-1">
                 | {onboardingItems.length}
               </span>
             </button>
             <button
               onClick={() => setSubTab("f15")}
-              className={`flex items-center gap-2 px-8 py-3 rounded-full text-xs font-black uppercase tracking-widest transition-all ${
+              className={`flex items-center gap-2 px-6 py-3 rounded-full text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${
                 subTab === "f15"
-                  ? "bg-purple-600 text-white shadow-lg scale-105"
+                  ? "bg-purple-600 text-white shadow-lg"
                   : "text-slate-400 hover:text-slate-600"
               }`}
             >
-              <Headphones size={16} /> First 15{" "}
+              <Headphones size={14} /> First 15{" "}
               <span className="opacity-40 ml-1">| {f15Items.length}</span>
             </button>
             <button
               onClick={() => setSubTab("holding")}
-              className={`flex items-center gap-2 px-8 py-3 rounded-full text-xs font-black uppercase tracking-widest transition-all ${
+              className={`flex items-center gap-2 px-6 py-3 rounded-full text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${
                 subTab === "holding"
-                  ? "bg-blue-600 text-white shadow-lg scale-105"
+                  ? "bg-blue-600 text-white shadow-lg"
                   : "text-slate-400 hover:text-slate-600"
               }`}
             >
-              <CalendarClock size={16} /> Holding{" "}
+              <CalendarClock size={14} /> Hold{" "}
               <span className="opacity-40 ml-1">| {holdingItems.length}</span>
             </button>
           </div>
         </div>
+
+        {/* SEARCH & SORT - STACKED ON MOBILE */}
         {(onboardingItems.length > 0 ||
           f15Items.length > 0 ||
           holdingItems.length > 0) && (
-          <div className="flex flex-col md:flex-row justify-center gap-3 animate-in fade-in slide-in-from-top-4 duration-500">
-            <div className="flex items-center bg-white/90 backdrop-blur-sm p-1.5 rounded-xl border border-slate-200 shadow-sm focus-within:ring-2 focus-within:ring-slate-200 transition-all">
-              <Search className="text-slate-400 ml-2" size={16} />
+          <div className="flex flex-col md:flex-row justify-center gap-3 px-2 md:px-0">
+            <div className="flex items-center bg-white/90 backdrop-blur-sm p-2 rounded-xl border border-slate-200 shadow-sm w-full md:w-auto">
+              <Search className="text-slate-400 ml-2 shrink-0" size={16} />
               <input
                 type="text"
-                placeholder="Filter projects..."
+                placeholder="Search..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-transparent border-none outline-none text-xs font-bold text-slate-700 placeholder:text-slate-400 w-48 px-2"
+                className="bg-transparent border-none outline-none text-xs font-bold text-slate-700 placeholder:text-slate-400 w-full px-2"
               />
               {searchQuery && (
                 <button onClick={() => setSearchQuery("")}>
@@ -897,7 +875,7 @@ export default function OnboardingManager() {
                 </button>
               )}
             </div>
-            <div className="flex items-center bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm gap-2">
+            <div className="flex items-center bg-white/90 backdrop-blur-sm px-3 py-2 rounded-xl border border-slate-200 shadow-sm gap-2 w-full md:w-auto justify-between md:justify-start">
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
                 <ArrowUpDown size={12} /> Sort:
               </span>
@@ -925,13 +903,13 @@ export default function OnboardingManager() {
                   subTab === "checklist"
                     ? "Onboarding"
                     : subTab === "f15"
-                    ? "First 15"
-                    : "Holding Tank"
+                      ? "First 15"
+                      : "Holding Tank"
                 }`}
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-12">
+        <div className="grid grid-cols-1 gap-6 md:gap-12">
           {filteredAndSortedItems.map((item) => {
             const isRoster = item.request.client_type === "Roster";
             const completedCount = currentSteps.filter((s) =>
@@ -949,29 +927,55 @@ export default function OnboardingManager() {
             return (
               <div
                 key={item.id}
-                className={`bg-white rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/50 border relative overflow-hidden group transition-colors duration-500 ${
+                className={`bg-white rounded-[2rem] p-5 md:p-8 shadow-xl shadow-slate-200/50 border relative overflow-hidden group transition-colors duration-500 ${
                   strikes >= 3
                     ? "border-red-100 bg-red-50/30"
                     : "border-slate-100"
                 }`}
               >
-                {/* HEADER */}
-                <div className="flex flex-col lg:flex-row gap-8 mb-8 pb-8 border-b border-slate-100">
-                  <div className="w-32 h-48 lg:w-40 lg:h-60 bg-slate-100 rounded-xl shrink-0 shadow-md relative overflow-hidden mx-auto lg:mx-0">
-                    {item.request.cover_image_url ? (
-                      <img
-                        src={item.request.cover_image_url}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-slate-300">
-                        <BookOpen size={32} />
+                {/* HEADER - MOBILE FLEX ROW */}
+                <div className="flex flex-col lg:flex-row gap-6 md:gap-8 mb-6 pb-6 border-b border-slate-100">
+                  {/* Image + Title Section (Flex Row on Mobile for Space Efficiency) */}
+                  <div className="flex flex-row lg:flex-col gap-4 lg:w-40 lg:shrink-0">
+                    <div className="w-24 h-36 lg:w-40 lg:h-60 bg-slate-100 rounded-xl shrink-0 shadow-md relative overflow-hidden">
+                      {item.request.cover_image_url ? (
+                        <img
+                          src={item.request.cover_image_url}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-slate-300">
+                          <BookOpen size={24} />
+                        </div>
+                      )}
+                    </div>
+                    {/* Mobile Title Block (Visible next to image on phone) */}
+                    <div className="flex flex-col justify-center lg:hidden">
+                      <div className="flex gap-2 mb-1">
+                        <span
+                          className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest ${
+                            isRoster
+                              ? "bg-purple-100 text-purple-700"
+                              : "bg-emerald-100 text-emerald-700"
+                          }`}
+                        >
+                          {item.request.client_type}
+                        </span>
                       </div>
-                    )}
+                      <h3 className="text-xl font-black text-slate-900 leading-tight line-clamp-3">
+                        {item.request.book_title}
+                      </h3>
+                      <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-wide mt-1">
+                        <User size={12} /> {item.request.client_name}
+                      </div>
+                    </div>
                   </div>
+
+                  {/* Desktop/Tablet Main Content */}
                   <div className="flex-grow flex flex-col justify-between">
                     <div>
-                      <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
+                      {/* Desktop Header (Hidden on Mobile) */}
+                      <div className="hidden lg:flex flex-wrap items-start justify-between gap-4 mb-4">
                         <div>
                           <div className="flex gap-2 mb-1">
                             <span
@@ -1005,49 +1009,52 @@ export default function OnboardingManager() {
                                   ? strikes === 1
                                     ? "bg-blue-500"
                                     : strikes === 2
-                                    ? "bg-orange-500"
-                                    : "bg-red-600"
+                                      ? "bg-orange-500"
+                                      : "bg-red-600"
                                   : "bg-slate-200"
                               }`}
                             />
                           ))}
                         </div>
                       </div>
+
+                      {/* STATS GRID - COMPACT ON MOBILE */}
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
-                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                          <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                        <div className="p-2 md:p-3 bg-slate-50 rounded-xl border border-slate-100">
+                          <div className="text-[8px] md:text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
                             <Hash size={10} /> Word Count
                           </div>
-                          <div className="text-xs font-black text-slate-700">
+                          <div className="text-[10px] md:text-xs font-black text-slate-700">
                             {formatNumber(item.request.word_count)}
                           </div>
                         </div>
-                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                          <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                        <div className="p-2 md:p-3 bg-slate-50 rounded-xl border border-slate-100">
+                          <div className="text-[8px] md:text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
                             <Tag size={10} /> Genre
                           </div>
-                          <div className="text-xs font-black text-slate-700 truncate">
+                          <div className="text-[10px] md:text-xs font-black text-slate-700 truncate">
                             {item.request.genre || "-"}
                           </div>
                         </div>
-                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                          <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                        <div className="p-2 md:p-3 bg-slate-50 rounded-xl border border-slate-100">
+                          <div className="text-[8px] md:text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
                             <Mic2 size={10} /> Style
                           </div>
-                          <div className="text-xs font-black text-slate-700 truncate">
+                          <div className="text-[10px] md:text-xs font-black text-slate-700 truncate">
                             {item.request.narration_style || "-"}
                           </div>
                         </div>
-                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                          <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                        <div className="p-2 md:p-3 bg-slate-50 rounded-xl border border-slate-100">
+                          <div className="text-[8px] md:text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
                             <CalendarRange size={10} /> Timeline
                           </div>
-                          <div className="text-xs font-black text-slate-700 truncate">
+                          <div className="text-[10px] md:text-xs font-black text-slate-700 truncate">
                             {formatDate(item.request.start_date)} -{" "}
                             {formatDate(item.request.end_date)}
                           </div>
                         </div>
                       </div>
+
                       {item.request.notes && (
                         <div className="p-3 bg-amber-50 rounded-xl border border-amber-100 mb-4 flex gap-3">
                           <StickyNote
@@ -1065,39 +1072,42 @@ export default function OnboardingManager() {
                         {isRoster && subTab === "checklist" && (
                           <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-xl border border-purple-100 flex-grow">
                             <Zap size={16} className="text-purple-600" />
-                            <span className="text-xs font-bold text-purple-800">
-                              Roster Client Detected.
+                            <span className="text-[10px] md:text-xs font-bold text-purple-800">
+                              Roster Client
                             </span>
                             <button
                               onClick={() => graduateToF15(item, {})}
-                              className="ml-auto px-4 py-1.5 bg-purple-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-purple-700"
+                              className="ml-auto px-4 py-1.5 bg-purple-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-purple-700"
                             >
                               Skip to F15
                             </button>
                           </div>
                         )}
                         {subTab === "f15" && (
-                          <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl border border-blue-100 flex-grow">
-                            <button
-                              onClick={() => toggleAdvancedBooking(item)}
-                              className="text-blue-600 hover:text-blue-800"
-                            >
-                              {isAdvanced ? (
-                                <ToggleRight size={24} />
-                              ) : (
-                                <ToggleLeft size={24} />
-                              )}
-                            </button>
-                            <span className="text-xs font-bold text-blue-800 uppercase tracking-wider">
-                              Advanced Booking / Pay?
-                            </span>
-                            <span className="text-[9px] text-blue-400 ml-auto font-medium hidden md:block">
+                          <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl border border-blue-100 flex-grow justify-between">
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => toggleAdvancedBooking(item)}
+                                className="text-blue-600 hover:text-blue-800"
+                              >
+                                {isAdvanced ? (
+                                  <ToggleRight size={24} />
+                                ) : (
+                                  <ToggleLeft size={24} />
+                                )}
+                              </button>
+                              <span className="text-[10px] md:text-xs font-bold text-blue-800 uppercase tracking-wider">
+                                Advanced Booking?
+                              </span>
+                            </div>
+                            <span className="text-[9px] text-blue-400 font-medium hidden md:block">
                               Moves to Holding Tank if checked
                             </span>
                           </div>
                         )}
                       </div>
                     </div>
+
                     {/* PROGRESS BAR */}
                     {subTab !== "holding" && (
                       <div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden mt-auto relative">
@@ -1109,7 +1119,7 @@ export default function OnboardingManager() {
                         />
                         <div className="absolute inset-0 flex items-center justify-center">
                           <span
-                            className={`text-[9px] font-black uppercase tracking-wider ${
+                            className={`text-[8px] font-black uppercase tracking-wider ${
                               progress > 50 ? "text-white" : "text-slate-500"
                             }`}
                           >
@@ -1119,13 +1129,14 @@ export default function OnboardingManager() {
                       </div>
                     )}
                   </div>
-                  {/* ACTIONS */}
-                  <div className="lg:w-48 shrink-0 flex flex-col gap-2">
+
+                  {/* ACTIONS - MOVED TO BOTTOM ON MOBILE */}
+                  <div className="lg:w-48 shrink-0 flex flex-row lg:flex-col gap-2 overflow-x-auto lg:overflow-visible">
                     <a
                       href={item.request.email_thread_link || "#"}
                       target="_blank"
                       rel="noreferrer"
-                      className={`w-full py-3 px-4 rounded-xl border flex items-center justify-between text-[10px] font-black uppercase tracking-widest transition-all ${
+                      className={`flex-1 lg:flex-none py-3 px-4 rounded-xl border flex items-center justify-center lg:justify-between gap-2 text-[10px] font-black uppercase tracking-widest transition-all ${
                         item.request.email_thread_link
                           ? "bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100"
                           : "bg-slate-50 border-slate-100 text-slate-300 cursor-not-allowed"
@@ -1134,11 +1145,13 @@ export default function OnboardingManager() {
                         !item.request.email_thread_link && e.preventDefault()
                       }
                     >
-                      Open Thread <ExternalLink size={14} />
+                      <span className="hidden md:inline">Open </span>Thread{" "}
+                      <ExternalLink size={14} />
                     </a>
+
                     {subTab === "holding" ? (
-                      <div className="space-y-2">
-                        <div className="p-4 bg-slate-900 rounded-xl text-center">
+                      <div className="flex-1 lg:flex-none space-y-0 lg:space-y-2 flex lg:block gap-2">
+                        <div className="hidden lg:block p-4 bg-slate-900 rounded-xl text-center">
                           <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">
                             Starts In
                           </span>
@@ -1151,18 +1164,22 @@ export default function OnboardingManager() {
                         </div>
                         <button
                           onClick={() => activateFromHolding(item)}
-                          className="w-full py-4 bg-emerald-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 shadow-lg flex items-center justify-center gap-2"
+                          className="flex-1 lg:w-full py-3 lg:py-4 bg-emerald-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 shadow-lg flex items-center justify-center gap-2"
                         >
                           <Play size={16} /> Activate
                         </button>
                       </div>
                     ) : (
-                      <div className="flex gap-1">
+                      <div className="flex flex-1 lg:flex-none gap-1">
                         <button
                           onClick={() => handleNudge(item)}
-                          className={`flex-grow py-3 px-4 border rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-between transition-all ${nudgeConfig.style}`}
+                          className={`flex-grow py-3 px-4 border rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center lg:justify-between transition-all ${nudgeConfig.style}`}
                         >
-                          {nudgeConfig.label} <NudgeIcon size={14} />
+                          {nudgeConfig.label}
+                          <span className="hidden lg:inline">
+                            {" "}
+                            <NudgeIcon size={14} />
+                          </span>
                         </button>
                         {strikes > 0 && (
                           <button
@@ -1175,14 +1192,15 @@ export default function OnboardingManager() {
                         )}
                       </div>
                     )}
-                    <div className="flex gap-2 mt-auto">
+
+                    <div className="flex flex-1 lg:flex-none gap-2">
                       <button
                         onClick={() => initiateStatusChange(item, "postponed")}
                         className="flex-1 py-3 bg-amber-50 border border-amber-200 text-amber-700 rounded-xl hover:bg-amber-100 hover:border-amber-300 transition-all flex items-center justify-center gap-1"
                         title="Postpone Project"
                       >
                         <PauseCircle size={16} />{" "}
-                        <span className="text-[10px] font-black uppercase">
+                        <span className="text-[10px] font-black uppercase hidden md:inline">
                           Postpone
                         </span>
                       </button>
@@ -1196,14 +1214,15 @@ export default function OnboardingManager() {
                         title="Boot Project"
                       >
                         <Ban size={16} />{" "}
-                        <span className="text-[10px] font-black uppercase">
+                        <span className="text-[10px] font-black uppercase hidden md:inline">
                           Boot
                         </span>
                       </button>
                     </div>
                   </div>
                 </div>
-                {/* STEPS */}
+
+                {/* STEPS GRID - 1 COL MOBILE / 4 COL DESKTOP */}
                 {subTab !== "holding" && (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                     {currentSteps.map((step, index) => {
@@ -1214,7 +1233,7 @@ export default function OnboardingManager() {
                         <button
                           key={step.key}
                           onClick={() => initiateStepToggle(item, step.key)}
-                          className={`relative flex items-center gap-3 p-4 rounded-xl border text-left transition-all ${
+                          className={`relative flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
                             isDone
                               ? "bg-slate-900 border-slate-900 shadow-lg scale-[1.01]"
                               : "bg-white border-slate-100 hover:border-slate-300 hover:bg-slate-50"
@@ -1227,12 +1246,12 @@ export default function OnboardingManager() {
                                 : "bg-slate-100 text-slate-300"
                             }`}
                           >
-                            <Icon size={18} />
+                            <Icon size={16} />
                           </div>
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
                               <span
-                                className={`text-[10px] font-black opacity-30 ${
+                                className={`text-[9px] font-black opacity-30 ${
                                   isDone ? "text-white" : "text-slate-400"
                                 }`}
                               >
@@ -1240,21 +1259,21 @@ export default function OnboardingManager() {
                               </span>
                             </div>
                             <span
-                              className={`text-[11px] font-bold uppercase tracking-wide truncate block ${
+                              className={`text-[10px] font-bold uppercase tracking-wide truncate block ${
                                 isDone ? "text-white" : "text-slate-600"
                               }`}
                             >
                               {step.label}
                             </span>
                             {isDone && dateStamp && (
-                              <span className="text-[9px] font-bold text-slate-400 flex items-center gap-1 mt-0.5">
-                                <Calendar size={10} /> {dateStamp}
+                              <span className="text-[8px] font-bold text-slate-400 flex items-center gap-1 mt-0.5">
+                                <Calendar size={8} /> {dateStamp}
                               </span>
                             )}
                           </div>
                           {isDone && (
                             <CheckCircle2
-                              size={16}
+                              size={14}
                               className="absolute top-2 right-2 text-emerald-500"
                             />
                           )}

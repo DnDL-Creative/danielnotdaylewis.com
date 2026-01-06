@@ -11,27 +11,13 @@ import {
   ChevronRight,
   Loader2,
   Trash2,
-  AlertTriangle,
   CheckCircle2,
   Plus,
-  Briefcase,
   X,
-  User,
-  Mail,
-  BookOpen,
-  Mic2,
-  Tags,
-  FileText,
-  Clock,
-  Archive,
-  Save,
-  Ban,
-  CalendarDays,
   Image as ImageIcon,
   UploadCloud,
-  Hash,
-  Calculator,
-  ArrowRight,
+  Clock,
+  Archive,
 } from "lucide-react";
 
 const supabase = createClient(
@@ -624,7 +610,7 @@ export default function SchedulerDashboard() {
           {blanks.map((_, i) => (
             <div
               key={`b-${i}`}
-              className="h-24 bg-slate-50/30 rounded-xl border border-transparent"
+              className="h-20 md:h-32 bg-slate-50/30 rounded-xl border border-transparent"
             />
           ))}
 
@@ -644,20 +630,22 @@ export default function SchedulerDashboard() {
               <div
                 key={i}
                 onClick={() => openAddModal(date)}
-                className={`h-24 border rounded-xl p-1.5 relative overflow-hidden group transition-all cursor-pointer hover:border-blue-300 hover:shadow-md ${
+                className={`h-24 md:h-32 border rounded-xl p-1 relative overflow-hidden group transition-all cursor-pointer hover:border-blue-300 hover:shadow-md ${
                   isToday
                     ? "bg-blue-50/50 border-blue-200"
                     : "bg-white border-slate-100"
                 }`}
               >
                 <span
-                  className={`text-[10px] font-bold absolute top-1.5 right-2 flex items-center justify-center w-6 h-6 rounded-full ${
+                  className={`text-[9px] md:text-[10px] font-bold absolute top-1 right-1 flex items-center justify-center w-5 h-5 md:w-6 md:h-6 rounded-full ${
                     isToday ? "bg-blue-500 text-white" : "text-slate-400"
                   }`}
                 >
                   {day}
                 </span>
-                <div className="mt-6 space-y-1 overflow-y-auto max-h-[60px] scrollbar-hide">
+
+                {/* Scrollable container for projects on busy days */}
+                <div className="mt-5 md:mt-6 space-y-1 overflow-y-auto max-h-[calc(100%-24px)] scrollbar-hide">
                   {dayItems.map((item, idx) => {
                     let color =
                       "bg-emerald-100 text-emerald-800 border-emerald-200";
@@ -674,7 +662,7 @@ export default function SchedulerDashboard() {
                       <button
                         key={`${item.id}-${idx}`}
                         onClick={(e) => handleItemClick(e, item)}
-                        className={`w-full text-left text-[9px] px-1.5 py-0.5 rounded-md border ${color} font-bold truncate flex items-center gap-1 hover:brightness-95`}
+                        className={`w-full text-left text-[8px] md:text-[9px] px-1 md:px-1.5 py-0.5 rounded-md border ${color} font-bold truncate flex items-center gap-1 hover:brightness-95`}
                         title={item.title}
                       >
                         {item.title}
@@ -684,8 +672,8 @@ export default function SchedulerDashboard() {
                 </div>
                 <div className="absolute top-1 left-1 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
                   <Plus
-                    className="text-blue-500 bg-white rounded-full shadow-md p-1"
-                    size={20}
+                    className="text-blue-500 bg-white rounded-full shadow-md p-0.5"
+                    size={16}
                   />
                 </div>
               </div>
@@ -696,91 +684,18 @@ export default function SchedulerDashboard() {
     );
   };
 
-  const renderGhostMode = () => (
-    <div className="max-w-xl mx-auto py-8 animate-fade-in">
-      <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-6 md:p-8 rounded-3xl shadow-xl text-white relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-teal-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
-        <h3 className="text-xl font-black uppercase mb-2 flex items-center gap-2 relative z-10">
-          <Ghost className="text-teal-400" /> Smart Ghost Generator
-        </h3>
-        <p className="text-slate-400 text-sm mb-8 relative z-10">
-          Automatically finds gaps and fills them with fake "NDA Projects".
-        </p>
-        <div className="space-y-6 relative z-10">
-          <div>
-            <label className="text-xs font-bold uppercase text-slate-500 tracking-wider mb-2 block">
-              Density
-            </label>
-            <div className="flex bg-white/5 p-1 rounded-xl">
-              {["low", "medium", "high"].map((d) => (
-                <button
-                  key={d}
-                  onClick={() => setGhostDensity(d)}
-                  className={`flex-1 py-3 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${
-                    ghostDensity === d
-                      ? "bg-teal-500 text-white shadow-lg"
-                      : "text-slate-400 hover:text-white"
-                  }`}
-                >
-                  {d}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <label className="text-xs font-bold uppercase text-slate-500 tracking-wider mb-2 block">
-              Lookahead
-            </label>
-            <div className="flex bg-white/5 p-1 rounded-xl">
-              {[3, 6, 12].map((m) => (
-                <button
-                  key={m}
-                  onClick={() => setGhostMonths(m)}
-                  className={`flex-1 py-3 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${
-                    ghostMonths === m
-                      ? "bg-indigo-500 text-white shadow-lg"
-                      : "text-slate-400 hover:text-white"
-                  }`}
-                >
-                  {m} Mo
-                </button>
-              ))}
-            </div>
-          </div>
-          <button
-            onClick={handleGhostMode}
-            disabled={loading}
-            className="w-full py-4 bg-white text-slate-900 rounded-xl font-black uppercase tracking-widest hover:bg-teal-400 hover:scale-[1.02] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            {loading ? (
-              <Loader2 className="animate-spin" />
-            ) : (
-              <>
-                <Wand2 size={18} /> Populate Ghosts
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
   return (
-    <div className="bg-white p-6 md:px-12 md:py-8 rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden relative">
+    <div className="bg-white p-4 md:px-12 md:py-8 rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden relative">
       {/* UNIFIED MODAL (ADD & EDIT) */}
       {modalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
-            onClick={() => setModalOpen(false)}
-          />
-          <div className="relative bg-white rounded-[2.5rem] p-8 max-w-2xl w-full shadow-2xl animate-scale-up max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+          <div className="relative bg-white rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-8 max-w-2xl w-full shadow-2xl animate-scale-up my-auto">
             <div className="flex justify-between items-start mb-6">
               <div>
-                <h3 className="text-2xl font-black uppercase text-slate-900 mb-1">
+                <h3 className="text-xl md:text-2xl font-black uppercase text-slate-900 mb-1">
                   {modalMode === "add" ? "Add to Schedule" : "Edit Details"}
                 </h3>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                <p className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">
                   {modalMode === "add"
                     ? selectedDate?.toLocaleDateString("en-US", {
                         weekday: "long",
@@ -788,8 +703,8 @@ export default function SchedulerDashboard() {
                         day: "numeric",
                       })
                     : editingItem?.type === "real"
-                    ? "Project Entry"
-                    : "Time Off"}
+                      ? "Project Entry"
+                      : "Time Off"}
                 </p>
               </div>
               <button
@@ -830,7 +745,7 @@ export default function SchedulerDashboard() {
               {/* LEFT: Cover Image (Projects Only) */}
               {formData.type === "project" && (
                 <div className="w-full md:w-40 shrink-0">
-                  <div className="aspect-[2/3] bg-slate-100 rounded-2xl overflow-hidden relative shadow-inner border border-slate-200 group">
+                  <div className="aspect-[2/3] bg-slate-100 rounded-2xl overflow-hidden relative shadow-inner border border-slate-200 group mx-auto md:mx-0 max-w-[160px]">
                     {formData.cover_image_url ? (
                       <img
                         src={formData.cover_image_url}
@@ -870,7 +785,7 @@ export default function SchedulerDashboard() {
               {/* RIGHT: Form Fields */}
               <div className="flex-grow space-y-4">
                 {/* DATES */}
-                <div className="grid grid-cols-2 gap-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
                   <div>
                     <label className="text-[9px] font-bold uppercase text-slate-400 block mb-1">
                       Start Date
@@ -901,7 +816,7 @@ export default function SchedulerDashboard() {
 
                 {formData.type === "project" ? (
                   <>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="text-[9px] font-bold uppercase text-slate-400 block mb-1">
                           Title
@@ -930,7 +845,7 @@ export default function SchedulerDashboard() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="text-[9px] font-bold uppercase text-slate-400 block mb-1">
                           Ref #
@@ -962,7 +877,7 @@ export default function SchedulerDashboard() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="text-[9px] font-bold uppercase text-slate-400 block mb-1">
                           Word Count
@@ -993,7 +908,7 @@ export default function SchedulerDashboard() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="text-[9px] font-bold uppercase text-slate-400 block mb-1">
                           Genre
@@ -1116,7 +1031,7 @@ export default function SchedulerDashboard() {
       {/* HEADER & TABS */}
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
         <div>
-          <h2 className="text-2xl font-black uppercase text-slate-900">
+          <h2 className="text-xl md:text-2xl font-black uppercase text-slate-900">
             Scheduler Ops
           </h2>
           <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">
@@ -1125,7 +1040,7 @@ export default function SchedulerDashboard() {
         </div>
         <button
           onClick={fetchCalendar}
-          className="p-3 bg-slate-50 rounded-xl hover:bg-slate-100 text-slate-500 hover:text-slate-900 transition-all"
+          className="p-3 bg-slate-50 rounded-xl hover:bg-slate-100 text-slate-500 hover:text-slate-900 transition-all self-start md:self-auto"
         >
           <RefreshCw
             size={20}
@@ -1134,7 +1049,7 @@ export default function SchedulerDashboard() {
         </button>
       </div>
 
-      <div className="flex p-1 bg-slate-50 rounded-2xl mb-8 border border-slate-100 overflow-x-auto w-fit mx-auto md:mx-0">
+      <div className="flex p-1 bg-slate-50 rounded-2xl mb-8 border border-slate-100 overflow-x-auto w-full md:w-fit">
         {[
           { id: "calendar", label: "Calendar", icon: CalendarIcon },
           { id: "ghost", label: "Ghost Gen", icon: Ghost },
@@ -1142,7 +1057,7 @@ export default function SchedulerDashboard() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 px-6 rounded-xl text-xs font-black uppercase transition-all ${
+            className={`flex-1 flex items-center justify-center gap-2 py-3 px-6 rounded-xl text-xs font-black uppercase transition-all whitespace-nowrap ${
               activeTab === tab.id
                 ? "bg-white text-slate-900 shadow-sm"
                 : "text-slate-400 hover:text-slate-600"
@@ -1153,7 +1068,7 @@ export default function SchedulerDashboard() {
         ))}
       </div>
 
-      <div className="min-h-[400px]">
+      <div className="min-h-[400px] overflow-x-auto">
         {activeTab === "calendar" && renderCalendarView()}
         {activeTab === "ghost" && (
           <div className="text-center py-20 bg-slate-50 rounded-3xl border border-slate-100">
@@ -1161,7 +1076,7 @@ export default function SchedulerDashboard() {
             <p className="text-slate-400 font-bold uppercase text-xs">
               Ghost Generator Active
             </p>
-            <div className="space-y-4 mt-6 max-w-xs mx-auto">
+            <div className="space-y-4 mt-6 max-w-xs mx-auto px-4">
               <div>
                 <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">
                   Density

@@ -263,7 +263,19 @@ export default function ActorPage() {
                 <p className="relative z-10 text-slate-700 font-serif italic text-sm leading-relaxed pl-6">
                   “Fellow authors, If you’re looking for a professional narrator
                   to create your audiobook, you should give strong consideration
-                  to working with Daniel Lewis (no, not Daniel Day Lewis)...”
+                  to working with Daniel Lewis (no, not Daniel Day Lewis). Dan
+                  did an outstanding job narrating my last novel Right There in
+                  Black and White. It was a true performance, with Dan acting
+                  out over 20 distinct characters, many of them with strong
+                  accents. He prepared thoroughly and immersed himself in the
+                  story so completely that it felt like he was living each
+                  scene. His attention to detail, emotional range, and ability
+                  to shift seamlessly between voices brought the book to life in
+                  a way I hadn’t imagined possible. Dan was also a joy to
+                  collaborate with—professional, communicative, and genuinely
+                  passionate about the craft. If you want your audiobook to
+                  resonate with listeners and stand out from the crowd, Dan
+                  Lewis is the narrator to trust.”
                 </p>
                 <div className="mt-2 pl-6 text-xs font-bold text-slate-900 uppercase tracking-wider">
                   — Jim Christ, Author of “Right There in Black and White”

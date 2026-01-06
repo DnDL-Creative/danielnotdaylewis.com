@@ -50,13 +50,12 @@ export default function PopulateMeta({
       }`}
     >
       <div className="space-y-6">
-        {/* ROW 1: Date & Author */}
-        <div className="flex flex-col md:flex-row gap-4 md:gap-2 w-full">
-          {/* 🚨 FIX: Added 'w-full' and 'min-w-0'.
-             'min-w-0' is critical here. It allows the flex item to shrink smaller 
-             than the native iOS date picker's intrinsic width, preventing overflow.
-          */}
-          <div className="relative w-full md:flex-1 min-w-0">
+        {/* ROW 1: Date & Author 
+            🚨 NUCLEAR FIX: Switched from Flex to Grid. 
+            Grid cells enforce width much harder than Flex items on iOS.
+        */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-2 w-full">
+          <div className="relative w-full">
             <Calendar
               size={14}
               className={`absolute left-4 top-4 ${isDark ? "text-slate-500" : "text-slate-400"}`}
@@ -65,7 +64,8 @@ export default function PopulateMeta({
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className={`w-full min-w-0 p-3 pl-10 rounded-xl text-xs font-bold uppercase bg-transparent border-2 outline-none ${
+              // 🚨 FIX: appearance-none strips native styling that forces width
+              className={`w-full appearance-none p-3 pl-10 rounded-xl text-xs font-bold uppercase bg-transparent border-2 outline-none ${
                 isDark
                   ? "border-white/10 text-slate-300"
                   : "border-slate-200 text-slate-700"
@@ -73,7 +73,7 @@ export default function PopulateMeta({
             />
           </div>
 
-          <div className="relative w-full md:flex-1 min-w-0">
+          <div className="relative w-full">
             <User
               size={14}
               className={`absolute left-4 top-4 ${isDark ? "text-slate-500" : "text-slate-400"}`}
@@ -83,7 +83,7 @@ export default function PopulateMeta({
               value={author}
               onChange={(e) => setAuthor(e.target.value)}
               placeholder="Author"
-              className={`w-full min-w-0 p-3 pl-10 rounded-xl text-xs font-bold uppercase bg-transparent border-2 outline-none ${
+              className={`w-full p-3 pl-10 rounded-xl text-xs font-bold uppercase bg-transparent border-2 outline-none ${
                 isDark
                   ? "border-white/10 text-slate-300 placeholder-slate-600"
                   : "border-slate-200 text-slate-700 placeholder-slate-400"
@@ -102,7 +102,7 @@ export default function PopulateMeta({
             value={urlPath}
             onChange={(e) => setUrlPath(e.target.value)}
             placeholder="URL Slug"
-            className={`w-full min-w-0 p-3 pl-10 rounded-xl text-xs font-bold bg-transparent border-2 outline-none ${
+            className={`w-full p-3 pl-10 rounded-xl text-xs font-bold bg-transparent border-2 outline-none ${
               isDark
                 ? "border-white/10 focus:border-teal-500 text-white placeholder-slate-600"
                 : "border-slate-200 text-slate-800 placeholder-slate-400"
@@ -144,7 +144,7 @@ export default function PopulateMeta({
               value={heroImage || ""}
               readOnly
               placeholder="No Hero Image Uploaded"
-              className={`w-full min-w-0 p-3 pl-10 bg-transparent border-2 rounded-xl outline-none text-[10px] font-mono ${
+              className={`w-full p-3 pl-10 bg-transparent border-2 rounded-xl outline-none text-[10px] font-mono ${
                 isDark
                   ? "border-white/10 text-white placeholder-slate-600"
                   : "border-slate-200 text-slate-800 placeholder-slate-400"
@@ -203,7 +203,7 @@ export default function PopulateMeta({
             value={imageCaption}
             onChange={(e) => setImageCaption(e.target.value)}
             placeholder="Hero Image Caption"
-            className={`w-full min-w-0 p-3 pl-10 bg-transparent border-2 rounded-xl outline-none text-xs font-bold ${
+            className={`w-full p-3 pl-10 bg-transparent border-2 rounded-xl outline-none text-xs font-bold ${
               isDark
                 ? "border-white/10 text-white placeholder-slate-600"
                 : "border-slate-200 text-slate-800 placeholder-slate-400"

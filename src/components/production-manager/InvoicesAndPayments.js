@@ -222,19 +222,20 @@ export default function InvoicesAndPayments({ initialProject }) {
   }, [formData.reminders_sent]);
 
   return (
-    <div className="flex gap-8 items-start pb-20">
-      {/* SIDEBAR */}
-      <div className="w-80 space-y-6 sticky top-8 self-start">
-        <div className="bg-white rounded-[2rem] border p-6 shadow-sm flex flex-col items-center gap-4">
+    <div className="flex flex-col lg:flex-row gap-8 items-start pb-20">
+      {/* 🚨 MOBILE: SIDEBAR MOVES TOP AS HORIZONTAL SCROLL LIST */}
+      <div className="w-full lg:w-80 space-y-6 lg:sticky lg:top-8 self-start shrink-0">
+        <div className="hidden lg:flex bg-white rounded-[2rem] border p-6 shadow-sm flex-col items-center gap-4">
           <img
             src="/images/dndl-logo.png"
             className="w-32 h-32 object-contain"
             alt="Logo"
           />
-          <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">
+          <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest text-center">
             Daniel (not Day) Lewis: Audiobook Actor
           </p>
         </div>
+
         <div className="bg-white rounded-[2rem] border flex flex-col overflow-hidden shadow-sm">
           <div className="p-2 flex border-b bg-slate-50">
             {["open", "waiting", "paid"].map((t) => (
@@ -251,7 +252,8 @@ export default function InvoicesAndPayments({ initialProject }) {
               </button>
             ))}
           </div>
-          <div className="p-4 space-y-2 max-h-[40vh] overflow-y-auto">
+
+          <div className="p-4 space-y-2 max-h-[30vh] lg:max-h-[40vh] overflow-y-auto custom-scrollbar">
             {projects
               .filter(
                 (p) =>
@@ -278,26 +280,27 @@ export default function InvoicesAndPayments({ initialProject }) {
         </div>
       </div>
 
-      <div className="flex-1 bg-white rounded-[3rem] border shadow-sm flex flex-col p-10 min-h-screen">
+      <div className="flex-1 w-full bg-white rounded-[3rem] border shadow-sm flex flex-col p-6 md:p-10 min-h-screen">
         {!selectedProject ? (
           <div className="m-auto text-slate-300 font-black uppercase text-xs tracking-widest text-center">
             Select Target Project
           </div>
         ) : (
           <div className="space-y-10">
-            <div className="flex justify-between items-center bg-white sticky top-0 z-20 pb-6 border-b">
-              <h2 className="text-3xl font-black italic uppercase tracking-tighter leading-none">
+            {/* HEADER & ACTIONS */}
+            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center bg-white sticky top-0 z-20 pb-6 border-b gap-4">
+              <h2 className="text-2xl md:text-3xl font-black italic uppercase tracking-tighter leading-none">
                 Collection: {selectedProject.ref_number}
               </h2>
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-2 md:gap-3 w-full xl:w-auto">
                 {!isEditing && (
                   <>
                     {!showPDF ? (
                       <button
                         onClick={() => setShowPDF(true)}
-                        className="px-6 py-4 bg-blue-100 text-blue-600 rounded-2xl font-black uppercase text-xs flex items-center gap-2 hover:bg-blue-200 transition-all shadow-sm"
+                        className="flex-grow xl:flex-grow-0 px-4 md:px-6 py-4 bg-blue-100 text-blue-600 rounded-2xl font-black uppercase text-[10px] md:text-xs flex items-center justify-center gap-2 hover:bg-blue-200 transition-all shadow-sm"
                       >
-                        <FileText size={14} /> Prepare PDF
+                        <FileText size={14} /> PDF
                       </button>
                     ) : (
                       <PDFDownloadLink
@@ -310,7 +313,7 @@ export default function InvoicesAndPayments({ initialProject }) {
                           />
                         }
                         fileName={`INV_${selectedProject.ref_number}.pdf`}
-                        className={`px-6 py-4 rounded-2xl font-black uppercase text-xs flex items-center gap-2 shadow-xl ${
+                        className={`flex-grow xl:flex-grow-0 px-4 md:px-6 py-4 rounded-2xl font-black uppercase text-[10px] md:text-xs flex items-center justify-center gap-2 shadow-xl ${
                           overdueDays > 0
                             ? "bg-red-600 text-white"
                             : "bg-blue-600 text-white hover:bg-blue-700"
@@ -319,12 +322,11 @@ export default function InvoicesAndPayments({ initialProject }) {
                         {({ loading }) =>
                           loading ? (
                             <>
-                              <Loader2 className="animate-spin" size={14} />{" "}
-                              Warming...
+                              <Loader2 className="animate-spin" size={14} /> ...
                             </>
                           ) : (
                             <>
-                              <FileCheck size={14} /> Download PDF
+                              <FileCheck size={14} /> PDF
                             </>
                           )
                         }
@@ -334,7 +336,7 @@ export default function InvoicesAndPayments({ initialProject }) {
                 )}
                 <button
                   onClick={copyEmailDraft}
-                  className={`px-5 py-4 rounded-2xl font-black uppercase text-xs flex items-center gap-2 transition-all shadow-xl ${
+                  className={`flex-grow xl:flex-grow-0 px-4 md:px-5 py-4 rounded-2xl font-black uppercase text-[10px] md:text-xs flex items-center justify-center gap-2 transition-all shadow-xl ${
                     mailFeedback
                       ? "bg-emerald-500 text-white"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
@@ -345,11 +347,11 @@ export default function InvoicesAndPayments({ initialProject }) {
                   ) : (
                     <Mail size={14} />
                   )}{" "}
-                  {mailFeedback ? "Copied" : "Draft Email"}
+                  {mailFeedback ? "Copied" : "Draft"}
                 </button>
                 <button
                   onClick={isEditing ? handleSave : () => setIsEditing(true)}
-                  className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs shadow-xl flex items-center gap-2"
+                  className="flex-grow xl:flex-grow-0 px-6 md:px-8 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] md:text-xs shadow-xl flex items-center justify-center gap-2"
                 >
                   {loading ? (
                     <Loader2 className="animate-spin" size={16} />
@@ -358,35 +360,35 @@ export default function InvoicesAndPayments({ initialProject }) {
                   ) : (
                     <Receipt size={16} />
                   )}{" "}
-                  {isEditing ? "Lock In" : "Edit Debt"}
+                  {isEditing ? "Lock In" : "Edit"}
                 </button>
               </div>
             </div>
 
             {/* LEDGER MATH */}
             <div
-              className={`rounded-[3rem] p-12 text-white shadow-2xl space-y-12 transition-all duration-500 ${
+              className={`rounded-[3rem] p-6 md:p-12 text-white shadow-2xl space-y-8 md:space-y-12 transition-all duration-500 ${
                 formData.reminders_sent === 3
-                  ? "bg-red-950 ring-8 ring-red-600 animate-[pulse_2s_infinite]"
+                  ? "bg-red-950 ring-4 md:ring-8 ring-red-600 animate-[pulse_2s_infinite]"
                   : "bg-slate-950"
               }`}
             >
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8">
                 {[
                   { l: "PFH Count", v: "pfh_count", i: Calculator },
                   { l: "PFH Rate", v: "pfh_rate", i: TrendingUp },
                   { l: "SAG %", v: "sag_ph_percent", i: Percent },
                   { l: "Fee", v: "convenience_fee", i: PlusCircle },
                 ].map((f) => (
-                  <div key={f.l} className="space-y-3">
-                    <label className="text-slate-500 text-[10px] font-black uppercase flex items-center gap-2 tracking-[0.2em]">
+                  <div key={f.l} className="space-y-2 md:space-y-3">
+                    <label className="text-slate-500 text-[9px] md:text-[10px] font-black uppercase flex items-center gap-2 tracking-[0.2em]">
                       <f.i size={12} /> {f.l}
                     </label>
                     <input
                       type="number"
                       step="0.01"
                       disabled={!isEditing}
-                      className="bg-slate-900 text-white text-2xl font-black p-4 rounded-2xl w-full border border-slate-800 outline-none focus:border-emerald-500"
+                      className="bg-slate-900 text-white text-lg md:text-2xl font-black p-3 md:p-4 rounded-2xl w-full border border-slate-800 outline-none focus:border-emerald-500"
                       value={formData[f.v]}
                       onChange={(e) =>
                         setFormData({ ...formData, [f.v]: e.target.value })
@@ -395,26 +397,26 @@ export default function InvoicesAndPayments({ initialProject }) {
                   </div>
                 ))}
               </div>
-              <div className="pt-10 border-t border-slate-800 flex justify-between items-end">
+              <div className="pt-8 md:pt-10 border-t border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
                 <div>
-                  <span className="text-slate-500 text-[11px] font-black uppercase tracking-widest block">
+                  <span className="text-slate-500 text-[10px] md:text-[11px] font-black uppercase tracking-widest block">
                     Amount Due
                   </span>
                   <span
-                    className={`text-7xl font-black tracking-tighter text-emerald-400`}
+                    className={`text-5xl md:text-7xl font-black tracking-tighter text-emerald-400`}
                   >
                     {formatCurrency(calcs.total)}
                   </span>
                 </div>
                 {isEditing && (
-                  <div className="flex gap-2 bg-slate-900 p-2.5 rounded-[1.5rem] border border-slate-800">
+                  <div className="flex gap-2 bg-slate-900 p-2 md:p-2.5 rounded-[1.5rem] border border-slate-800 w-full md:w-auto overflow-x-auto">
                     {["open", "waiting", "paid"].map((t) => (
                       <button
                         key={t}
                         onClick={() =>
                           setFormData({ ...formData, ledger_tab: t })
                         }
-                        className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${
+                        className={`flex-1 md:flex-none px-4 md:px-6 py-3 rounded-xl text-[10px] font-black uppercase transition-all whitespace-nowrap ${
                           formData.ledger_tab === t
                             ? "bg-white text-slate-900 shadow-2xl scale-105"
                             : "text-slate-500 hover:text-slate-300"
@@ -429,9 +431,9 @@ export default function InvoicesAndPayments({ initialProject }) {
             </div>
 
             {/* STATUS & ASSET LINKS */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
               {/* PAYMENT LINK */}
-              <div className="p-10 rounded-[2.5rem] bg-slate-50 border shadow-sm space-y-4">
+              <div className="p-6 md:p-10 rounded-[2.5rem] bg-slate-50 border shadow-sm space-y-4">
                 <h3 className="font-black uppercase text-xs tracking-widest flex items-center gap-2">
                   <Link2 size={16} /> Payment Link
                 </h3>
@@ -456,7 +458,7 @@ export default function InvoicesAndPayments({ initialProject }) {
               </div>
 
               {/* CONTRACT LINK (NEW) */}
-              <div className="p-10 rounded-[2.5rem] bg-slate-50 border shadow-sm space-y-4">
+              <div className="p-6 md:p-10 rounded-[2.5rem] bg-slate-50 border shadow-sm space-y-4">
                 <h3 className="font-black uppercase text-xs tracking-widest flex items-center gap-2 text-purple-600">
                   <Briefcase size={16} /> Contract / Agreement
                 </h3>
@@ -484,7 +486,7 @@ export default function InvoicesAndPayments({ initialProject }) {
               </div>
             </div>
 
-            <div className="p-10 rounded-[2.5rem] bg-slate-50 border shadow-sm space-y-4">
+            <div className="p-6 md:p-10 rounded-[2.5rem] bg-slate-50 border shadow-sm space-y-4">
               <h3 className="font-black uppercase text-xs tracking-widest flex items-center gap-2">
                 <FileText size={16} /> Notes
               </h3>
@@ -504,9 +506,9 @@ export default function InvoicesAndPayments({ initialProject }) {
             </div>
 
             {/* STRIKE SYSTEM & DATES */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 md:gap-8">
               <div
-                className={`p-10 rounded-[2.5rem] border-2 transition-all duration-300 flex flex-col justify-center gap-6 ${
+                className={`p-6 md:p-10 rounded-[2.5rem] border-2 transition-all duration-300 flex flex-col justify-center gap-6 ${
                   formData.reminders_sent === 3
                     ? "bg-red-50 border-red-600"
                     : "bg-slate-50 border-slate-100"
@@ -514,7 +516,7 @@ export default function InvoicesAndPayments({ initialProject }) {
               >
                 <div className="flex items-center justify-between">
                   <h3
-                    className={`font-black uppercase text-sm flex items-center gap-3 tracking-widest ${status.color}`}
+                    className={`font-black uppercase text-xs md:text-sm flex items-center gap-3 tracking-widest ${status.color}`}
                   >
                     {status.icon} {status.label}
                   </h3>
@@ -527,7 +529,7 @@ export default function InvoicesAndPayments({ initialProject }) {
                             reminders_sent: Math.min(p.reminders_sent + 1, 3),
                           }))
                         }
-                        className="p-4 bg-red-600 text-white rounded-2xl shadow-xl shadow-red-200"
+                        className="p-3 md:p-4 bg-red-600 text-white rounded-2xl shadow-xl shadow-red-200"
                       >
                         <Zap size={20} />
                       </button>
@@ -535,30 +537,30 @@ export default function InvoicesAndPayments({ initialProject }) {
                         onClick={() =>
                           setFormData((p) => ({ ...p, reminders_sent: 0 }))
                         }
-                        className="p-4 bg-white border border-slate-200 text-slate-400 rounded-2xl"
+                        className="p-3 md:p-4 bg-white border border-slate-200 text-slate-400 rounded-2xl"
                       >
                         <RotateCcw size={20} />
                       </button>
                     </div>
                   )}
                 </div>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-3 gap-3 md:gap-4">
                   {[1, 2, 3].map((s) => (
                     <div
                       key={s}
-                      className={`h-20 rounded-[1.5rem] flex items-center justify-center border-2 ${
+                      className={`h-16 md:h-20 rounded-[1.5rem] flex items-center justify-center border-2 ${
                         formData.reminders_sent >= s
                           ? s === 3
                             ? "bg-red-700 border-red-900 text-white shadow-2xl"
                             : s === 2
-                            ? "bg-red-500 border-red-600 text-white shadow-lg"
-                            : "bg-orange-500 border-orange-600 text-white shadow-md"
+                              ? "bg-red-500 border-red-600 text-white shadow-lg"
+                              : "bg-orange-500 border-orange-600 text-white shadow-md"
                           : "bg-white border-slate-100 opacity-40"
                       }`}
                     >
                       {s === 1 && (
                         <ShieldAlert
-                          size={28}
+                          size={24}
                           className={
                             formData.reminders_sent >= s ? "animate-pulse" : ""
                           }
@@ -566,7 +568,7 @@ export default function InvoicesAndPayments({ initialProject }) {
                       )}
                       {s === 2 && (
                         <Flame
-                          size={28}
+                          size={24}
                           className={
                             formData.reminders_sent >= s ? "animate-bounce" : ""
                           }
@@ -574,7 +576,7 @@ export default function InvoicesAndPayments({ initialProject }) {
                       )}
                       {s === 3 && (
                         <TrainFront
-                          size={34}
+                          size={30}
                           className={
                             formData.reminders_sent >= s
                               ? "animate-[bounce_2s_infinite]"
@@ -586,9 +588,9 @@ export default function InvoicesAndPayments({ initialProject }) {
                   ))}
                 </div>
               </div>
-              <div className="p-10 rounded-[2.5rem] bg-slate-50 border border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-8 items-center text-slate-900">
+              <div className="p-6 md:p-10 rounded-[2.5rem] bg-slate-50 border border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8 items-center text-slate-900">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase block tracking-[0.2em]">
+                  <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase block tracking-[0.2em]">
                     Invoiced Date
                   </label>
                   <input
@@ -605,7 +607,7 @@ export default function InvoicesAndPayments({ initialProject }) {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase block tracking-[0.2em]">
+                  <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase block tracking-[0.2em]">
                     NET 15 Due
                   </label>
                   <input

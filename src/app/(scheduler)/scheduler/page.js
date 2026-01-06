@@ -218,7 +218,7 @@ export default function SchedulerPage() {
   const handleDateClick = (day) => {
     const rawCount = parseInt(wordCount.replace(/,/g, ""));
     if (!rawCount || rawCount <= 0) {
-      showToast("Enter Word Count first", "error");
+      showToast("Please enter word count first", "error");
       return;
     }
 

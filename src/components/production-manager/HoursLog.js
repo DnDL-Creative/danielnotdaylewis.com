@@ -75,7 +75,6 @@ export default function HoursLog({ initialProject }) {
     fetchData();
   }, []);
 
-  // --- FIX: Define activeLogs for the table mapping ---
   const activeLogs = useMemo(
     () => sessionLogs.filter((l) => l.project_id === selectedProject?.id),
     [sessionLogs, selectedProject]
@@ -237,9 +236,9 @@ export default function HoursLog({ initialProject }) {
     }).format(val || 0);
 
   return (
-    <div className="flex gap-8 items-start pb-20 animate-in fade-in duration-500">
-      {/* SIDEBAR */}
-      <div className="w-80 bg-white rounded-[2rem] border border-slate-200 flex flex-col overflow-hidden sticky top-8 self-start shadow-sm">
+    <div className="flex flex-col lg:flex-row gap-8 items-start pb-20 animate-in fade-in duration-500">
+      {/* 🚨 MOBILE: PROJECT LIST MOVES TOP, SIDEBAR ON DESKTOP */}
+      <div className="w-full lg:w-80 bg-white rounded-[2rem] border border-slate-200 flex flex-col overflow-hidden lg:sticky lg:top-8 self-start shadow-sm shrink-0">
         <div className="p-2 flex border-b bg-slate-50">
           {["open", "waiting", "paid"].map((t) => (
             <button
@@ -255,7 +254,7 @@ export default function HoursLog({ initialProject }) {
             </button>
           ))}
         </div>
-        <div className="p-4 space-y-2 max-h-[70vh] overflow-y-auto">
+        <div className="p-4 space-y-2 max-h-[30vh] lg:max-h-[70vh] overflow-y-auto custom-scrollbar">
           {projects
             .filter(
               (p) =>
@@ -281,22 +280,22 @@ export default function HoursLog({ initialProject }) {
         </div>
       </div>
 
-      <div className="flex-1 space-y-8">
-        <div className="flex justify-between items-center">
-          <h2 className="text-3xl font-black italic uppercase tracking-tighter">
+      <div className="flex-1 w-full space-y-8">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <h2 className="text-2xl md:text-3xl font-black italic uppercase tracking-tighter">
             ROI Engine: {selectedProject?.book_title}
           </h2>
           <button
             onClick={exportToTSV}
-            className="px-6 py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase text-xs flex items-center gap-2 hover:bg-emerald-700 shadow-xl transition-all"
+            className="w-full md:w-auto px-6 py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-2 hover:bg-emerald-700 shadow-xl transition-all"
           >
             <Download size={14} /> Export TSV
           </button>
         </div>
 
         {/* TOP LEVEL EPH DASHBOARD */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="bg-white rounded-[2.5rem] border border-slate-200 p-8 shadow-sm space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
+          <div className="bg-white rounded-[2.5rem] border border-slate-200 p-6 md:p-8 shadow-sm space-y-4">
             <h3 className="font-black uppercase text-[10px] tracking-widest text-slate-400 flex items-center gap-2">
               <TrendingUp size={14} /> Project EPH
             </h3>
@@ -305,7 +304,7 @@ export default function HoursLog({ initialProject }) {
                 <p className="text-[8px] font-black text-slate-400 uppercase">
                   Gross
                 </p>
-                <p className="text-lg font-black">
+                <p className="text-sm md:text-lg font-black">
                   {formatCurrency(money?.projGrossEPH)}
                 </p>
               </div>
@@ -313,7 +312,7 @@ export default function HoursLog({ initialProject }) {
                 <p className="text-[8px] font-black text-slate-400 uppercase">
                   Net
                 </p>
-                <p className="text-lg font-black">
+                <p className="text-sm md:text-lg font-black">
                   {formatCurrency(money?.projNetEPH)}
                 </p>
               </div>
@@ -321,13 +320,13 @@ export default function HoursLog({ initialProject }) {
                 <p className="text-[8px] font-black text-emerald-500 uppercase">
                   Take Home
                 </p>
-                <p className="text-lg font-black text-emerald-600">
+                <p className="text-sm md:text-lg font-black text-emerald-600">
                   {formatCurrency(money?.projTakeHomeEPH)}
                 </p>
               </div>
             </div>
           </div>
-          <div className="bg-slate-900 rounded-[2.5rem] p-8 shadow-xl space-y-4 text-white">
+          <div className="bg-slate-900 rounded-[2.5rem] p-6 md:p-8 shadow-xl space-y-4 text-white">
             <h3 className="font-black uppercase text-[10px] tracking-widest text-slate-500 flex items-center gap-2">
               <LineChart size={14} /> 2026 Averages
             </h3>
@@ -336,7 +335,7 @@ export default function HoursLog({ initialProject }) {
                 <p className="text-[8px] font-black text-slate-500 uppercase">
                   Gross
                 </p>
-                <p className="text-lg font-black">
+                <p className="text-sm md:text-lg font-black">
                   {formatCurrency(money?.cumGrossEPH)}
                 </p>
               </div>
@@ -344,7 +343,7 @@ export default function HoursLog({ initialProject }) {
                 <p className="text-[8px] font-black text-slate-500 uppercase">
                   Net
                 </p>
-                <p className="text-lg font-black">
+                <p className="text-sm md:text-lg font-black">
                   {formatCurrency(money?.cumNetEPH)}
                 </p>
               </div>
@@ -352,7 +351,7 @@ export default function HoursLog({ initialProject }) {
                 <p className="text-[8px] font-black text-emerald-400 uppercase">
                   Take Home
                 </p>
-                <p className="text-lg font-black text-emerald-400">
+                <p className="text-sm md:text-lg font-black text-emerald-400">
                   {formatCurrency(money?.cumTakeHomeEPH)}
                 </p>
               </div>
@@ -361,25 +360,25 @@ export default function HoursLog({ initialProject }) {
         </div>
 
         {/* FINANCIAL DASHBOARD */}
-        <div className="bg-slate-950 rounded-[3rem] p-10 text-white shadow-2xl relative overflow-hidden">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div className="space-y-3">
+        <div className="bg-slate-950 rounded-[3rem] p-6 md:p-10 text-white shadow-2xl relative overflow-hidden">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
+            <div className="space-y-2 md:space-y-3">
               <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">
                 Gross Total
               </p>
-              <div className="p-6 bg-white/5 rounded-2xl border border-white/10">
-                <p className="text-2xl font-black">
+              <div className="p-4 md:p-6 bg-white/5 rounded-2xl border border-white/10">
+                <p className="text-xl md:text-2xl font-black">
                   {formatCurrency(money?.grossTotal)}
                 </p>
                 <p className="text-[9px] text-slate-500 mt-1">Pre-Expense</p>
               </div>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-2 md:space-y-3">
               <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">
                 Pozotron Est.
               </p>
-              <div className="p-6 bg-white/5 rounded-2xl border border-white/10">
-                <p className="text-2xl font-black text-red-400">
+              <div className="p-4 md:p-6 bg-white/5 rounded-2xl border border-white/10">
+                <p className="text-xl md:text-2xl font-black text-red-400">
                   {formatCurrency(money?.pozotronEst)}
                 </p>
                 <p className="text-[9px] text-slate-500 mt-1">
@@ -387,12 +386,12 @@ export default function HoursLog({ initialProject }) {
                 </p>
               </div>
             </div>
-            <div className="space-y-3 opacity-60">
+            <div className="space-y-2 md:space-y-3 opacity-60">
               <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">
                 Standard Home
               </p>
-              <div className="p-6 bg-white/5 rounded-2xl border border-white/10">
-                <p className="text-xl font-black">
+              <div className="p-4 md:p-6 bg-white/5 rounded-2xl border border-white/10">
+                <p className="text-lg md:text-xl font-black">
                   {formatCurrency(money?.takeHomeNoQbi)}
                 </p>
                 <p className="text-[9px] text-red-500 mt-1">
@@ -400,12 +399,12 @@ export default function HoursLog({ initialProject }) {
                 </p>
               </div>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-2 md:space-y-3">
               <p className="text-[10px] font-black uppercase text-emerald-500 tracking-widest flex items-center gap-2">
                 <ShieldCheck size={12} /> QBI Shield
               </p>
-              <div className="p-6 bg-emerald-500/10 rounded-2xl border border-emerald-500/30">
-                <p className="text-3xl font-black text-emerald-400">
+              <div className="p-4 md:p-6 bg-emerald-500/10 rounded-2xl border border-emerald-500/30">
+                <p className="text-2xl md:text-3xl font-black text-emerald-400">
                   {formatCurrency(money?.takeHomeWithQbi)}
                 </p>
                 <p className="text-[9px] text-emerald-500 mt-1">
@@ -415,7 +414,7 @@ export default function HoursLog({ initialProject }) {
             </div>
           </div>
 
-          <div className="mt-10 pt-10 border-t border-white/10 grid grid-cols-4 gap-6">
+          <div className="mt-8 md:mt-10 pt-8 md:pt-10 border-t border-white/10 grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
             {[
               { l: "PFH Rate", v: "pfh_rate", i: Coins },
               { l: "Pozotron $/PFH", v: "pozotron_rate", i: Zap },
@@ -441,9 +440,9 @@ export default function HoursLog({ initialProject }) {
 
         {/* SESSION LOG TABLE */}
         <div className="bg-white rounded-[3rem] border border-slate-200 shadow-sm overflow-hidden">
-          <div className="p-10 border-b bg-slate-50/50 flex justify-between items-center">
-            <h2 className="text-2xl font-black italic uppercase tracking-tighter">
-              Session Tracker: {selectedProject?.book_title}
+          <div className="p-6 md:p-10 border-b bg-slate-50/50 flex flex-col md:flex-row justify-between items-center gap-4">
+            <h2 className="text-xl md:text-2xl font-black italic uppercase tracking-tighter text-center md:text-left">
+              Session Tracker
             </h2>
             <div className="bg-white px-6 py-3 rounded-2xl border shadow-sm">
               <span className="text-[10px] font-black uppercase text-slate-400 mr-2">
@@ -455,7 +454,7 @@ export default function HoursLog({ initialProject }) {
             </div>
           </div>
 
-          <div className="p-10 bg-slate-50 grid grid-cols-1 md:grid-cols-4 gap-6 items-end border-b">
+          <div className="p-6 md:p-10 bg-slate-50 grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6 items-end border-b">
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase text-slate-400 ml-2">
                 Date
@@ -513,19 +512,19 @@ export default function HoursLog({ initialProject }) {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left">
+            <table className="w-full text-left min-w-[600px]">
               <thead className="bg-white border-b">
                 <tr>
-                  <th className="px-10 py-6 text-[10px] font-black uppercase text-slate-400">
+                  <th className="px-6 md:px-10 py-6 text-[10px] font-black uppercase text-slate-400">
                     Date
                   </th>
-                  <th className="px-10 py-6 text-[10px] font-black uppercase text-slate-400">
+                  <th className="px-6 md:px-10 py-6 text-[10px] font-black uppercase text-slate-400">
                     Activity
                   </th>
-                  <th className="px-10 py-6 text-[10px] font-black uppercase text-slate-400">
+                  <th className="px-6 md:px-10 py-6 text-[10px] font-black uppercase text-slate-400">
                     Time
                   </th>
-                  <th className="px-10 py-6 text-[10px] font-black uppercase text-slate-400 text-right">
+                  <th className="px-6 md:px-10 py-6 text-[10px] font-black uppercase text-slate-400 text-right">
                     Delete
                   </th>
                 </tr>
@@ -533,15 +532,17 @@ export default function HoursLog({ initialProject }) {
               <tbody className="divide-y divide-slate-50">
                 {activeLogs.map((log) => (
                   <tr key={log.id} className="hover:bg-slate-50 transition-all">
-                    <td className="px-10 py-6 font-bold text-sm">{log.date}</td>
-                    <td className="px-10 py-6">
+                    <td className="px-6 md:px-10 py-6 font-bold text-sm">
+                      {log.date}
+                    </td>
+                    <td className="px-6 md:px-10 py-6">
                       <span
                         className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase flex items-center gap-2 w-fit ${
                           log.activity === "Recording"
                             ? "bg-emerald-100 text-emerald-700"
                             : log.activity === "Editing"
-                            ? "bg-blue-100 text-blue-700"
-                            : "bg-slate-100 text-slate-600"
+                              ? "bg-blue-100 text-blue-700"
+                              : "bg-slate-100 text-slate-600"
                         }`}
                       >
                         {log.activity === "Recording" && <Mic2 size={10} />}
@@ -550,10 +551,10 @@ export default function HoursLog({ initialProject }) {
                         {log.activity}
                       </span>
                     </td>
-                    <td className="px-10 py-6 font-black text-lg text-slate-900">
+                    <td className="px-6 md:px-10 py-6 font-black text-lg text-slate-900">
                       {Number(log.duration_hrs).toFixed(2)}h
                     </td>
-                    <td className="px-10 py-6 text-right">
+                    <td className="px-6 md:px-10 py-6 text-right">
                       <button
                         onClick={() => handleDeleteLog(log.id)}
                         className="p-3 text-slate-200 hover:text-red-500 transition-all"
