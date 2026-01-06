@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { Facebook, Instagram, Youtube } from "lucide-react";
 
-// --- HELPER COMPONENTS (Defined first to avoid "not defined" errors) ---
+// --- HELPER COMPONENTS ---
 
 function SocialButton({ href, onClick, icon, label }) {
   const commonClasses =
@@ -73,7 +73,6 @@ export default function Footer() {
   const [showToast, setShowToast] = useState(false);
 
   useEffect(() => {
-    // Generate: "January 2026"
     const now = new Date();
     const formattedDate = new Intl.DateTimeFormat("en-US", {
       month: "long",
@@ -94,11 +93,15 @@ export default function Footer() {
   };
 
   return (
-    <footer className="relative w-full bg-[#111] text-[#f8f8f5] pt-10 pb-6 px-6 mt-auto overflow-hidden">
-      <div className="max-w-[1400px] mx-auto">
+    <footer className="relative w-full bg-[#111] text-[#f8f8f5] pt-14 pb-6 px-6 mt-auto overflow-hidden">
+      {/* 1. ANIMATED TOP BORDER (Fast Energy - 3s) */}
+      <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-blue-600 via-teal-400 via-indigo-500 to-blue-600 bg-[length:200%_auto] animate-gradient-xy" />
+
+      <div className="max-w-[1400px] mx-auto relative z-10">
         {/* TOP SECTION: CALL TO ACTION */}
         <div className="flex flex-col items-center text-center border-b border-gray-800 pb-10 mb-10">
-          <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-[var(--color-primary-light)] via-[var(--color-primary)] to-[var(--color-primary-dark)] mb-4">
+          {/* Animated Header (SLOW - 10s) */}
+          <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-teal-200 via-blue-400 to-teal-200 bg-[length:200%_auto] animate-[gradient-x_10s_ease_infinite] mb-4">
             Let's Create.
           </h2>
 
@@ -115,11 +118,12 @@ export default function Footer() {
           {/* 1. Brand */}
           <div className="flex flex-col items-center justify-center space-y-2 text-center">
             <Link href="/" className="group inline-block">
+              {/* LOGO ANIMATION (SLOW - 10s) */}
               <h3
                 className="font-black tracking-tighter leading-none text-2xl md:text-3xl pr-5 
-  transition-transform duration-300 group-hover:scale-[1.02]
-  text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-teal-400 to-indigo-500 
-  animate-gradient-x drop-shadow-sm"
+                transition-transform duration-300 group-hover:scale-[1.02]
+                text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-teal-400 to-indigo-500 
+                bg-[length:200%_auto] animate-[gradient-x_10s_ease_infinite] drop-shadow-sm"
               >
                 Daniel (not Day) Lewis
               </h3>
@@ -208,20 +212,21 @@ export default function Footer() {
         </div>
       </div>
 
+      {/* Background Glow (Subtle) */}
+      <div className="absolute bottom-0 right-0 w-[300px] h-[300px] bg-teal-900/10 blur-[80px] rounded-full pointer-events-none" />
+
       {/* --- TOAST --- */}
       <div
         className={`fixed bottom-8 left-1/2 -translate-x-1/2 bg-[var(--color-primary)] text-white px-6 py-3 rounded-full shadow-2xl font-bold uppercase tracking-widest z-50 transition-all duration-300 transform text-center whitespace-nowrap md:whitespace-normal
-    ${/* Responsive Font Sizes: Tiny on mobile, standard on MD+ */ ""}
-    text-[9px] leading-tight md:text-xs 
-    ${
-      showToast
-        ? "opacity-100 translate-y-0 scale-100"
-        : "opacity-0 translate-y-4 scale-95 pointer-events-none"
-    }`}
+        text-[9px] leading-tight md:text-xs 
+        ${
+          showToast
+            ? "opacity-100 translate-y-0 scale-100"
+            : "opacity-0 translate-y-4 scale-95 pointer-events-none"
+        }`}
       >
         Coming Soon{" "}
         <span className="opacity-80 font-medium block md:inline">
-          {" "}
           (social media not a top priority at the moment)
         </span>
       </div>

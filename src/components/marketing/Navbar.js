@@ -29,13 +29,13 @@ function GreetingTicker({ scrolled }) {
   return (
     <div className="flex items-center gap-2 h-full">
       <div
-        className="text-teal-600 block"
+        className="text-teal-600 block flex-shrink-0"
         style={{ animation: "plane-float 3s ease-in-out infinite" }}
       >
         <Plane size={16} className="fill-teal-600/20 stroke-[2px]" />
       </div>
 
-      <div className="relative h-5 overflow-hidden text-left border-l-2 border-teal-600/30 pl-3 w-48 md:w-64 transition-colors duration-300">
+      <div className="relative h-5 overflow-hidden text-left border-l-2 border-teal-600/30 pl-2 md:pl-3 w-28 md:w-64 transition-all duration-300">
         <div
           className="transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]"
           style={{ transform: `translateY(-${index * 20}px)` }}
@@ -43,7 +43,7 @@ function GreetingTicker({ scrolled }) {
           {greetings.map((text, i) => (
             <div
               key={i}
-              className="h-5 flex items-center font-mono font-bold uppercase tracking-widest text-slate-500 text-[10px] md:text-xs whitespace-nowrap"
+              className="h-5 flex items-center font-mono font-bold uppercase tracking-widest text-slate-500 text-[9px] md:text-xs whitespace-nowrap"
             >
               {text}
             </div>
@@ -78,26 +78,33 @@ const AnimatedMagnifyingGlass = ({ className }) => (
     strokeWidth="2"
     strokeLinecap="round"
     strokeLinejoin="round"
-    className={`animate-magnify ${className || ""}`}
+    className={`hover:scale-110 transition-transform duration-300 ${className || ""}`}
   >
     <circle cx="11" cy="11" r="8" />
     <path d="m21 21-4.3-4.3" />
   </svg>
 );
 
-// --- AUDIOBOOK BUTTON ---
+// --- AUDIOBOOK BUTTON (FAST ANIMATION: 3s) ---
 const AudiobookButton = ({ mobile = false, onClick }) => (
   <Link
     href="/scheduler"
     onClick={onClick}
     className={`
       relative group overflow-hidden rounded-full 
-      transition-all duration-300 hover:scale-105 hover:shadow-[0_0_20px_rgba(20,184,166,0.5)]
-      ${mobile ? "w-full max-w-xs py-4 text-center mt-4 flex-shrink-0 whitespace-nowrap" : "px-5 py-2 hidden lg:block"}
+      transition-all duration-300 
+      hover:scale-105 hover:shadow-[0_0_20px_rgba(20,184,166,0.5)]
+      ${
+        mobile
+          ? "w-full max-w-xs py-4 text-center mt-4 flex-shrink-0 whitespace-nowrap block"
+          : "px-5 py-2 hidden lg:block"
+      }
     `}
   >
+    {/* FAST ANIMATION (3s) */}
     <div className="absolute inset-0 bg-gradient-to-r from-blue-600 via-teal-400 via-indigo-500 to-blue-600 bg-[length:200%_auto] animate-gradient-xy" />
-    <div className="relative flex items-center justify-center gap-2 text-white font-black uppercase tracking-widest text-[10px] md:text-xs">
+
+    <div className="relative flex items-center justify-center gap-2 text-white font-black uppercase tracking-widest text-[10px] md:text-xs z-10">
       <span>Make an Audiobook</span>
       <Mic size={mobile ? 16 : 12} className="fill-white/20" />
     </div>
@@ -107,22 +114,17 @@ const AudiobookButton = ({ mobile = false, onClick }) => (
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [user, setUser] = useState(null); // User State
-
-  // Search State
+  const [user, setUser] = useState(null);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [allContent, setAllContent] = useState([]);
-
   const searchRef = useRef(null);
   const router = useRouter();
   const pathname = usePathname();
   const supabase = createClient();
 
-  // 1. ROBUST AUTH CHECK (Listener)
   useEffect(() => {
-    // Initial check
     const checkUser = async () => {
       const {
         data: { session },
@@ -130,25 +132,20 @@ export default function Navbar() {
       setUser(session?.user || null);
     };
     checkUser();
-
-    // Listen for changes (Sign out, Sign in, Auto-refresh)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user || null);
     });
-
     return () => subscription.unsubscribe();
   }, []);
 
-  // Reset UI on route change
   useEffect(() => {
     setIsOpen(false);
     setIsSearchOpen(false);
     setQuery("");
   }, [pathname]);
 
-  // Lock scroll
   useEffect(() => {
     document.body.style.overflow = isOpen ? "hidden" : "unset";
     return () => {
@@ -156,7 +153,6 @@ export default function Navbar() {
     };
   }, [isOpen]);
 
-  // Fetch Search Data
   useEffect(() => {
     const fetchSearchData = async () => {
       const staticPages = [
@@ -185,14 +181,12 @@ export default function Navbar() {
     fetchSearchData();
   }, []);
 
-  // Scroll Listener
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Search Filtering
   useEffect(() => {
     if (query.length > 0 && allContent.length > 0) {
       const lowerQuery = query.toLowerCase();
@@ -207,7 +201,6 @@ export default function Navbar() {
     }
   }, [query, allContent]);
 
-  // Click Outside Search
   useEffect(() => {
     function handleClickOutside(event) {
       if (searchRef.current && !searchRef.current.contains(event.target)) {
@@ -250,14 +243,16 @@ export default function Navbar() {
           `}
         >
           {/* --- LEFT: LOGO & TICKER --- */}
-          <div className="flex items-center gap-4 md:gap-8">
-            {/* 🚨 SNEAKY ADMIN LINK */}
+          <div className="flex items-center gap-2 md:gap-8 flex-1 md:flex-none">
             <Link
               href={user ? "/admin" : "/"}
-              className="relative z-50 flex items-center group cursor-pointer"
-              title={user ? "Mission Control" : "Home"}
+              className="relative z-50 flex items-center group cursor-pointer flex-shrink-0"
             >
-              <h1 className="font-black tracking-tighter leading-none text-lg md:text-xl lg:text-2xl transition-transform duration-300 group-hover:scale-[1.02] text-transparent bg-clip-text bg-gradient-to-r from-blue-500 via-teal-400 to-indigo-500 animate-gradient-x drop-shadow-sm">
+              {/* 🚨 LOGO ANIMATION (SLOW - 10s) 
+                  We use `animate-[gradient-x_10s_ease_infinite]` to force the 10s speed 
+                  and bypass the mobile restrictions in your CSS file.
+              */}
+              <h1 className="font-black tracking-tighter leading-none text-lg md:text-xl lg:text-2xl transition-transform duration-300 group-hover:scale-[1.02] text-transparent bg-clip-text bg-gradient-to-r from-blue-500 via-teal-400 to-indigo-500 bg-[length:200%_auto] animate-[gradient-x_10s_ease_infinite] drop-shadow-sm">
                 <span className="md:hidden font-extrabold">D(nD)L</span>
                 <span className="hidden md:inline pr-1">
                   Daniel (not Day) Lewis
@@ -269,7 +264,7 @@ export default function Navbar() {
           </div>
 
           {/* --- RIGHT: NAV ITEMS --- */}
-          <div className="flex items-center gap-3 md:gap-5 flex-shrink-0 whitespace-nowrap">
+          <div className="flex items-center gap-3 md:gap-5 flex-shrink-0">
             {/* DESKTOP LINKS */}
             <nav className="hidden md:flex items-center gap-4 lg:gap-6 xl:gap-8">
               {navLinks.map((link) => (
@@ -316,7 +311,6 @@ export default function Navbar() {
                 {isSearchOpen && (
                   <button
                     type="button"
-                    aria-label="Close search"
                     onClick={() => {
                       setQuery("");
                       setResults([]);
@@ -331,6 +325,7 @@ export default function Navbar() {
                   </button>
                 )}
               </form>
+
               {query && isSearchOpen && (
                 <div className="absolute top-full right-0 mt-3 w-72 rounded-xl border border-gray-100 bg-white/90 backdrop-blur-xl shadow-xl overflow-hidden flex flex-col">
                   {results.length > 0 ? (
@@ -387,7 +382,6 @@ export default function Navbar() {
         <div className="w-full h-full overflow-y-auto flex flex-col items-center pt-24 pb-12 px-6 gap-8">
           <button
             onClick={() => setIsOpen(false)}
-            aria-label="Close menu"
             className="absolute top-6 right-6 group p-3 rounded-full bg-white border border-slate-100 shadow-sm hover:shadow-md hover:border-teal-100 transition-all duration-300 z-50"
           >
             <X
@@ -395,6 +389,7 @@ export default function Navbar() {
               className="text-slate-400 group-hover:text-teal-500 group-hover:rotate-90 transition-transform duration-300 ease-out"
             />
           </button>
+
           {navLinks.map((link) => (
             <Link
               key={link.name}
@@ -405,6 +400,7 @@ export default function Navbar() {
               {link.name}
             </Link>
           ))}
+
           <AudiobookButton mobile={true} onClick={() => setIsOpen(false)} />
         </div>
       </div>
