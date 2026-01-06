@@ -1,109 +1,121 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Clock, AlertTriangle, Zap, Flame, Calendar } from "lucide-react";
+import {
+  Clock,
+  AlertTriangle,
+  Flame,
+  CheckCircle2,
+  AlertOctagon,
+} from "lucide-react";
 
-export default function ProjectCountdown({ date }) {
-  const [timeLeft, setTimeLeft] = useState(0);
-  const [isMounted, setIsMounted] = useState(false);
+export default function Countdown({ date }) {
+  const [timeLeft, setTimeLeft] = useState(null);
+  const [status, setStatus] = useState("normal");
 
   useEffect(() => {
-    setIsMounted(true);
+    if (!date) return;
 
-    const calculateTime = () => {
-      const now = new Date().getTime();
-      const target = new Date(date).getTime();
-      return target - now;
+    const calculate = () => {
+      const now = new Date();
+      const due = new Date(date);
+      const diff = due - now;
+
+      // 1. Handle Expiration
+      if (diff <= 0) {
+        setTimeLeft(<span className="text-[10px] tracking-wider">DUE</span>);
+        setStatus("expired");
+        return;
+      }
+
+      // 2. Calculate Units
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor(
+        (diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
+      );
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+      // 3. Determine Color/Status
+      if (days > 2) setStatus("chill");
+      else if (days > 0) setStatus("normal");
+      else if (hours < 3)
+        setStatus("critical"); // < 3 hours = Red Pulse
+      else setStatus("urgent"); // < 24 hours = Orange
+
+      // 4. Render Layout
+      if (days > 0) {
+        // > 24 Hours: Show Days
+        setTimeLeft(
+          <>
+            <span className="text-sm font-black -mb-1">{days}</span>
+            <span className="text-[8px] font-bold text-opacity-80">DAYS</span>
+          </>
+        );
+      } else if (hours > 0) {
+        // 1-23 Hours: Show Hours
+        setTimeLeft(
+          <>
+            <span className="text-sm font-black -mb-1">{hours}</span>
+            <span className="text-[8px] font-bold text-opacity-80">HRS</span>
+          </>
+        );
+      } else {
+        // < 1 Hour: Show MM:SS Ticker
+        // Pad numbers (e.g. 5 -> 05)
+        const m = String(minutes).padStart(2, "0");
+        const s = String(seconds).padStart(2, "0");
+
+        setTimeLeft(
+          <>
+            <span className="text-xs font-black -mb-0.5 tracking-tighter">
+              {m}:{s}
+            </span>
+            <span className="text-[7px] font-bold text-opacity-80">MIN</span>
+          </>
+        );
+      }
     };
 
-    // Initial set
-    setTimeLeft(calculateTime());
-
-    // Update every second
-    const timer = setInterval(() => {
-      setTimeLeft(calculateTime());
-    }, 1000);
-
+    calculate();
+    // 5. High-speed interval for smooth second ticking
+    const timer = setInterval(calculate, 1000);
     return () => clearInterval(timer);
   }, [date]);
 
-  // Don't render until client-side hydration is complete to avoid mismatch errors
-  if (!isMounted || !date) return null;
+  if (!date || !timeLeft) return null;
 
-  // --- LOGIC: Color & Icon based on time remaining ---
-  let styleClass = "";
-  let Icon = Clock;
-  let statusLabel = "";
+  const styles = {
+    chill:
+      "bg-emerald-500 border-emerald-400 text-white shadow-lg shadow-emerald-900/20",
+    normal:
+      "bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500 hover:text-white",
+    urgent:
+      "bg-orange-500 border-orange-400 text-white shadow-lg shadow-orange-900/20",
+    critical: "bg-red-500 border-red-400 text-white animate-pulse",
+    expired:
+      "bg-red-600 border-red-500 text-white shadow-[0_0_20px_rgba(220,38,38,1)] animate-pulse",
+  };
 
-  // Convert milliseconds to hours for easy threshold checking
-  const hours = timeLeft / (1000 * 60 * 60);
-
-  if (timeLeft < 0) {
-    // 🚨 OVERDUE
-    styleClass =
-      "bg-red-500 text-white border-red-600 shadow-lg shadow-red-900/50";
-    Icon = AlertTriangle;
-    statusLabel = "OVERDUE";
-  } else if (hours < 1) {
-    // ⚡ CRITICAL (< 1 hr) - Solid Red + Pulsing
-    styleClass =
-      "bg-red-600 text-white border-red-500 animate-pulse shadow-[0_0_15px_rgba(220,38,38,0.6)]";
-    Icon = Zap;
-  } else if (hours < 3) {
-    // 🔥 URGENT (< 3 hrs) - Red Text/Background
-    styleClass =
-      "bg-red-500/20 text-red-400 border-red-500/50 shadow-[0_0_10px_rgba(239,68,68,0.2)]";
-    Icon = Flame;
-  } else if (hours < 12) {
-    // 🟠 WARNING (< 12 hrs) - Orange
-    styleClass = "bg-orange-500/20 text-orange-400 border-orange-500/30";
-    Icon = Flame;
-  } else if (hours < 24) {
-    // 🟡 CAUTION (< 24 hrs) - Blue/Yellow mix (or just Blue/Cyan)
-    styleClass = "bg-blue-500/20 text-blue-400 border-blue-500/30";
-    Icon = Clock;
-  } else {
-    // 📅 SAFE (> 24 hrs) - Slate
-    styleClass = "bg-slate-800 text-slate-400 border-slate-700";
-    Icon = Calendar;
-  }
-
-  // --- LOGIC: Formatting the numbers ---
-  const formatTime = (ms) => {
-    if (ms < 0)
-      return new Date(date).toLocaleDateString(undefined, {
-        month: "short",
-        day: "numeric",
-      });
-
-    // If more than 24 hours, show Days + Hours (e.g., "2d 5h")
-    if (ms > 86400000) {
-      const days = Math.floor(ms / (1000 * 60 * 60 * 24));
-      const h = Math.floor((ms % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      return `${days}d ${h}h`;
-    }
-
-    // If less than 24 hours, show digital clock HH:MM:SS
-    const h = Math.floor((ms % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const m = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-    const s = Math.floor((ms % (1000 * 60)) / 1000);
-
-    // Pad with zeros (e.g., 05:01:09)
-    const pad = (n) => n.toString().padStart(2, "0");
-    return `${pad(h)}:${pad(m)}:${pad(s)}`;
+  const icons = {
+    chill: <CheckCircle2 size={12} />,
+    normal: <Clock size={12} />,
+    urgent: <Flame size={12} />,
+    critical: <AlertTriangle size={12} />,
+    expired: <AlertOctagon size={14} className="animate-bounce" />,
   };
 
   return (
     <div
-      className={`flex items-center gap-1.5 px-2 py-1 rounded border text-[10px] font-black uppercase tracking-wider transition-all duration-500 ${styleClass}`}
+      className={`
+        flex flex-col items-center justify-center 
+        w-12 h-12 shrink-0 aspect-square rounded-xl border-2 transition-all duration-300
+        leading-none gap-0.5 shadow-md
+        ${styles[status]}
+      `}
     >
-      <Icon
-        size={12}
-        className={timeLeft < 3600000 && timeLeft > 0 ? "animate-bounce" : ""}
-      />
-      <span className="font-mono tabular-nums leading-none pt-[1px]">
-        {statusLabel || formatTime(timeLeft)}
-      </span>
+      <div className="opacity-80 -mt-0.5">{icons[status]}</div>
+      <div className="flex flex-col items-center">{timeLeft}</div>
     </div>
   );
 }

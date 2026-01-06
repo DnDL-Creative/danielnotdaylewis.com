@@ -4,19 +4,16 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { createClient } from "@/src/utils/supabase/client";
 import Link from "next/link";
 import VoiceoverProjectModal from "@/src/components/voiceover-tracker/VoiceoverProjectModal";
-import VoiceoverTip from "@/src/components/voiceover-tracker/VoiceoverTip";
-// Imported the new component here:
 import Countdown from "@/src/components/voiceover-tracker/Countdown";
+import StickyNotes from "@/src/components/voiceover-tracker/StickyNotes";
+import VoiceoverStats from "@/src/components/voiceover-tracker/VoiceoverStats";
 
 import {
   Mic,
-  Clock,
-  ArrowRight,
   Trophy,
   Loader2,
   ExternalLink,
   FolderOpen,
-  AlertTriangle,
   Search,
   ChevronDown,
   Check,
@@ -30,18 +27,18 @@ import {
   Wand2,
   User,
   AlertCircle,
-  Zap,
   Send,
   ArrowUpDown,
   Pencil,
-  Flame,
   Ban,
-  ArrowLeft, // Added ArrowLeft here as it was missing in your imports previously
+  ArrowLeft,
+  CheckCircle2,
+  Clock,
 } from "lucide-react";
 
 const supabase = createClient();
 
-// --- UI COMPONENTS ---
+// --- HELPER COMPONENTS ---
 const CustomSelect = ({ label, value, options, onChange, icon: Icon }) => {
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef(null);
@@ -88,196 +85,16 @@ const CustomSelect = ({ label, value, options, onChange, icon: Icon }) => {
   );
 };
 
-// --- CHART COMPONENTS ---
-const MetricCard = ({ label, value, icon: Icon, color }) => (
-  <div
-    className={`p-5 rounded-3xl border bg-slate-800/30 backdrop-blur-sm relative overflow-hidden group ${color === "green" ? "border-green-500/20" : color === "purple" ? "border-purple-500/20" : color === "blue" ? "border-blue-500/20" : color === "red" ? "border-red-500/20" : "border-slate-700"}`}
-  >
-    <div
-      className={`absolute -right-4 -top-4 p-8 rounded-full opacity-5 group-hover:opacity-10 transition-all ${color === "green" ? "bg-green-500" : color === "purple" ? "bg-purple-500" : color === "blue" ? "bg-blue-500" : color === "red" ? "bg-red-500" : "bg-slate-500"}`}
-    />
-    <div className="flex items-center justify-between mb-3">
-      <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-slate-500">
-        {label}
-      </p>
-      {Icon && (
-        <Icon
-          size={16}
-          className={
-            color === "green"
-              ? "text-green-400"
-              : color === "purple"
-                ? "text-purple-400"
-                : color === "blue"
-                  ? "text-blue-400"
-                  : color === "red"
-                    ? "text-red-400"
-                    : "text-slate-400"
-          }
-        />
-      )}
-    </div>
-    <h3 className="text-2xl md:text-3xl font-black text-white">{value}</h3>
-  </div>
-);
-
-const FunnelChart = ({ data }) => {
-  const max = Math.max(data.auditions, 1);
-  return (
-    <div className="flex flex-col gap-4">
-      {[
-        { l: "Auditions", v: data.auditions, c: "bg-slate-600" },
-        { l: "Submitted", v: data.submitted, c: "bg-blue-600" },
-        { l: "Shortlist", v: data.shortlist, c: "bg-purple-500" },
-        { l: "Booked", v: data.booked, c: "bg-green-500" },
-      ].map((step, i) => (
-        <div key={step.l} className="group relative">
-          <div className="flex justify-between text-[10px] font-bold uppercase text-slate-400 mb-1.5">
-            <span>{step.l}</span>
-            <span>{step.v}</span>
-          </div>
-          <div className="h-3 md:h-4 w-full bg-slate-800 rounded-full overflow-hidden">
-            <div
-              style={{
-                width: `${(step.v / (i === 0 ? Math.max(data.auditions, 1) : max)) * 100}%`,
-              }}
-              className={`h-full ${step.c} rounded-full transition-all duration-1000 ease-out relative overflow-hidden`}
-            >
-              <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-const DonutChart = ({ data, colors }) => {
-  const total = data.reduce((acc, val) => acc + val.value, 0);
-  let cumulative = 0;
-  if (total === 0)
-    return (
-      <div className="w-full h-40 flex items-center justify-center text-[10px] text-slate-600 font-bold uppercase border-4 border-slate-800 rounded-full">
-        No Data
-      </div>
-    );
-  return (
-    <div className="relative w-32 h-32 md:w-40 md:h-40">
-      <svg viewBox="0 0 100 100" className="transform -rotate-90 w-full h-full">
-        {data.map((item, i) => {
-          const percentage = item.value / total;
-          const strokeDasharray = `${percentage * 314} 314`;
-          const strokeDashoffset = -cumulative * 314;
-          cumulative += percentage;
-          return (
-            <circle
-              key={i}
-              cx="50"
-              cy="50"
-              r="40"
-              fill="transparent"
-              stroke={colors[i]}
-              strokeWidth="12"
-              strokeDasharray={strokeDasharray}
-              strokeDashoffset={strokeDashoffset}
-              className="transition-all duration-1000 ease-out"
-            />
-          );
-        })}
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-xl md:text-2xl font-black text-white">
-          {total}
-        </span>
-        <span className="text-[8px] font-bold uppercase text-slate-500 tracking-widest">
-          Total
-        </span>
-      </div>
-    </div>
-  );
-};
-
-const BarChart = ({ data }) => {
-  if (data.length === 0)
-    return (
-      <div className="h-40 flex items-center justify-center text-xs text-slate-600">
-        No history available
-      </div>
-    );
-  const max = Math.max(...data.map((d) => d.value));
-  return (
-    <div className="flex items-end justify-between h-32 md:h-40 gap-1 md:gap-2 w-full">
-      {data.map((item, i) => {
-        const height = max > 0 ? (item.value / max) * 100 : 0;
-        return (
-          <div
-            key={i}
-            className="flex flex-col items-center gap-2 flex-1 group"
-          >
-            <div className="relative w-full bg-slate-900 rounded-t-md flex items-end h-full overflow-hidden">
-              <div
-                style={{ height: `${height}%` }}
-                className="w-full bg-gradient-to-t from-blue-600 to-indigo-400 opacity-80 group-hover:opacity-100 transition-all duration-500 relative"
-              >
-                {item.value > 0 && (
-                  <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-white text-black text-[7px] md:text-[9px] font-black py-0.5 px-1 md:px-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                    {item.value}
-                  </div>
-                )}
-              </div>
-            </div>
-            <span className="text-[7px] md:text-[9px] font-bold text-slate-500 uppercase tracking-wider hidden md:block">
-              {item.label}
-            </span>
-            <span className="text-[6px] md:text-[7px] font-bold text-slate-500 uppercase tracking-wider md:hidden">
-              {item.label.substring(0, 1)}
-            </span>
-          </div>
-        );
-      })}
-    </div>
-  );
-};
-
-const DailyHeatmap = ({ data }) => {
-  const max = Math.max(...data.map((d) => d.value));
-  return (
-    <div className="flex justify-between items-end h-16 gap-1 w-full">
-      {data.map((d, i) => (
-        <div key={i} className="flex flex-col items-center flex-1 gap-2">
-          <div className="w-full bg-slate-900 rounded-md h-full relative overflow-hidden group">
-            <div
-              style={{ height: `${max > 0 ? (d.value / max) * 100 : 0}%` }}
-              className="absolute bottom-0 w-full bg-blue-500/50 group-hover:bg-blue-400 transition-all rounded-md"
-            />
-          </div>
-          <span className="text-[8px] md:text-[10px] font-bold text-slate-500 uppercase">
-            {d.day.substring(0, 1)}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-// --- 3. MAIN PAGE ---
-
 export default function VoiceoverTrackerPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("Auditions");
-
-  // --- FILTERS ---
   const [searchQuery, setSearchQuery] = useState("");
   const [focusFilter, setFocusFilter] = useState("all");
   const [clientFilter, setClientFilter] = useState("all");
   const [sortBy, setSortBy] = useState("urgency");
-
-  // --- MODAL ---
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
-
-  // --- CONFIRM MODAL ---
   const [confirmConfig, setConfirmConfig] = useState({
     isOpen: false,
     title: "",
@@ -291,7 +108,7 @@ export default function VoiceoverTrackerPage() {
       .from("11_voiceover_tracker")
       .select("*")
       .order("due_date", { ascending: true });
-    if (error) console.error(error);
+    if (error) console.error("Fetch Error:", error);
     else setItems(data);
     setLoading(false);
   };
@@ -300,28 +117,7 @@ export default function VoiceoverTrackerPage() {
     fetchData();
   }, []);
 
-  // --- HELPERS ---
-  const getTimeRemaining = (isoDate) => {
-    if (!isoDate) return null;
-    return (new Date(isoDate) - new Date()) / (1000 * 60 * 60);
-  };
-
-  const isStale = (date) => {
-    if (!date) return false;
-    const diffTime = Math.abs(new Date() - new Date(date));
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) > 7;
-  };
-
-  const panicCount = useMemo(() => {
-    return items.filter(
-      (i) =>
-        i.status === "inbox" &&
-        getTimeRemaining(i.due_date) < 6 &&
-        getTimeRemaining(i.due_date) > -1
-    ).length;
-  }, [items]);
-
-  // --- FILTER ENGINE ---
+  // --- FILTER LOGIC ---
   const filteredItems = useMemo(() => {
     let result = [...items];
     if (activeTab === "Auditions")
@@ -338,18 +134,6 @@ export default function VoiceoverTrackerPage() {
       );
     else if (activeTab === "Skipped")
       result = result.filter((i) => i.status === "skipped");
-
-    if (focusFilter !== "all") {
-      result = result.filter((i) => {
-        const hrs = getTimeRemaining(i.due_date);
-        if (focusFilter === "overdue") return hrs < 0;
-        if (focusFilter === "critical") return hrs > 0 && hrs <= 3;
-        if (focusFilter === "get_ready") return hrs > 0 && hrs <= 12;
-        if (focusFilter === "fast") return hrs > 0 && hrs <= 24;
-        if (focusFilter === "upcoming") return hrs > 24;
-        return true;
-      });
-    }
 
     if (clientFilter !== "all")
       result = result.filter((i) => i.client_name === clientFilter);
@@ -373,201 +157,203 @@ export default function VoiceoverTrackerPage() {
     return result;
   }, [items, activeTab, focusFilter, clientFilter, searchQuery, sortBy]);
 
-  const staleCount = useMemo(
-    () =>
-      items.filter((i) => i.status === "submitted" && isStale(i.due_date))
-        .length,
-    [items]
-  );
-
-  // --- INSIGHTS ENGINE ---
-  const insights = useMemo(() => {
-    const submitted = items.filter((i) =>
-      ["submitted", "shortlist", "booked", "rejected", "archived"].includes(
-        i.status
-      )
-    ).length;
-    const inbox = items.filter((i) => i.status === "inbox").length;
-    const shortlist = items.filter((i) =>
-      ["shortlist", "booked"].includes(i.status)
-    ).length;
-    const booked = items.filter((i) => i.status === "booked").length;
-    const skipped = items.filter((i) => i.status === "skipped").length;
-    const asp = items.filter((i) => i.client_name === "ASP").length;
-    const idiom = items.filter((i) => i.client_name === "IDIOM").length;
-    const totalClients = items.length;
-
-    const months = [];
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date();
-      d.setMonth(d.getMonth() - i);
-      const count = items.filter((x) => {
-        const xd = new Date(x.created_at);
-        return (
-          !isNaN(xd) &&
-          xd.getMonth() === d.getMonth() &&
-          xd.getFullYear() === d.getFullYear()
-        );
-      }).length;
-      months.push({
-        label: d.toLocaleString("default", { month: "short" }),
-        value: count,
-      });
-    }
-
-    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    const dayCounts = new Array(7).fill(0);
-    items.forEach((item) => {
-      const d = new Date(item.created_at || item.due_date);
-      if (!isNaN(d)) dayCounts[d.getDay()]++;
-    });
-    const heatmap = dayCounts.map((val, i) => ({ day: days[i], value: val }));
-
-    return {
-      counts: { auditions: inbox, submitted, shortlist, booked, skipped },
-      rates: {
-        booking: submitted ? ((booked / submitted) * 100).toFixed(1) : 0,
-        shortlist: submitted ? ((shortlist / submitted) * 100).toFixed(1) : 0,
-      },
-      clients: [
-        { label: "ASP", value: asp },
-        { label: "IDIOM", value: idiom },
-        { label: "Other", value: totalClients - asp - idiom },
-      ],
-      history: months,
-      heatmap: heatmap,
-    };
-  }, [items]);
-
   // --- ACTIONS ---
-  const updateStatus = async (id, newStatus) => {
+  const updateStatus = async (id, newStatus, extraFields = {}) => {
+    // 1. Optimistic Update
     const updated = items.map((i) =>
-      i.id === id ? { ...i, status: newStatus } : i
+      i.id === id ? { ...i, status: newStatus, ...extraFields } : i
     );
     setItems(updated);
-    await supabase
-      .from("11_voiceover_tracker")
-      .update({ status: newStatus })
-      .eq("id", id);
     setConfirmConfig({ isOpen: false });
-  };
 
-  const handleBulkArchive = async () => {
-    const staleIds = items
-      .filter((i) => i.status === "submitted" && isStale(i.due_date))
-      .map((i) => i.id);
-    if (staleIds.length === 0) return;
-    const updated = items.map((i) =>
-      staleIds.includes(i.id) ? { ...i, status: "archived" } : i
-    );
-    setItems(updated);
-    for (const id of staleIds)
-      await supabase
-        .from("11_voiceover_tracker")
-        .update({ status: "archived" })
-        .eq("id", id);
+    // 2. Database Update
+    const { error } = await supabase
+      .from("11_voiceover_tracker")
+      .update({ status: newStatus, ...extraFields })
+      .eq("id", id);
+
+    // 3. Error Handling
+    if (error) {
+      console.error("Update Failed:", error);
+      alert("Failed to save changes. Please check your connection.");
+      fetchData(); // Revert on fail
+    }
   };
 
   const handleRequestAction = (id, actionType, e) => {
     e.stopPropagation();
     let config = {};
+    const actions = {
+      submit: {
+        title: "Submit Audition?",
+        msg: "Moving to 'Submitted' pipeline.",
+        color: "blue",
+        icon: Send,
+        fn: () =>
+          updateStatus(id, "submitted", {
+            submitted_at: new Date().toISOString(),
+            submitted_timezone:
+              Intl.DateTimeFormat().resolvedOptions().timeZone,
+          }),
+      },
+      revert: {
+        title: "Revert to Audition?",
+        msg: "Moving back to Inbox. This clears the submission time.",
+        color: "slate",
+        icon: ArrowLeft,
+        fn: () =>
+          updateStatus(id, "inbox", {
+            submitted_at: null, // Clear timestamp so it resets
+          }),
+      },
+      shortlist: {
+        title: "Shortlist!",
+        msg: "Congrats! Moving to 'Shortlist'.",
+        color: "purple",
+        icon: Star,
+        fn: () => updateStatus(id, "shortlist"),
+      },
+      book: {
+        title: "Project Booked!",
+        msg: "Awesome! Moving to 'Booked'.",
+        color: "green",
+        icon: Trophy,
+        fn: () => updateStatus(id, "booked"),
+      },
+      archive: {
+        title: "Archive Project?",
+        msg: "Moving to archives.",
+        color: "slate",
+        icon: Archive,
+        fn: () => updateStatus(id, "archived"),
+      },
+      skip: {
+        title: "Skip Audition?",
+        msg: "Moving to 'Skipped'.",
+        color: "red",
+        icon: Ban,
+        fn: () => updateStatus(id, "skipped"),
+      },
+      recover: {
+        title: "Recover Project?",
+        msg: "Moving back to Inbox.",
+        color: "blue",
+        icon: RotateCcw,
+        fn: () => updateStatus(id, "inbox"),
+      },
+      delete: {
+        title: "Permanently Delete?",
+        msg: "This cannot be undone.",
+        color: "red",
+        icon: Trash2,
+        fn: async () => {
+          setItems((prev) => prev.filter((i) => i.id !== id));
+          await supabase.from("11_voiceover_tracker").delete().eq("id", id);
+          setConfirmConfig({ isOpen: false });
+        },
+      },
+    };
 
-    switch (actionType) {
-      case "submit":
-        config = {
-          title: "Submit Audition?",
-          message: "Moving this project to the 'Submitted' pipeline.",
-          color: "blue",
-          icon: Send,
-          action: () => updateStatus(id, "submitted"),
-        };
-        break;
-      case "shortlist":
-        config = {
-          title: "Shortlisted!",
-          message: "Congrats! Moving to 'Shortlist'.",
-          color: "purple",
-          icon: Star,
-          action: () => updateStatus(id, "shortlist"),
-        };
-        break;
-      case "book":
-        config = {
-          title: "Project Booked!",
-          message: "Awesome! Moving to 'Booked'.",
-          color: "green",
-          icon: Trophy,
-          action: () => updateStatus(id, "booked"),
-        };
-        break;
-      case "archive":
-        config = {
-          title: "Archive Project?",
-          message: "Moving to archives. Stats will still count.",
-          color: "slate",
-          icon: Archive,
-          action: () => updateStatus(id, "archived"),
-        };
-        break;
-      case "skip":
-        config = {
-          title: "Skip Audition?",
-          message: "Moving to 'Skipped'. Stats will track this pass.",
-          color: "red",
-          icon: Ban,
-          action: () => updateStatus(id, "skipped"),
-        };
-        break;
-      case "recover":
-        config = {
-          title: "Recover Project?",
-          message: "Moving back to Inbox.",
-          color: "blue",
-          icon: RotateCcw,
-          action: () => updateStatus(id, "inbox"),
-        };
-        break;
-      case "demote":
-        config = {
-          title: "Move Back?",
-          message: "Demoting status back to 'Submitted'.",
-          color: "slate",
-          icon: ArrowLeft,
-          action: () => updateStatus(id, "submitted"),
-        };
-        break;
-      case "delete":
-        config = {
-          title: "Permanently Delete?",
-          message: "This cannot be undone. It will be wiped from stats.",
-          color: "red",
-          icon: Trash2,
-          action: async () => {
-            setItems((prev) => prev.filter((i) => i.id !== id));
-            await supabase.from("11_voiceover_tracker").delete().eq("id", id);
-            setConfirmConfig({ isOpen: false });
-          },
-        };
-        break;
-      default:
-        return;
-    }
+    if (actionType === "demote")
+      config = {
+        title: "Move Back?",
+        message: "Demoting to Submitted.",
+        color: "slate",
+        icon: ArrowLeft,
+        action: () => updateStatus(id, "submitted"),
+      };
+    else if (actions[actionType])
+      config = {
+        title: actions[actionType].title,
+        message: actions[actionType].msg,
+        color: actions[actionType].color,
+        icon: actions[actionType].icon,
+        action: actions[actionType].fn,
+      };
+
     setConfirmConfig({ isOpen: true, ...config });
-  };
-
-  const handleOpenModal = (item = null) => {
-    setEditingProject(item);
-    setIsModalOpen(true);
   };
 
   const handleModalSave = () => {
     fetchData();
   };
 
+  // --- COMPONENT: STATUS BADGE (Square & Detailed) ---
+  const StatusBadge = ({ item }) => {
+    const formatSubmission = (iso, tz) => {
+      if (!iso) return { date: "UNK", time: "--" };
+      try {
+        const d = new Date(iso);
+        const targetZone =
+          tz || Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const dateStr = d.toLocaleDateString("en-US", {
+          timeZone: targetZone,
+          month: "short",
+          day: "numeric",
+        });
+        const timeStr = d.toLocaleTimeString("en-US", {
+          timeZone: targetZone,
+          hour: "numeric",
+          minute: "2-digit",
+        });
+        return { date: dateStr, time: timeStr };
+      } catch (e) {
+        return { date: "ERR", time: "--" };
+      }
+    };
+
+    if (item.status === "submitted") {
+      const { date, time } = formatSubmission(
+        item.submitted_at,
+        item.submitted_timezone
+      );
+      return (
+        <div className="flex flex-col items-center justify-center w-12 h-12 shrink-0 aspect-square rounded-xl border-2 border-blue-500/30 bg-blue-500/10 text-blue-400 shadow-md">
+          <span className="text-[8px] font-black uppercase tracking-tight leading-none mb-0.5">
+            {date}
+          </span>
+          <span className="text-[7px] font-bold opacity-80 leading-none">
+            {time}
+          </span>
+        </div>
+      );
+    }
+    if (item.status === "booked") {
+      return (
+        <div className="flex flex-col items-center justify-center w-12 h-12 shrink-0 aspect-square rounded-xl border-2 border-green-500/30 bg-green-500/10 text-green-400 shadow-md shadow-green-900/20">
+          <Trophy size={14} className="mb-0.5" />
+          <span className="text-[7px] font-black uppercase tracking-wider">
+            WON
+          </span>
+        </div>
+      );
+    }
+    if (item.status === "shortlist") {
+      return (
+        <div className="flex flex-col items-center justify-center w-12 h-12 shrink-0 aspect-square rounded-xl border-2 border-purple-500/30 bg-purple-500/10 text-purple-400 shadow-md">
+          <Star size={14} className="mb-0.5" />
+          <span className="text-[7px] font-black uppercase tracking-wider">
+            SHORT
+          </span>
+        </div>
+      );
+    }
+    if (item.status === "skipped") {
+      return (
+        <div className="flex flex-col items-center justify-center w-12 h-12 shrink-0 aspect-square rounded-xl border-2 border-slate-700 bg-slate-800 text-slate-500">
+          <Ban size={14} className="mb-0.5" />
+          <span className="text-[7px] font-black uppercase tracking-wider">
+            SKIP
+          </span>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
-    <div className="min-h-screen bg-slate-900 text-white p-3 md:p-8 pb-32 font-sans">
-      <div className="max-w-7xl mx-auto">
-        {/* HEADER & TABS */}
+    <div className="min-h-screen bg-slate-900 text-white pb-40 font-sans relative">
+      <div className="max-w-7xl mx-auto p-3 md:p-8">
         <div className="mb-6 md:mb-8">
           <Link
             href="/admin"
@@ -575,8 +361,6 @@ export default function VoiceoverTrackerPage() {
           >
             <ChevronLeft size={14} /> Back to Hub
           </Link>
-
-          {/* MOBILE SCROLLABLE TABS */}
           <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide -mx-3 px-3 md:mx-0 md:px-0 md:flex-wrap md:pb-0">
             {[
               "Auditions",
@@ -598,98 +382,10 @@ export default function VoiceoverTrackerPage() {
           </div>
         </div>
 
-        {/* --- PANIC BAR (6 HOUR ALERT) --- */}
-        {panicCount > 0 && activeTab === "Auditions" && (
-          <div className="mb-6 bg-red-500/10 border border-red-500/30 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 animate-pulse">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-red-500 text-white rounded-full shrink-0">
-                <Flame size={18} />
-              </div>
-              <div>
-                <h3 className="text-sm font-black uppercase text-red-100">
-                  Action Required
-                </h3>
-                <p className="text-xs font-bold text-red-300">
-                  You have {panicCount} auditions due in less than 6 hours.
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => setFocusFilter("get_ready")}
-              className="w-full md:w-auto px-4 py-2 bg-red-500 hover:bg-red-400 text-white font-black uppercase text-[10px] tracking-widest rounded-lg transition-colors"
-            >
-              Focus Mode
-            </button>
-          </div>
-        )}
-
-        {/* --- CONTENT AREA --- */}
         {activeTab === "Stats" ? (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-              <MetricCard
-                label="Submissions"
-                value={insights.counts.submitted}
-                icon={Mic}
-              />
-              <MetricCard
-                label="Booked"
-                value={insights.counts.booked}
-                icon={Trophy}
-                color="green"
-              />
-              <MetricCard
-                label="Win Rate"
-                value={`${insights.rates.booking}%`}
-                icon={TrendingUp}
-                color="purple"
-              />
-              <MetricCard
-                label="Pass Rate"
-                value={insights.counts.skipped}
-                icon={Ban}
-                color="red"
-              />
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-1 bg-slate-800/30 border border-slate-700 rounded-3xl p-6 md:p-8">
-                <h3 className="text-lg font-black uppercase text-white mb-6">
-                  Pipeline Funnel
-                </h3>
-                <FunnelChart data={insights.counts} />
-              </div>
-              <div className="lg:col-span-2 flex flex-col gap-6">
-                <div className="bg-slate-800/30 border border-slate-700 rounded-3xl p-6 md:p-8">
-                  <h3 className="text-lg font-black uppercase text-white mb-6 flex items-center justify-between">
-                    Monthly Velocity{" "}
-                    <BarChart3 size={18} className="text-slate-500" />
-                  </h3>
-                  <BarChart data={insights.history} />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-slate-800/30 border border-slate-700 rounded-3xl p-6 flex flex-col items-center justify-center relative">
-                    <h3 className="text-xs font-black uppercase text-slate-500 mb-4 self-start">
-                      Client Loyalty
-                    </h3>
-                    <DonutChart
-                      data={insights.clients}
-                      colors={["#3b82f6", "#a855f7", "#64748b"]}
-                    />
-                  </div>
-                  <VoiceoverTip />
-                </div>
-              </div>
-            </div>
-            <div className="bg-slate-800/30 border border-slate-700 rounded-3xl p-6 md:p-8">
-              <h3 className="text-lg font-black uppercase text-white mb-6">
-                Submission Heatmap
-              </h3>
-              <DailyHeatmap data={insights.heatmap} />
-            </div>
-          </div>
+          <VoiceoverStats data={items} />
         ) : (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {/* TOOLBAR */}
             <div className="flex flex-col xl:flex-row gap-4 mb-6">
               <div className="relative flex-grow">
                 <Search
@@ -712,9 +408,6 @@ export default function VoiceoverTrackerPage() {
                     options={[
                       { label: "Show All", value: "all" },
                       { label: "🚨 Overdue", value: "overdue" },
-                      { label: "⚡ Critical (<3h)", value: "critical" },
-                      { label: "🔥 Get Ready (<12h)", value: "get_ready" },
-                      { label: "🏃 Fast (<24h)", value: "fast" },
                       { label: "📅 Upcoming", value: "upcoming" },
                     ]}
                     onChange={setFocusFilter}
@@ -755,25 +448,6 @@ export default function VoiceoverTrackerPage() {
               </button>
             </div>
 
-            {/* STALE ALERT */}
-            {activeTab === "Submitted" && staleCount > 0 && (
-              <div className="mb-6 p-4 rounded-xl bg-orange-900/20 border border-orange-500/30 flex flex-col md:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <AlertTriangle className="text-orange-500" size={20} />
-                  <span className="text-xs font-bold text-orange-200">
-                    You have {staleCount} stale submissions (Older than 7 days).
-                  </span>
-                </div>
-                <button
-                  onClick={handleBulkArchive}
-                  className="w-full md:w-auto px-4 py-2 bg-orange-500/20 hover:bg-orange-500 text-orange-200 hover:text-white rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
-                >
-                  <Archive size={12} /> Auto-Archive All
-                </button>
-              </div>
-            )}
-
-            {/* LIST VIEW */}
             {loading ? (
               <div className="flex justify-center py-20 text-slate-500">
                 <Loader2 className="animate-spin" />
@@ -798,8 +472,6 @@ export default function VoiceoverTrackerPage() {
                     <div
                       className={`absolute left-0 top-0 bottom-0 w-1.5 ${item.client_name === "ASP" ? "bg-blue-500" : item.client_name === "IDIOM" ? "bg-purple-500" : "bg-slate-500"}`}
                     />
-
-                    {/* INFO: CLIENT & ROLE */}
                     <div className="flex md:flex-col items-center md:items-start gap-3 md:gap-2 md:w-32 shrink-0">
                       <span
                         className={`text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded w-fit border ${item.client_name === "ASP" ? "bg-blue-500/10 text-blue-400 border-blue-500/20" : item.client_name === "IDIOM" ? "bg-purple-500/10 text-purple-400 border-purple-500/20" : "bg-slate-700 text-slate-400 border-slate-600"}`}
@@ -811,23 +483,19 @@ export default function VoiceoverTrackerPage() {
                           <User size={10} /> {item.role}
                         </div>
                       )}
-                      {/* Mobile Urgency Badge */}
-                      <div className="md:hidden ml-auto">
-                        {activeTab === "Auditions" && (
-                          <Countdown date={item.due_date} />
-                        )}
-                      </div>
                     </div>
 
-                    {/* INFO: TITLE & LINKS */}
                     <div className="flex-grow min-w-0 md:w-1/3">
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className="text-base font-bold text-white truncate group-hover:text-blue-200 transition-colors">
                           {item.project_title}
                         </h3>
-                        <div className="hidden md:block">
-                          {activeTab === "Auditions" && (
+                        {/* COUNTDOWN OR STATUS BADGE */}
+                        <div onClick={(e) => e.stopPropagation()}>
+                          {item.status === "inbox" ? (
                             <Countdown date={item.due_date} />
+                          ) : (
+                            <StatusBadge item={item} />
                           )}
                         </div>
                       </div>
@@ -855,7 +523,6 @@ export default function VoiceoverTrackerPage() {
                       </div>
                     </div>
 
-                    {/* INFO: RATE/NOTES (Collapsible on mobile maybe? For now just showing) */}
                     <div className="md:w-1/4 border-l border-slate-700/50 pl-4 md:pl-6">
                       <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">
                         Rate / Notes
@@ -869,8 +536,7 @@ export default function VoiceoverTrackerPage() {
                       </div>
                     </div>
 
-                    {/* ACTIONS */}
-                    <div className="flex items-center gap-2 md:ml-auto pt-4 md:pt-0 border-t md:border-0 border-slate-700/50 mt-2 md:mt-0 overflow-x-auto pb-1 md:pb-0 no-scrollbar">
+                    <div className="flex items-center gap-2 md:ml-auto pt-4 md:pt-0 border-t md:border-0 border-slate-700/50 mt-2 md:mt-0 overflow-x-auto pb-2 px-2 no-scrollbar">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -878,11 +544,9 @@ export default function VoiceoverTrackerPage() {
                           setIsModalOpen(true);
                         }}
                         className="p-2 text-slate-500 hover:text-white hover:bg-slate-700 rounded-lg transition-all"
-                        title="Edit"
                       >
                         <Pencil size={16} />
                       </button>
-
                       {activeTab === "Auditions" && (
                         <>
                           <button
@@ -890,32 +554,41 @@ export default function VoiceoverTrackerPage() {
                               handleRequestAction(item.id, "skip", e)
                             }
                             className="p-2 text-slate-500 hover:text-red-400 hover:bg-slate-700 rounded-lg transition-all"
-                            title="Skip/Pass"
                           >
                             <Ban size={16} />
                           </button>
-                          <button
-                            onClick={(e) =>
-                              handleRequestAction(item.id, "submit", e)
-                            }
-                            className="group/btn relative px-6 py-2.5 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black uppercase text-[10px] tracking-widest shadow-lg shadow-blue-900/30 flex items-center gap-2 transition-all hover:scale-105 active:scale-95 whitespace-nowrap"
-                          >
-                            <span>Submit</span>{" "}
-                            <Send
-                              size={12}
-                              className="group-hover/btn:translate-x-1 transition-transform"
-                            />
-                          </button>
+                          <div className="p-1">
+                            <button
+                              onClick={(e) =>
+                                handleRequestAction(item.id, "submit", e)
+                              }
+                              className="group/btn relative px-6 py-2.5 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black uppercase text-[10px] tracking-widest shadow-lg shadow-blue-900/30 flex items-center gap-2 transition-all hover:scale-105 active:scale-95 whitespace-nowrap"
+                            >
+                              <span>Submit</span>{" "}
+                              <Send
+                                size={12}
+                                className="group-hover/btn:translate-x-1 transition-transform"
+                              />
+                            </button>
+                          </div>
                         </>
                       )}
                       {activeTab === "Submitted" && (
                         <div className="flex gap-2">
                           <button
                             onClick={(e) =>
+                              handleRequestAction(item.id, "revert", e)
+                            }
+                            className="p-2.5 rounded-xl text-slate-500 hover:text-white hover:bg-slate-700 transition-all"
+                            title="Revert to Audition"
+                          >
+                            <ArrowLeft size={16} />
+                          </button>
+                          <button
+                            onClick={(e) =>
                               handleRequestAction(item.id, "shortlist", e)
                             }
                             className="p-2.5 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 hover:text-purple-300 border border-purple-500/20 transition-all"
-                            title="Shortlist"
                           >
                             <Star size={16} />
                           </button>
@@ -924,7 +597,6 @@ export default function VoiceoverTrackerPage() {
                               handleRequestAction(item.id, "book", e)
                             }
                             className="p-2.5 rounded-xl bg-green-500/10 hover:bg-green-500/20 text-green-400 hover:text-green-300 border border-green-500/20 transition-all"
-                            title="Book It!"
                           >
                             <Trophy size={16} />
                           </button>
@@ -934,7 +606,6 @@ export default function VoiceoverTrackerPage() {
                               handleRequestAction(item.id, "archive", e)
                             }
                             className="p-2.5 rounded-xl text-slate-500 hover:text-slate-300 hover:bg-slate-700 transition-all"
-                            title="Archive"
                           >
                             <Archive size={16} />
                           </button>
@@ -947,7 +618,6 @@ export default function VoiceoverTrackerPage() {
                               handleRequestAction(item.id, "book", e)
                             }
                             className="px-4 py-2 rounded-xl bg-green-600 hover:bg-green-500 text-white font-black uppercase text-[10px] tracking-widest shadow-lg flex items-center gap-2 whitespace-nowrap"
-                            title="Book It!"
                           >
                             <Trophy size={14} /> Book
                           </button>
@@ -956,7 +626,6 @@ export default function VoiceoverTrackerPage() {
                               handleRequestAction(item.id, "demote", e)
                             }
                             className="p-2 rounded-xl text-slate-500 hover:text-white hover:bg-slate-700 transition-all"
-                            title="Demote"
                           >
                             <ArrowLeft size={14} />
                           </button>
@@ -965,9 +634,16 @@ export default function VoiceoverTrackerPage() {
                               handleRequestAction(item.id, "archive", e)
                             }
                             className="p-2 rounded-xl text-slate-500 hover:text-red-400 hover:bg-red-900/20 transition-all"
-                            title="Archive"
                           >
                             <Archive size={14} />
+                          </button>
+                          <button
+                            onClick={(e) =>
+                              handleRequestAction(item.id, "recover", e)
+                            }
+                            className="p-2 rounded-xl text-slate-500 hover:text-blue-400 hover:bg-slate-700 transition-all"
+                          >
+                            <RotateCcw size={14} />
                           </button>
                         </div>
                       )}
@@ -980,7 +656,6 @@ export default function VoiceoverTrackerPage() {
                               handleRequestAction(item.id, "recover", e)
                             }
                             className="p-2 text-slate-500 hover:text-blue-400 hover:bg-slate-700 rounded-lg transition-all"
-                            title="Recover"
                           >
                             <RotateCcw size={16} />
                           </button>
@@ -989,7 +664,6 @@ export default function VoiceoverTrackerPage() {
                               handleRequestAction(item.id, "delete", e)
                             }
                             className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-all"
-                            title="Delete Forever"
                           >
                             <Trash2 size={16} />
                           </button>
@@ -1011,16 +685,15 @@ export default function VoiceoverTrackerPage() {
         onSave={handleModalSave}
       />
 
-      {/* --- CONFIRM ACTION MODAL --- */}
+      {/* NEW STICKY NOTES COMPONENT */}
+      <StickyNotes />
+
       {confirmConfig.isOpen && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-200">
-          <div
-            className={`bg-slate-900 border border-slate-700 rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center relative overflow-hidden group`}
-          >
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center relative overflow-hidden group">
             <div
               className={`absolute -top-10 -right-10 w-32 h-32 rounded-full blur-3xl opacity-20 ${confirmConfig.color === "green" ? "bg-green-500" : confirmConfig.color === "red" ? "bg-red-500" : confirmConfig.color === "blue" ? "bg-blue-500" : confirmConfig.color === "purple" ? "bg-purple-500" : "bg-slate-500"}`}
             />
-
             <div
               className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 relative z-10 ${confirmConfig.color === "green" ? "bg-green-500/20 text-green-400" : confirmConfig.color === "red" ? "bg-red-500/20 text-red-400" : confirmConfig.color === "blue" ? "bg-blue-500/20 text-blue-400" : confirmConfig.color === "purple" ? "bg-purple-500/20 text-purple-400" : "bg-slate-800 text-slate-400"}`}
             >
@@ -1030,14 +703,12 @@ export default function VoiceoverTrackerPage() {
                 <AlertCircle size={32} />
               )}
             </div>
-
             <h3 className="text-xl font-black uppercase text-white mb-2 relative z-10">
               {confirmConfig.title}
             </h3>
             <p className="text-sm text-slate-400 font-medium mb-8 leading-relaxed relative z-10">
               {confirmConfig.message}
             </p>
-
             <div className="flex gap-3 relative z-10">
               <button
                 onClick={() => setConfirmConfig({ isOpen: false })}
@@ -1057,9 +728,6 @@ export default function VoiceoverTrackerPage() {
       )}
 
       <style jsx>{`
-        .action-btn {
-          @apply px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95;
-        }
         .no-scrollbar::-webkit-scrollbar {
           display: none;
         }

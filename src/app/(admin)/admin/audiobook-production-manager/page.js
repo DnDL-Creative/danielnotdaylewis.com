@@ -15,6 +15,9 @@ import InvoicesAndPayments from "@/src/components/audiobook-production-manager/I
 import HoursLog from "@/src/components/audiobook-production-manager/HoursLog";
 import Archives from "@/src/components/audiobook-production-manager/Archives";
 
+// IMPORT STICKY NOTES FROM VOICEOVER TRACKER FOLDER
+import StickyNotes from "@/src/components/voiceover-tracker/StickyNotes";
+
 import {
   Inbox,
   Kanban,
@@ -110,12 +113,13 @@ export default function ProductionManager() {
             </p>
           </div>
 
-          {/* TABS BAR - Mobile Optimized */}
-          <div className="w-full overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 md:overflow-visible no-scrollbar">
+          {/* TABS BAR - FIXED UI */}
+          <div className="w-full overflow-x-auto pb-4 -mx-4 px-4 md:mx-0 md:px-0 relative z-20 custom-scrollbar">
             <div
               tabIndex={0}
               onKeyDown={handleTabNavigation}
-              className="inline-flex bg-white p-1.5 md:p-2 rounded-full border border-slate-200 shadow-sm gap-2 min-w-max focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2 focus:border-transparent transition-all cursor-pointer"
+              // Added 'm-1' here to give the focus ring space so it doesn't clip
+              className="inline-flex bg-white p-1.5 md:p-2 m-1 rounded-full border border-slate-200 shadow-sm gap-2 min-w-max focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2 focus:border-transparent transition-all cursor-pointer"
             >
               {TABS.map((tab) => {
                 const Icon = tab.icon;
@@ -190,15 +194,23 @@ export default function ProductionManager() {
         </div>
       </div>
 
+      {/* --- FLOATING STICKY NOTES --- */}
+      <StickyNotes />
+
       <style jsx global>{`
-        /* Hide scrollbar for Chrome, Safari and Opera */
-        .no-scrollbar::-webkit-scrollbar {
-          display: none;
+        /* Custom Scrollbar Styling */
+        .custom-scrollbar::-webkit-scrollbar {
+          height: 6px; /* Horizontal scrollbar height */
         }
-        /* Hide scrollbar for IE, Edge and Firefox */
-        .no-scrollbar {
-          -ms-overflow-style: none; /* IE and Edge */
-          scrollbar-width: none; /* Firefox */
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background-color: #cbd5e1; /* Slate-300 */
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background-color: #94a3b8; /* Slate-400 */
         }
       `}</style>
     </div>

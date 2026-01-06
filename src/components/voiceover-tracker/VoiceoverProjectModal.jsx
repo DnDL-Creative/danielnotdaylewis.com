@@ -16,9 +16,18 @@ import {
   ArrowLeft,
   Plus,
   Clock,
+  Globe,
 } from "lucide-react";
 
 const supabase = createClient();
+
+const US_TIMEZONES = [
+  { label: "Pacific (PT)", value: "America/Los_Angeles", offset: "-08:00" },
+  { label: "Mountain (MT)", value: "America/Denver", offset: "-07:00" },
+  { label: "Central (CT)", value: "America/Chicago", offset: "-06:00" },
+  { label: "Eastern (ET)", value: "America/New_York", offset: "-05:00" },
+  { label: "Hawaii (HT)", value: "Pacific/Honolulu", offset: "-10:00" },
+];
 
 export default function VoiceoverProjectModal({
   isOpen,
@@ -53,6 +62,7 @@ export default function VoiceoverProjectModal({
       file_link: "",
       due_date: "",
       due_time: "17:00",
+      timezone: "America/Los_Angeles",
       notes: "",
       specs: "",
       direction: "",
@@ -65,9 +75,27 @@ export default function VoiceoverProjectModal({
     let dDate = "",
       dTime = "17:00";
     if (item.due_date) {
-      const d = new Date(item.due_date);
-      dDate = d.toISOString().split("T")[0];
-      dTime = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+      try {
+        const d = new Date(item.due_date);
+        const targetZone = item.timezone || "America/Los_Angeles";
+
+        const formatter = new Intl.DateTimeFormat("en-US", {
+          timeZone: targetZone,
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        });
+        const parts = formatter.formatToParts(d);
+        const getPart = (type) => parts.find((p) => p.type === type)?.value;
+        dDate = `${getPart("year")}-${getPart("month")}-${getPart("day")}`;
+        dTime = `${getPart("hour")}:${getPart("minute")}`;
+      } catch (e) {
+        const d = new Date(item.due_date);
+        dDate = d.toISOString().split("T")[0];
+      }
     }
     return {
       client_name: item.client_name || "",
@@ -77,23 +105,21 @@ export default function VoiceoverProjectModal({
       file_link: item.file_link || "",
       due_date: dDate,
       due_time: dTime,
+      timezone: item.timezone || "America/Los_Angeles",
       notes: item.notes || "",
       specs: item.specs || "",
       direction: item.direction || "",
-      status: item.status || "inbox",
+      status: item.status || "inbox", // CRITICAL: Preserves existing status
       rate: item.rate || "",
     };
   }
 
   const handleMagicParse = () => {
     if (!magicText) return;
-
-    // DETECT FORMAT
-    // IDIOM emails usually start with "Project Name:"
-    // ASP Dashboard usually has "Talent Role Information" or "Audition Deadline"
     if (
       magicText.includes("Audition Deadline") ||
-      magicText.includes("Talent Role Information")
+      magicText.includes("Talent Role Information") ||
+      magicText.includes("Dashboard")
     ) {
       parseASPBlob();
     } else {
@@ -103,6 +129,7 @@ export default function VoiceoverProjectModal({
   };
 
   const parseIDIOMBlob = () => {
+    // ... same parse logic ...
     const extract = (l, e) => {
       try {
         return magicText
@@ -114,8 +141,6 @@ export default function VoiceoverProjectModal({
         return "";
       }
     };
-
-    // Date Logic for Idiom (Example: "Monday, January 6th")
     const dateMatch = magicText.match(/Audition Due Date:\s*\n\s*(.*?)\s*\n/i);
     let d = "",
       t = "17:00";
@@ -125,15 +150,12 @@ export default function VoiceoverProjectModal({
         .trim()
         .replace(/(\d+)(st|nd|rd|th)/, "$1");
       const obj = new Date(clean);
-      if (!isNaN(obj)) {
-        d = obj.toISOString().split("T")[0];
-        t = `${String(obj.getHours()).padStart(2, "0")}:${String(obj.getMinutes()).padStart(2, "0")}`;
-      }
+      if (!isNaN(obj)) d = obj.toLocaleDateString("en-CA");
     }
-
     setFormData((prev) => ({
       ...prev,
       client_name: "IDIOM",
+      timezone: "America/Los_Angeles",
       project_title:
         (magicText.match(/Project Name:\s*\n\s*(.*?)\s*\n/i) ||
           [])[1]?.trim() || "",
@@ -148,9 +170,8 @@ export default function VoiceoverProjectModal({
     }));
   };
 
-  // --- REWRITTEN ASP PARSER FOR DASHBOARD FORMAT ---
   const parseASPBlob = () => {
-    // Helper to grab text between two strings
+    // ... same parse logic ...
     const extract = (startStr, endStr) => {
       try {
         const regex = new RegExp(`${startStr}[\\s\\S]*?(${endStr}|$)`, "i");
@@ -164,118 +185,100 @@ export default function VoiceoverProjectModal({
         return "";
       }
     };
-
-    // 1. PROJECT TITLE
-    // Look for "Project Name" followed by the value
     let title = (magicText.match(/Project Name\s*\n\s*(.*?)\s*\n/i) ||
       [])[1]?.trim();
-    // Fallback if "Project Name" isn't found (older format)
-    if (!title) {
-      title = (magicText.match(/Role\s*\n\s*Role\s*\n\s*(.*?)\s*\n/i) ||
-        [])[1]?.trim();
-    }
-
-    // 2. ROLE
-    // Handles the double "Role\nRole" issue
-    const role = (magicText.match(/Role\s*\n(?:\s*Role\s*\n)?\s*(.*?)\s*\n/i) ||
-      [])[1]?.trim();
-
-    // 3. DATE
+    const roleMatch = magicText.match(/Role\s*\n(?:Role\s*\n)?\s*(.*?)\s*\n/i);
+    const role = roleMatch ? roleMatch[1].trim() : "";
     const dateMatch = magicText.match(/Audition Deadline\s*\n\s*(.*?)\s*\n/i);
     let d = "";
     if (dateMatch) {
       const obj = new Date(dateMatch[1].trim());
-      if (!isNaN(obj)) d = obj.toISOString().split("T")[0];
+      if (!isNaN(obj)) d = obj.toLocaleDateString("en-CA");
     }
-
-    // 4. TIME
-    // Handles "8:00 AM" or "5:00 PM"
     const timeMatch = magicText.match(
       /Audition Due Time \(Pacific\)\s*\n\s*(.*?)\s*\n/i
     );
-    let t = "17:00"; // Default
+    let t = "17:00";
     if (timeMatch) {
-      const rawTime = timeMatch[1].trim(); // e.g., "8:00 AM"
+      const rawTime = timeMatch[1].trim();
       const [timePart, modifier] = rawTime.split(" ");
       let [h, m] = timePart.split(":");
-
       if (h === "12") h = "00";
-      if (modifier === "PM") h = parseInt(h, 10) + 12;
-
+      if (modifier === "PM" && h !== "12") h = parseInt(h, 10) + 12;
+      else if (modifier === "PM" && h === "12") h = 12;
+      else if (modifier === "AM" && h === "12") h = 0;
       t = `${String(h).padStart(2, "0")}:${m}`;
     }
-
-    // 5. DIRECTION & LABELING
-    // We combine "Direction", "Audition Slate", AND "Audition Upload" (where the file name is)
-    const directionSection = extract("Direction", "Audition Slate");
-    const slateSection = extract("Audition Slate", "Additional Notes");
-    // Capture the file naming instructions at the bottom
-    const uploadInstructions = extract("Audition Upload", "Terms of Use"); // or end of string
-
-    const fullDirection = [
-      directionSection,
-      slateSection ? `SLATE:\n${slateSection}` : null,
-      uploadInstructions
-        ? `\n----------------\nLABELING & UPLOAD:\n${uploadInstructions}`
-        : null,
+    const fileMatch = magicText.match(
+      /renamed to the label below\.\s*\n\s*(.*?\.mp3)/i
+    );
+    const filename = fileMatch ? fileMatch[1].trim() : "";
+    const directionRaw = extract("Direction", "Audition Slate");
+    const slateRaw = extract("Audition Slate", "Additional Notes");
+    let fullDirection = "";
+    if (filename)
+      fullDirection += `⬇️ FILENAME (COPY THIS) ⬇️\n${filename}\n\n-------------------\n\n`;
+    if (directionRaw)
+      fullDirection += `DIRECTION:\n${directionRaw.replace(/^Direction\s*/i, "").trim()}\n\n`;
+    if (slateRaw) fullDirection += `SLATE:\n${slateRaw}`;
+    const rateRaw = extract("Rate Breakdown", "Media Use");
+    const mediaUse = extract("Media Use", "Terms of Use");
+    const termUse = extract("Terms of Use", "Exclusivity");
+    const fullNotes = [
+      rateRaw ? `RATE:\n${rateRaw}` : null,
+      mediaUse ? `MEDIA:\n${mediaUse}` : null,
+      termUse ? `TERMS:\n${termUse}` : null,
     ]
       .filter(Boolean)
       .join("\n\n");
-
     setFormData((prev) => ({
       ...prev,
       client_name: "ASP",
-      project_title: title || "",
+      timezone: "America/Los_Angeles",
+      project_title: title || "ASP Project",
       role: role || "",
-      rate: extract("Rate Breakdown", "Media Use"),
+      rate: rateRaw.split("\n")[0] || "",
       due_date: d,
       due_time: t,
-      specs: extract("Specs", "Due"),
+      specs: extract("Specs", "Details"),
       direction: fullDirection,
-      notes: extract("Additional Notes", "File Uploads"), // Good for usage terms
+      notes: fullNotes,
     }));
   };
 
   const handleSave = async () => {
-    // 1. Basic Validation
     if (!formData.project_title) {
       alert("Project Title is required.");
       return;
     }
-
     setLoading(true);
-
     try {
-      // 2. Safe Date Parsing
       let finalTimestamp = null;
-
       if (formData.due_date) {
-        // Combine date and time (default to 17:00 if time is missing)
+        const dateStr = formData.due_date;
         const timeStr = formData.due_time || "17:00";
-        const dateObj = new Date(`${formData.due_date}T${timeStr}`);
-
-        // Check if date is valid before converting
+        const selectedZone = US_TIMEZONES.find(
+          (z) => z.value === formData.timezone
+        );
+        const offset = selectedZone ? selectedZone.offset : "-08:00";
+        const isoStringWithOffset = `${dateStr}T${timeStr}:00${offset}`;
+        const dateObj = new Date(isoStringWithOffset);
         if (isNaN(dateObj.getTime())) {
-          throw new Error(
-            "Invalid Date/Time format. Please check the deadline."
-          );
+          finalTimestamp = new Date(`${dateStr}T${timeStr}`).toISOString();
+        } else {
+          finalTimestamp = dateObj.toISOString();
         }
-
-        finalTimestamp = dateObj.toISOString();
       }
-
-      // 3. Prepare Payload
       const payload = {
         ...formData,
         due_date: finalTimestamp,
         due_time: undefined,
+        timezone: formData.timezone,
+        status: formData.status, // CRITICAL: Explicitly saves the current status
       };
-
       delete payload.due_time;
 
       let error;
-
-      // 4. Supabase Operation
       if (project?.id) {
         const res = await supabase
           .from("11_voiceover_tracker")
@@ -288,14 +291,12 @@ export default function VoiceoverProjectModal({
           .insert([payload]);
         error = res.error;
       }
-
       if (error) throw error;
-
       onSave();
       onClose();
     } catch (err) {
       console.error("Save Error:", err);
-      alert(err.message || "An error occurred while saving.");
+      alert(err.message);
     } finally {
       setLoading(false);
     }
@@ -352,13 +353,12 @@ export default function VoiceoverProjectModal({
             <p className="text-base font-medium text-slate-400 mb-8 max-w-lg mx-auto leading-relaxed">
               Paste the text from{" "}
               <span className="text-indigo-400 font-bold">ASP</span> or{" "}
-              <span className="text-purple-400 font-bold">IDIOM</span>. I'll
-              handle the data entry.
+              <span className="text-purple-400 font-bold">IDIOM</span>.
             </p>
             <textarea
               autoFocus
               className="w-full flex-grow min-h-[250px] bg-slate-950 border-2 border-slate-800 rounded-2xl p-6 text-xs md:text-sm font-mono text-slate-300 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none resize-none mb-8 shadow-inner placeholder:text-slate-600 transition-all"
-              placeholder="Paste email or dashboard text here..."
+              placeholder="Paste email text..."
               value={magicText}
               onChange={(e) => setMagicText(e.target.value)}
             />
@@ -374,7 +374,7 @@ export default function VoiceoverProjectModal({
                 disabled={!magicText}
                 className="flex-[2] py-5 rounded-2xl font-black uppercase text-sm tracking-widest bg-indigo-600 text-white hover:bg-indigo-500 shadow-xl shadow-indigo-900/20 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-[1.01] active:scale-[0.99]"
               >
-                <ClipboardPaste size={18} /> Parse & Create Project
+                <ClipboardPaste size={18} /> Parse & Create
               </button>
             </div>
           </div>
@@ -383,9 +383,7 @@ export default function VoiceoverProjectModal({
         {/* STEP 2: FORM */}
         {step === 2 && (
           <div className="overflow-y-auto custom-scrollbar p-8 space-y-12 bg-[#0f172a] pb-32">
-            {/* 1. LOGISTICS ROW */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-              {/* LEFT: Core Info */}
               <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-2">
                   <label className="label">Project Title</label>
@@ -414,79 +412,81 @@ export default function VoiceoverProjectModal({
                         })
                       }
                     >
-                      <option value="">Select Client...</option>
+                      <option value="">Select...</option>
                       <option value="ASP">ASP</option>
                       <option value="IDIOM">IDIOM</option>
                       <option value="Other">Other</option>
                     </select>
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
-                      ▼
-                    </div>
                   </div>
                 </div>
                 <div>
                   <label className="label">Role Name</label>
-                  <div className="relative group">
-                    <User
-                      size={16}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-400 transition-colors"
-                    />
-                    <input
-                      className="input pl-11"
-                      value={formData.role}
-                      onChange={(e) =>
-                        setFormData({ ...formData, role: e.target.value })
-                      }
-                      placeholder="Character Name..."
-                    />
-                  </div>
+                  <input
+                    className="input"
+                    value={formData.role}
+                    onChange={(e) =>
+                      setFormData({ ...formData, role: e.target.value })
+                    }
+                    placeholder="Character Name..."
+                  />
                 </div>
                 <div>
                   <label className="label">Audition Link</label>
-                  <div className="relative group">
-                    <LinkIcon
-                      size={16}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-400 transition-colors"
-                    />
-                    <input
-                      className="input pl-11 font-mono text-xs text-blue-300"
-                      value={formData.audition_link}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          audition_link: e.target.value,
-                        })
-                      }
-                      placeholder="https://..."
-                    />
-                  </div>
+                  <input
+                    className="input font-mono text-xs text-blue-300"
+                    value={formData.audition_link}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        audition_link: e.target.value,
+                      })
+                    }
+                    placeholder="https://..."
+                  />
                 </div>
                 <div>
                   <label className="label">Files Link</label>
-                  <div className="relative group">
-                    <LinkIcon
-                      size={16}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-400 transition-colors"
-                    />
-                    <input
-                      className="input pl-11 font-mono text-xs text-blue-300"
-                      value={formData.file_link}
-                      onChange={(e) =>
-                        setFormData({ ...formData, file_link: e.target.value })
-                      }
-                      placeholder="Dropbox/Drive..."
-                    />
-                  </div>
+                  <input
+                    className="input font-mono text-xs text-blue-300"
+                    value={formData.file_link}
+                    onChange={(e) =>
+                      setFormData({ ...formData, file_link: e.target.value })
+                    }
+                    placeholder="Dropbox/Drive..."
+                  />
                 </div>
               </div>
 
-              {/* RIGHT: Time Card */}
+              {/* TIME CARD */}
               <div className="lg:col-span-4 bg-slate-900/50 border-2 border-slate-800 rounded-2xl p-6 flex flex-col gap-4">
                 <div className="flex items-center gap-2 mb-2 text-red-400">
                   <Clock size={18} />
                   <span className="text-xs font-black uppercase tracking-widest">
                     Deadline
                   </span>
+                </div>
+                <div>
+                  <label className="label text-slate-400 flex items-center gap-2">
+                    <Globe size={10} /> Timezone
+                  </label>
+                  <div className="relative">
+                    <select
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-slate-300 font-bold text-xs outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500/50 transition-all appearance-none"
+                      value={formData.timezone}
+                      onChange={(e) =>
+                        setFormData({ ...formData, timezone: e.target.value })
+                      }
+                    >
+                      {US_TIMEZONES.map((tz) => (
+                        <option key={tz.value} value={tz.value}>
+                          {tz.label}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 text-[10px]">
+                      ▼
+                    </div>
+                  </div>
                 </div>
                 <div>
                   <label className="label text-slate-400">Due Date</label>
@@ -515,67 +515,47 @@ export default function VoiceoverProjectModal({
 
             <div className="w-full h-px bg-slate-800/50" />
 
-            {/* 2. CREATIVE STACK */}
+            {/* SPECS & DIRECTION */}
             <div className="space-y-8">
               <div>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 bg-blue-500/10 rounded-lg text-blue-400">
-                    <FileText size={20} />
-                  </div>
-                  <span className="text-sm font-black uppercase text-blue-100 tracking-[0.2em]">
-                    Specs & Character
-                  </span>
-                </div>
+                <label className="label mb-2 flex items-center gap-2">
+                  <FileText size={12} /> Specs
+                </label>
                 <textarea
-                  className="w-full bg-slate-950 border-2 border-slate-800 rounded-2xl p-6 text-base text-slate-200 leading-relaxed min-h-[160px] focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all placeholder:text-slate-600"
+                  className="w-full bg-slate-950 border-2 border-slate-800 rounded-2xl p-6 text-base text-slate-200 leading-relaxed min-h-[160px] focus:border-blue-500 outline-none transition-all placeholder:text-slate-600"
                   value={formData.specs}
                   onChange={(e) =>
                     setFormData({ ...formData, specs: e.target.value })
                   }
-                  placeholder="Paste character specs, gender, age, tone here..."
+                  placeholder="Specs..."
                 />
               </div>
-
               <div>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 bg-purple-500/10 rounded-lg text-purple-400">
-                    <Megaphone size={20} />
-                  </div>
-                  <span className="text-sm font-black uppercase text-purple-100 tracking-[0.2em]">
-                    Direction & Slating
-                  </span>
-                </div>
+                <label className="label mb-2 flex items-center gap-2">
+                  <Megaphone size={12} /> Direction
+                </label>
                 <textarea
-                  className="w-full bg-slate-950 border-2 border-slate-800 rounded-2xl p-6 text-base text-slate-200 leading-relaxed min-h-[160px] focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 outline-none transition-all placeholder:text-slate-600"
+                  className="w-full bg-slate-950 border-2 border-slate-800 rounded-2xl p-6 text-base text-slate-200 leading-relaxed min-h-[160px] focus:border-purple-500 outline-none transition-all placeholder:text-slate-600 font-mono"
                   value={formData.direction}
                   onChange={(e) =>
                     setFormData({ ...formData, direction: e.target.value })
                   }
-                  placeholder="File naming, slate instructions, number of takes..."
+                  placeholder="Direction..."
                 />
               </div>
-            </div>
-
-            <div className="w-full h-px bg-slate-800/50" />
-
-            {/* 3. FINANCE STACK */}
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-green-500/10 rounded-lg text-green-400">
-                  <DollarSign size={20} />
-                </div>
-                <span className="text-sm font-black uppercase text-green-100 tracking-[0.2em]">
-                  Finance & Notes
-                </span>
+              <div>
+                <label className="label mb-2 flex items-center gap-2">
+                  <DollarSign size={12} /> Notes & Finance
+                </label>
+                <textarea
+                  className="w-full bg-slate-950 border-2 border-slate-800 rounded-2xl p-6 text-sm font-mono text-green-100/90 leading-relaxed min-h-[120px] focus:border-green-500 outline-none transition-all placeholder:text-slate-600"
+                  value={formData.notes}
+                  onChange={(e) =>
+                    setFormData({ ...formData, notes: e.target.value })
+                  }
+                  placeholder="Rates & Notes..."
+                />
               </div>
-              <textarea
-                className="w-full bg-slate-950 border-2 border-slate-800 rounded-2xl p-6 text-sm font-mono text-green-100/90 leading-relaxed min-h-[120px] focus:border-green-500 focus:ring-4 focus:ring-green-500/10 outline-none transition-all placeholder:text-slate-600"
-                value={formData.notes}
-                onChange={(e) =>
-                  setFormData({ ...formData, notes: e.target.value })
-                }
-                placeholder="Rate details, usage terms, session fee..."
-              />
             </div>
           </div>
         )}
@@ -598,7 +578,7 @@ export default function VoiceoverProjectModal({
                 <Loader2 className="animate-spin" size={20} />
               ) : (
                 <Save size={20} />
-              )}
+              )}{" "}
               {project ? "Update Project" : "Save to Tracker"}
             </button>
           </div>
@@ -621,9 +601,6 @@ export default function VoiceoverProjectModal({
           background: #334155;
           border-radius: 10px;
           border: 2px solid #0f172a;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #475569;
         }
       `}</style>
     </div>
