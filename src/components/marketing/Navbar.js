@@ -247,6 +247,7 @@ export default function Navbar() {
             <Link
               href={user ? "/admin" : "/"}
               className="relative z-50 flex items-center group cursor-pointer flex-shrink-0"
+              target="_blank"
             >
               {/* 🚨 LOGO ANIMATION (SLOW - 10s) 
                   We use `animate-[gradient-x_10s_ease_infinite]` to force the 10s speed 
