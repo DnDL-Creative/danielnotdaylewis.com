@@ -38,6 +38,7 @@ export default function PopulateMeta({
   uploadingSlot,
   isDark,
   themeBorderClass,
+  bgOpacity = 20, // Default to 20 if not passed
 }) {
   const heroInputRef = useRef(null);
 
@@ -45,15 +46,21 @@ export default function PopulateMeta({
     <div
       className={`p-5 md:p-8 rounded-[2.5rem] border-2 mb-8 ${
         isDark
-          ? `bg-black/20 backdrop-blur-md ${themeBorderClass} border-opacity-60`
+          ? `${themeBorderClass} border-opacity-60` // Removed static bg classes
           : "bg-white border-slate-200"
       }`}
+      style={
+        isDark
+          ? {
+              // Dynamic Background & Blur based on slider
+              backgroundColor: `rgba(0, 0, 0, ${bgOpacity / 100})`,
+              backdropFilter: `blur(${bgOpacity * 0.2}px)`,
+              transition: "all 0.3s ease",
+            }
+          : {}
+      }
     >
       <div className="space-y-6">
-        {/* ROW 1: Date & Author 
-            🚨 NUCLEAR FIX: Switched from Flex to Grid. 
-            Grid cells enforce width much harder than Flex items on iOS.
-        */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-2 w-full">
           <div className="relative w-full">
             <Calendar
@@ -64,7 +71,6 @@ export default function PopulateMeta({
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              // 🚨 FIX: appearance-none strips native styling that forces width
               className={`w-full appearance-none p-3 pl-10 rounded-xl text-xs font-bold uppercase bg-transparent border-2 outline-none ${
                 isDark
                   ? "border-white/10 text-slate-300"
@@ -92,7 +98,6 @@ export default function PopulateMeta({
           </div>
         </div>
 
-        {/* ROW 2: URL Slug */}
         <div className="relative w-full">
           <Globe
             size={14}
@@ -110,7 +115,6 @@ export default function PopulateMeta({
           />
         </div>
 
-        {/* ROW 3: Category Tag */}
         <select
           value={tag}
           onChange={(e) => setTag(e.target.value)}
@@ -127,7 +131,6 @@ export default function PopulateMeta({
           ))}
         </select>
 
-        {/* ROW 4: HERO IMAGE CONTROL */}
         <div className="space-y-2 pt-4 border-t border-dashed border-white/10">
           <label
             className={`text-[10px] font-black uppercase tracking-widest ${isDark ? "text-slate-500" : "text-slate-400"}`}
@@ -183,7 +186,6 @@ export default function PopulateMeta({
               {heroImage ? "Replace" : "Upload"}
             </button>
 
-            {/* Hidden Input for Main Image */}
             <input
               type="file"
               ref={heroInputRef}
@@ -193,7 +195,6 @@ export default function PopulateMeta({
           </div>
         </div>
 
-        {/* ROW 5: Hero Caption */}
         <div className="relative w-full">
           <Type
             size={14}

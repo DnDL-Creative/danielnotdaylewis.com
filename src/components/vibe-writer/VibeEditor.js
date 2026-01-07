@@ -4,9 +4,9 @@ import React, {
   useEffect,
   useState,
   useCallback,
-  useRef,
   forwardRef,
   useImperativeHandle,
+  useRef,
 } from "react";
 import { LexicalComposer } from "@lexical/react/LexicalComposer";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
@@ -28,13 +28,15 @@ import {
 } from "@lexical/list";
 import { CodeNode } from "@lexical/code";
 import { LinkNode, TOGGLE_LINK_COMMAND } from "@lexical/link";
-import { $generateHtmlFromNodes } from "@lexical/html";
+import { $generateHtmlFromNodes, $generateNodesFromDOM } from "@lexical/html"; // Added $generateNodesFromDOM
 import {
   $createParagraphNode,
   $getSelection,
   $isRangeSelection,
   FORMAT_TEXT_COMMAND,
   FORMAT_ELEMENT_COMMAND,
+  $getRoot,
+  $insertNodes,
 } from "lexical";
 import { $createHeadingNode, $createQuoteNode } from "@lexical/rich-text";
 import { $setBlocksType } from "@lexical/selection";
@@ -58,7 +60,6 @@ import {
   AlignRight,
   Link as LinkIcon,
   X,
-  Ghost,
 } from "lucide-react";
 
 // -----------------------------------------------------------------------------
@@ -155,7 +156,7 @@ const VibeModal = ({ isOpen, onClose, onConfirm }) => {
 // -----------------------------------------------------------------------------
 // 3. TOOLBAR COMPONENT
 // -----------------------------------------------------------------------------
-function VibeToolbar({ bgOpacity, setBgOpacity }) {
+function VibeToolbar() {
   const [editor] = useLexicalComposerContext();
   const [activeBlock, setActiveBlock] = useState("paragraph");
 
@@ -439,20 +440,6 @@ function VibeToolbar({ bgOpacity, setBgOpacity }) {
         >
           <AlignRight size={18} />
         </button>
-
-        {/* 🚨 FIX: Removed 'hidden md:flex' so opacity slider stays visible on mobile */}
-        <div className="flex items-center gap-2 mr-4 border-r theme-border-dim pr-4">
-          <Ghost size={16} className="theme-text-dim" />
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={bgOpacity}
-            onChange={(e) => setBgOpacity(e.target.value)}
-            className="w-16 h-1 bg-white/10 rounded-lg appearance-none cursor-pointer"
-            title="Background Opacity"
-          />
-        </div>
       </div>
       <VibeModal
         isOpen={modalOpen}
@@ -464,12 +451,40 @@ function VibeToolbar({ bgOpacity, setBgOpacity }) {
 }
 
 // -----------------------------------------------------------------------------
+// 4. LOAD HTML PLUGIN (Fix for Crash)
+// -----------------------------------------------------------------------------
+const LoadHtmlPlugin = ({ initialContent }) => {
+  const [editor] = useLexicalComposerContext();
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  useEffect(() => {
+    // Only load if we have content and haven't loaded it yet
+    if (!initialContent || isLoaded) return;
+
+    editor.update(() => {
+      const parser = new DOMParser();
+      const dom = parser.parseFromString(initialContent, "text/html");
+      const nodes = $generateNodesFromDOM(editor, dom);
+
+      const root = $getRoot();
+      root.clear();
+      $insertNodes(nodes);
+    });
+
+    setIsLoaded(true);
+  }, [editor, initialContent, isLoaded]);
+
+  return null;
+};
+
+// -----------------------------------------------------------------------------
 // 5. MAIN EXPORTED COMPONENT
 // -----------------------------------------------------------------------------
 const VibeEditor = forwardRef(
-  ({ onChange, initialContent = null, theme = "teal" }, ref) => {
-    const [bgOpacity, setBgOpacity] = useState(80);
-
+  (
+    { onChange, initialContent = null, theme = "teal", bgOpacity = 80 },
+    ref
+  ) => {
     const initialConfig = {
       namespace: "VibeWriter",
       theme: vibeTheme,
@@ -481,14 +496,13 @@ const VibeEditor = forwardRef(
         ListItemNode,
         CodeNode,
         LinkNode,
-        // Image node removed per instructions
       ],
-      editorState: initialContent,
+      // CRITICAL FIX: Do NOT pass editorState: initialContent here.
+      // It expects JSON, we have HTML. We use LoadHtmlPlugin instead.
+      editorState: null,
     };
 
     const EditorRefPlugin = () => {
-      // Logic for insertImage removed to prevent errors.
-      // Ref is kept if you want to add generic text insertion later.
       useImperativeHandle(ref, () => ({
         // No-op for now
       }));
@@ -556,7 +570,9 @@ const VibeEditor = forwardRef(
         }}
       >
         <LexicalComposer initialConfig={initialConfig}>
-          <VibeToolbar bgOpacity={bgOpacity} setBgOpacity={setBgOpacity} />
+          <VibeToolbar />
+
+          <LoadHtmlPlugin initialContent={initialContent} />
 
           <EditorRefPlugin />
           <HtmlOutputPlugin onChange={onChange} />

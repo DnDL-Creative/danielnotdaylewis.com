@@ -27,6 +27,7 @@ export default function AssetSidebar({
   onReorder,
   uploadingSlot,
   isDark,
+  bgOpacity = 20, // Default opacity
 }) {
   const fileInputRefs = useRef({});
 
@@ -35,12 +36,10 @@ export default function AssetSidebar({
   const [activeInputMode, setActiveInputMode] = useState(null);
   const [manualUrl, setManualUrl] = useState("");
 
-  // CONTENT SLOTS
   const contentSlots = ["img2", "img3", "img4", "img5", "img6"];
   const nextEmptySlot = contentSlots.find((key) => !images[key]);
   const isFull = !nextEmptySlot;
 
-  // --- ACTIONS ---
   const handleCloseMenu = () => {
     setIsAddMenuOpen(false);
     setActiveInputMode(null);
@@ -61,14 +60,12 @@ export default function AssetSidebar({
     handleCloseMenu();
   };
 
-  // --- REORDER HANDLERS ---
   const moveAsset = (currentIndex, direction) => {
     const newIndex = currentIndex + direction;
     if (newIndex < 0 || newIndex >= contentSlots.length) return;
     onReorder(currentIndex, newIndex);
   };
 
-  // --- ASSET TYPE HELPER ---
   const getAssetType = (url) => {
     if (!url) return "empty";
     if (
@@ -81,7 +78,6 @@ export default function AssetSidebar({
     return "image";
   };
 
-  // --- CARD COMPONENT ---
   const AssetCard = ({ assetKey, label, index }) => {
     const url = images[assetKey];
     if (!url) return null;
@@ -96,7 +92,6 @@ export default function AssetSidebar({
             : "bg-white border-slate-200 hover:border-teal-500/30"
         }`}
       >
-        {/* REORDER ARROWS */}
         <div className="flex flex-col gap-1 items-center justify-center pr-2 border-r border-white/5">
           <button
             onClick={() => moveAsset(index, -1)}
@@ -114,7 +109,6 @@ export default function AssetSidebar({
           </button>
         </div>
 
-        {/* THUMBNAIL */}
         <div
           className={`w-12 h-12 shrink-0 rounded-lg overflow-hidden border flex items-center justify-center relative ${isDark ? "bg-black border-white/10" : "bg-slate-100 border-slate-200"}`}
         >
@@ -129,7 +123,6 @@ export default function AssetSidebar({
           {type === "audio" && <Music size={20} className="text-emerald-500" />}
         </div>
 
-        {/* INFO */}
         <div className="flex-1 min-w-0 ml-1">
           <p
             className={`text-[9px] font-black uppercase tracking-wider mb-1 ${isDark ? "text-slate-500" : "text-slate-400"}`}
@@ -141,7 +134,6 @@ export default function AssetSidebar({
           </div>
         </div>
 
-        {/* ACTIONS */}
         <div className="flex gap-1 items-center">
           <button
             onClick={() => onOpenStudio(url)}
@@ -167,15 +159,21 @@ export default function AssetSidebar({
 
   return (
     <div
-      // 🚨 RESPONSIVE FIX:
-      // Mobile: h-[500px] (Enough for ~5-6 cards + add button)
-      // Desktop (lg): h-[750px] (Enough for 8+ cards + add button)
-      // This keeps the sidebar strictly sized "like 7-8 slots worth" on larger screens.
       className={`w-full h-[500px] lg:h-[750px] rounded-[2.5rem] border-2 overflow-hidden flex flex-col ${
         isDark
-          ? "bg-black/20 backdrop-blur-md border-white/10"
+          ? "border-white/10" // Removed static bg
           : "bg-white border-slate-200"
       }`}
+      style={
+        isDark
+          ? {
+              // Dynamic Background & Blur
+              backgroundColor: `rgba(0, 0, 0, ${bgOpacity / 100})`,
+              backdropFilter: `blur(${bgOpacity * 0.2}px)`,
+              transition: "all 0.3s ease",
+            }
+          : {}
+      }
     >
       <div
         className={`p-6 border-b ${isDark ? "border-white/10" : "border-slate-100"}`}
@@ -198,7 +196,6 @@ export default function AssetSidebar({
           />
         ))}
 
-        {/* --- ADD BUTTON --- */}
         <div className="mt-4">
           {!isAddMenuOpen ? (
             <button

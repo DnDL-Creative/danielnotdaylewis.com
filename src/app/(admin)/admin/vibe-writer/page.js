@@ -25,6 +25,7 @@ import {
   AlertTriangle,
   Rocket,
   LogOut,
+  Ghost,
 } from "lucide-react";
 import { FaHotdog } from "react-icons/fa6";
 import { Canvas } from "@react-three/fiber";
@@ -145,11 +146,12 @@ export default function MasterEditorPage() {
   const [theme, setTheme] = useState("teal");
   const isDark = theme !== "light";
   const [vibeMode, setVibeMode] = useState("glitch");
+  const [bgOpacity, setBgOpacity] = useState(80);
 
   // --- METEOROLOGICAL STATE (Simplified) ---
   const [weatherMode, setWeatherMode] = useState("snow");
   const [weatherIntensity, setWeatherIntensity] = useState(0.5);
-  const [windVector, setWindVector] = useState(0); // -5 to 5. Magnitude determines speed.
+  const [windVector, setWindVector] = useState(0); // -5 to 5
   const [mountCanvas, setMountCanvas] = useState(false);
 
   useEffect(() => {
@@ -537,6 +539,23 @@ export default function MasterEditorPage() {
               <div
                 className={`flex gap-2 ml-4 pl-4 border-l ${isDark ? "border-white/10" : "border-slate-300"} hidden md:flex`}
               >
+                {/* 3. Opacity Slider Added Here */}
+                <div className="flex items-center gap-2 mr-4 border-r theme-border-dim pr-4 hidden md:flex">
+                  <Ghost
+                    size={16}
+                    className={isDark ? "text-slate-400" : "text-slate-500"}
+                  />
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={bgOpacity}
+                    onChange={(e) => setBgOpacity(e.target.value)}
+                    className="w-16 h-1 bg-white/10 rounded-lg appearance-none cursor-pointer"
+                    title="Background Opacity"
+                  />
+                </div>
+
                 {isDark && (
                   <button
                     onClick={toggleVibeMode}
@@ -584,6 +603,7 @@ export default function MasterEditorPage() {
                 uploadingSlot={uploadingSlot}
                 isDark={isDark}
                 themeBorderClass={themeStyle.border}
+                bgOpacity={bgOpacity}
               />
               <AssetSidebar
                 images={images}
@@ -593,6 +613,7 @@ export default function MasterEditorPage() {
                 onReorder={handleAssetReorder}
                 uploadingSlot={uploadingSlot}
                 isDark={isDark}
+                bgOpacity={bgOpacity}
               />
             </div>
             <div className="lg:col-span-8 space-y-8 order-2 lg:order-2">
@@ -602,10 +623,12 @@ export default function MasterEditorPage() {
                 placeholder="TRANSMISSION TITLE"
                 className={`w-full p-2 md:p-4 text-2xl md:text-4xl lg:text-5xl font-black outline-none bg-transparent border-b-2 transition-colors duration-300 ${themeStyle.title}`}
               />
+              {/* 4. Pass bgOpacity prop */}
               <VibeEditor
                 initialContent={content}
                 onChange={handleLexicalChange}
                 theme={theme}
+                bgOpacity={bgOpacity}
               />
               <div
                 className={`flex justify-between text-[10px] font-mono opacity-50 uppercase tracking-widest ${isDark ? "text-white" : "text-slate-500"}`}
