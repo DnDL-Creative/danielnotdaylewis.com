@@ -3,24 +3,28 @@
 import { useState, useEffect, useMemo } from "react";
 import { createClient } from "@/src/utils/supabase/client";
 import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+} from "recharts";
+import {
   Loader2,
   Save,
   X,
   User,
   BookOpen,
   Calendar,
-  MoreVertical,
   Layers,
   Mic,
   AlertTriangle,
-  Archive,
-  Ban,
   PauseCircle,
-  Briefcase,
   Clock,
   Skull,
   CheckCircle2,
-  ChevronUp,
   Search,
   LayoutDashboard,
   FileText,
@@ -28,10 +32,16 @@ import {
   StickyNote,
   Activity,
   Check,
-  ArrowRight,
   RefreshCw,
   XCircle,
-  PlayCircle,
+  Trash2,
+  DollarSign,
+  ShieldCheck,
+  PieChart,
+  ChevronRight,
+  Plus,
+  CreditCard,
+  Receipt,
 } from "lucide-react";
 
 const supabase = createClient(
@@ -40,6 +50,11 @@ const supabase = createClient(
 );
 
 // --- 1. CONFIGURATION ---
+
+const WORDS_PER_FH = 9300;
+const BIZ_DAYS_PER_FH_REVIEW = 2;
+const DEFAULT_POZOTRON_RATE = 14;
+const DEFAULT_PFH_RATE = 250;
 
 const STATUS_MAP = {
   pre_production: {
@@ -72,11 +87,6 @@ const STATUS_MAP = {
     color: "bg-amber-50 text-amber-600 border-amber-200",
     icon: AlertTriangle,
   },
-  internal_delay: {
-    label: "Internal Delay",
-    color: "bg-pink-50 text-pink-600 border-pink-200",
-    icon: AlertTriangle,
-  },
   on_hold: {
     label: "On Hold",
     color: "bg-slate-100 text-slate-500 border-slate-300",
@@ -90,29 +100,21 @@ const STATUS_MAP = {
 };
 
 const TABS = [
-  { id: "overview", label: "Overview", icon: LayoutDashboard },
+  { id: "overview", label: "Overview & Fin", icon: LayoutDashboard },
   { id: "crx", label: "CRX Matrix", icon: Clock },
-  { id: "bible", label: "Bible", icon: User },
+  { id: "bible", label: "Bible", icon: BookOpen },
   { id: "tasks", label: "Checklists", icon: ListTodo },
   { id: "notes", label: "Notes", icon: StickyNote },
 ];
 
-const DEFAULT_CHECKLIST = [
-  { id: 1, label: "Script Pre-read Complete", checked: false },
-  { id: 2, label: "Pronunciation Guide Sent", checked: false },
-  { id: 3, label: "Studio Setup / Mic Check", checked: false },
-  { id: 4, label: "First 15 Approved", checked: false },
-  { id: 5, label: "Files Mastered & Normalized", checked: false },
-];
-
-// --- 2. UTILS ---
+// --- 2. LOGIC UTILS ---
 
 const addBusinessDays = (startDate, daysToAdd) => {
   if (!startDate) return new Date();
   let currentDate = new Date(startDate);
   currentDate = new Date(
     currentDate.valueOf() + currentDate.getTimezoneOffset() * 60000
-  ); // Timezone fix
+  );
   let added = 0;
   while (added < daysToAdd) {
     currentDate.setDate(currentDate.getDate() + 1);
@@ -122,23 +124,11 @@ const addBusinessDays = (startDate, daysToAdd) => {
   return currentDate;
 };
 
-const calculateBatchDeadline = (sentDateStr, fh) => {
+const calculateCRXDeadline = (sentDateStr, fh) => {
   if (!sentDateStr || !fh || parseFloat(fh) === 0) return null;
-  const daysNeeded = Math.ceil(parseFloat(fh) / 2);
+  const daysNeeded = Math.ceil(parseFloat(fh) * BIZ_DAYS_PER_FH_REVIEW);
   const deadline = addBusinessDays(sentDateStr, daysNeeded);
   return deadline.toISOString().split("T")[0];
-};
-
-const getDaysRemaining = (targetDateStr) => {
-  if (!targetDateStr) return null;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const target = new Date(targetDateStr);
-  const targetFixed = new Date(
-    target.valueOf() + target.getTimezoneOffset() * 60000
-  );
-  const diffTime = targetFixed - today;
-  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 };
 
 const formatDate = (dateStr) => {
@@ -150,6 +140,11 @@ const formatDate = (dateStr) => {
     day: "numeric",
   });
 };
+
+const formatCurrency = (val) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
+    val || 0
+  );
 
 // --- 3. SUB-COMPONENTS ---
 
@@ -172,267 +167,60 @@ const Toast = ({ message, type, onClose }) => {
   );
 };
 
-const ActionModal = ({ isOpen, type, title, message, onConfirm, onCancel }) => {
-  if (!isOpen) return null;
-  const styles = {
-    boot: {
-      icon: Skull,
-      color: "text-red-500",
-      btn: "bg-red-600 hover:bg-red-700",
-    },
-    delete: {
-      icon: Ban,
-      color: "text-red-600",
-      btn: "bg-red-600 hover:bg-red-700",
-    },
-    move: {
-      icon: Briefcase,
-      color: "text-blue-500",
-      btn: "bg-blue-600 hover:bg-blue-700",
-    },
-    hold: {
-      icon: PauseCircle,
-      color: "text-amber-500",
-      btn: "bg-amber-500 hover:bg-amber-600",
-    },
-    default: {
-      icon: AlertTriangle,
-      color: "text-amber-500",
-      btn: "bg-slate-900 hover:bg-slate-800",
-    },
-  };
-  const style = styles[type] || styles.default;
-  const Icon = style.icon;
-
-  return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full overflow-hidden scale-100 transition-all">
-        <div className="p-8 text-center">
-          <div
-            className={`mx-auto w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center mb-6 ${style.color}`}
-          >
-            <Icon size={32} />
-          </div>
-          <h3 className="text-xl font-black text-slate-900 uppercase mb-2">
-            {title}
-          </h3>
-          <p className="text-sm text-slate-500 font-medium leading-relaxed">
-            {message}
-          </p>
-        </div>
-        <div className="flex border-t border-slate-100">
-          <button
-            onClick={onCancel}
-            className="flex-1 py-5 text-xs font-bold uppercase text-slate-400 hover:bg-slate-50"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onConfirm}
-            className={`flex-1 py-5 text-xs font-bold uppercase text-white ${style.btn}`}
-          >
-            Confirm
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const StatCard = ({ label, value, subtext, icon: Icon, alert }) => (
-  <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-start justify-between min-w-[200px] hover:shadow-md transition-shadow">
-    <div>
-      <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1">
-        {label}
-      </p>
-      <h3
-        className={`text-2xl font-black ${alert ? "text-red-600" : "text-slate-900"}`}
-      >
-        {value}
-      </h3>
-      {subtext && (
-        <p className="text-[10px] font-bold text-slate-400 mt-1">{subtext}</p>
-      )}
-    </div>
-    <div
-      className={`p-2 rounded-xl ${alert ? "bg-red-50 text-red-500" : "bg-slate-50 text-slate-400"}`}
-    >
-      <Icon size={18} />
-    </div>
-  </div>
-);
-
 // --- 4. MAIN COMPONENT ---
 
 export default function ProductionBoard() {
   const [items, setItems] = useState([]);
+  const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [expandedId, setExpandedId] = useState(null);
+  const [selectedId, setSelectedId] = useState(null);
   const [activeTab, setActiveTab] = useState("overview");
   const [editForm, setEditForm] = useState({});
-  const [modal, setModal] = useState({ isOpen: false });
   const [toast, setToast] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
 
-  // Keyboard
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === "Escape") {
-        setExpandedId(null);
-        setModal({ isOpen: false });
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key === "s" && expandedId) {
-        e.preventDefault();
-        handleSave(expandedId);
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [expandedId, editForm]);
+  const [globalTaxRate] = useState(25); // 25%
 
-  // --- ACTIONS (Hoisted) ---
+  // --- ACTIONS ---
   const showToast = (msg, type = "success") => setToast({ message: msg, type });
 
-  const executeMove = async (item, targetStatus) => {
-    // 1. BOOT TO ARCHIVE
-    if (targetStatus === "archive") {
-      await supabase
-        .from("6_archive")
-        .insert([
-          {
-            original_data: item,
-            archived_at: new Date(),
-            reason: "Booted from Prod",
-          },
-        ]);
-      await supabase
-        .from("2_booking_requests")
-        .delete()
-        .eq("id", item.request.id);
-      setItems((prev) => prev.filter((i) => i.id !== item.id));
-      setModal({ isOpen: false });
-      showToast("Project Archived");
-      return;
-    }
-
-    // 2. RETURN TO ONBOARDING (Send back to Intake)
-    if (targetStatus === "onboarding_check") {
-      const dbStatus =
-        item.request.client_type === "Roster" ? "first_15" : "onboarding";
-
-      // Update Request status so it appears on Intake Board
-      await supabase
-        .from("2_booking_requests")
-        .update({ status: dbStatus })
-        .eq("id", item.request.id);
-      // Remove from Production Board
-      await supabase.from("4_production").delete().eq("id", item.id);
-
-      setItems((prev) => prev.filter((i) => i.id !== item.id));
-      setModal({ isOpen: false });
-      showToast(
-        `Sent back to ${dbStatus === "first_15" ? "First 15" : "Onboarding"}`
-      );
-      return;
-    }
-
-    // 3. PLACE ON HOLD (Keep on board, change status)
-    if (targetStatus === "on_hold") {
-      await supabase
-        .from("4_production")
-        .update({ status: "on_hold" })
-        .eq("id", item.id);
-      setItems((prev) =>
-        prev.map((i) => (i.id === item.id ? { ...i, status: "on_hold" } : i))
-      );
-      setModal({ isOpen: false });
-      showToast("Project placed On Hold");
-      return;
-    }
-  };
-
-  const executeDelete = async (item) => {
-    await supabase
-      .from("2_booking_requests")
-      .delete()
-      .eq("id", item.request.id);
-    setItems((prev) => prev.filter((i) => i.id !== item.id));
-    setModal({ isOpen: false });
-    showToast("Project Deleted", "error");
-  };
-
-  const triggerModal = (type, item, extra) => {
-    const actions = {
-      boot: {
-        title: "Boot to Archives",
-        msg: "Remove from board?",
-        fn: () => executeMove(item, "archive"),
-      },
-      delete: {
-        title: "Delete Forever",
-        msg: "Cannot be undone.",
-        fn: () => executeDelete(item),
-      },
-      move: {
-        title: `Move to ${extra?.label}`,
-        msg: `Transfer to ${extra?.label}?`,
-        fn: () => executeMove(item, extra?.status),
-      },
-      hold: {
-        title: "Place on Hold",
-        msg: "Pause this project? It will stay on the board.",
-        fn: () => executeMove(item, "on_hold"),
-      },
-    };
-    const act = actions[type];
-    setModal({
-      isOpen: true,
-      type,
-      title: act.title,
-      message: act.msg,
-      action: act.fn,
-    });
-  };
-
-  // --- FETCH ---
   const fetchItems = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    const { data: prodData, error } = await supabase
       .from("4_production")
       .select(
-        `
-        *,
-        request:2_booking_requests!inner (
-          id, book_title, client_name, client_type, cover_image_url, word_count, status, email
-        )
-      `
+        `*, request:2_booking_requests!inner (id, book_title, client_name, client_type, cover_image_url, word_count, status, email, ref_number)`
       )
       .neq("request.status", "deleted")
       .neq("request.status", "archived")
       .order("recording_due_date", { ascending: true });
 
     if (error) {
-      console.error(error);
       showToast("Sync Error", "error");
     } else {
-      const unique = [];
-      const seen = new Set();
-      (data || []).forEach((i) => {
-        if (!seen.has(i.id)) {
-          seen.add(i.id);
-          i.crx_batches = Array.isArray(i.crx_batches) ? i.crx_batches : [];
-          i.characters = Array.isArray(i.characters) ? i.characters : [];
-          i.checklist =
-            Array.isArray(i.checklist) && i.checklist.length > 0
-              ? i.checklist
-              : DEFAULT_CHECKLIST;
-          i.internal_notes = i.internal_notes || "";
-          i.strikes = i.strikes || 0;
-          unique.push(i);
-        }
-      });
+      const { data: logData } = await supabase
+        .from("10_session_logs")
+        .select("*");
+      setLogs(logData || []);
+
+      const unique = (prodData || []).map((i) => ({
+        ...i,
+        // Ensure defaults for JSON columns
+        crx_batches: Array.isArray(i.crx_batches) ? i.crx_batches : [],
+        characters: Array.isArray(i.characters) ? i.characters : [],
+        checklist:
+          Array.isArray(i.checklist) && i.checklist.length > 0
+            ? i.checklist
+            : [{ id: 1, label: "Script Pre-read", checked: false }],
+        other_expenses: Array.isArray(i.other_expenses) ? i.other_expenses : [], // NEW: Ledger
+        pfh_rate: i.pfh_rate || DEFAULT_PFH_RATE, // NEW: Editable Rate
+        pozotron_rate: i.pozotron_rate || DEFAULT_POZOTRON_RATE, // NEW: Editable Fee
+        internal_notes: i.internal_notes || "",
+        strikes: i.strikes || 0,
+      }));
       setItems(unique);
+      if (unique.length > 0 && !selectedId) setSelectedId(unique[0].id);
     }
     setLoading(false);
   };
@@ -441,97 +229,105 @@ export default function ProductionBoard() {
     fetchItems();
   }, []);
 
-  // --- STATS & FILTERS ---
-  const stats = useMemo(() => {
-    const totalProjects = items.length;
-    const activeStrikes = items.reduce((acc, i) => acc + (i.strikes || 0), 0);
-    const totalFH = items.reduce(
-      (acc, i) =>
-        acc + (i.request.word_count ? i.request.word_count / 9300 : 0),
+  // --- SYNC EDIT FORM ON SELECTION ---
+  useEffect(() => {
+    if (selectedId) {
+      const item = items.find((i) => i.id === selectedId);
+      if (item) {
+        // Deep copy to prevent mutation issues
+        setEditForm({
+          ...item,
+          characters: JSON.parse(JSON.stringify(item.characters || [])),
+          crx_batches: JSON.parse(JSON.stringify(item.crx_batches || [])),
+          checklist: JSON.parse(JSON.stringify(item.checklist || [])),
+          other_expenses: JSON.parse(JSON.stringify(item.other_expenses || [])),
+          pfh_rate: item.pfh_rate || DEFAULT_PFH_RATE,
+          pozotron_rate: item.pozotron_rate || DEFAULT_POZOTRON_RATE,
+        });
+      }
+    }
+  }, [selectedId, items]);
+
+  // --- LIVE FINANCIAL CALCULATOR ---
+  const financials = useMemo(() => {
+    if (!editForm.id) return null;
+
+    // 1. Core Params
+    const wc = editForm.request?.word_count || 0;
+    const estFH = wc / WORDS_PER_FH;
+    const pfhRate = parseFloat(editForm.pfh_rate) || 0;
+    const pozRate = parseFloat(editForm.pozotron_rate) || 0;
+
+    // 2. Revenue
+    const gross = estFH * pfhRate;
+
+    // 3. Expenses
+    const pozotronCost = estFH * pozRate;
+    const otherExpensesTotal = (editForm.other_expenses || []).reduce(
+      (acc, curr) => acc + (parseFloat(curr.amount) || 0),
       0
     );
-    const urgentCount = items.filter((i) => {
-      const days = getDaysRemaining(i.recording_due_date);
-      return days !== null && days <= 3 && i.status !== "done";
-    }).length;
-    return { totalProjects, activeStrikes, totalFH, urgentCount };
-  }, [items]);
+    const totalExpenses = pozotronCost + otherExpensesTotal;
 
-  const filteredItems = useMemo(() => {
-    return items.filter((item) => {
-      const matchesSearch =
-        (item.request.book_title || "")
-          .toLowerCase()
-          .includes(searchQuery.toLowerCase()) ||
-        (item.request.client_name || "")
-          .toLowerCase()
-          .includes(searchQuery.toLowerCase());
+    // 4. Net & Tax
+    const net = gross - totalExpenses;
+    const taxableIncome = net * 0.8; // 20% QBI Deduction
+    const taxBill = taxableIncome * (globalTaxRate / 100);
+    const takeHome = net - taxBill;
 
-      const dbStatus = item.status || "pre_production";
-      const uiStatusLabel = STATUS_MAP[dbStatus]?.label || "Text Prep";
+    // 5. Real Hours (from logs)
+    const projectLogs = logs.filter(
+      (l) => l.project_id === editForm.request?.id
+    );
+    const totalHoursWorked = projectLogs.reduce(
+      (acc, l) => acc + (parseFloat(l.duration_hrs) || 0),
+      0
+    );
 
-      // Filter Logic
-      if (statusFilter === "All") return matchesSearch;
-      if (statusFilter === "On Hold")
-        return matchesSearch && dbStatus === "on_hold";
-      return matchesSearch && uiStatusLabel === statusFilter;
-    });
-  }, [items, searchQuery, statusFilter]);
+    // 6. EPH
+    const actualEPH = totalHoursWorked > 0 ? takeHome / totalHoursWorked : 0;
+    const effectiveTaxRate = net > 0 ? (taxBill / net) * 100 : 0;
 
-  // --- FORM HANDLERS ---
-  const handleExpand = (item) => {
-    if (expandedId === item.id) {
-      setExpandedId(null);
-      return;
-    }
-    setExpandedId(item.id);
-    setActiveTab("overview");
-    setEditForm({
-      status: item.status || "pre_production",
-      files_sent_date: item.files_sent_date,
-      recording_start_date: item.recording_start_date,
-      recording_due_date: item.recording_due_date,
-      crx_due_date: item.crx_due_date,
-      crx_status: item.crx_status,
-      characters: JSON.parse(JSON.stringify(item.characters || [])),
-      crx_batches: JSON.parse(JSON.stringify(item.crx_batches || [])),
-      checklist: JSON.parse(
-        JSON.stringify(item.checklist || DEFAULT_CHECKLIST)
-      ),
-      internal_notes: item.internal_notes || "",
-      strikes: item.strikes || 0,
-    });
-  };
+    return {
+      wc,
+      estFH,
+      gross,
+      pozotronCost,
+      otherExpensesTotal,
+      net,
+      taxBill,
+      takeHome,
+      totalHoursWorked,
+      actualEPH,
+      effectiveTaxRate,
+    };
+  }, [editForm, logs, globalTaxRate]);
 
-  const handleSave = async (id) => {
+  // --- ACTIONS ---
+  const handleSave = async () => {
     const batches = editForm.crx_batches || [];
     let calculatedCRXDate = null;
-    let calculatedCRXStatus = "none";
 
     if (batches.length > 0) {
       const dates = batches
-        .map((b) => calculateBatchDeadline(b.submitted_date, b.fh))
+        .map((b) => calculateCRXDeadline(b.submitted_date, b.fh))
         .filter(Boolean);
-      if (dates.length > 0) dates.sort().reverse();
-      if (dates[0]) calculatedCRXDate = dates[0];
-      if (batches.some((b) => b.status === "Changes"))
-        calculatedCRXStatus = "changes_req";
-      else if (batches.some((b) => b.status === "Review"))
-        calculatedCRXStatus = "in_review";
-      else if (batches.every((b) => b.status === "Approved"))
-        calculatedCRXStatus = "approved";
+      if (dates.length > 0) {
+        dates.sort().reverse();
+        calculatedCRXDate = dates[0];
+      }
     }
 
     const payload = {
       status: editForm.status,
-      recording_start_date: editForm.recording_start_date,
       recording_due_date: editForm.recording_due_date,
-      files_sent_date: editForm.files_sent_date,
       crx_due_date: calculatedCRXDate,
-      crx_status: calculatedCRXStatus,
       characters: editForm.characters,
       crx_batches: editForm.crx_batches,
       checklist: editForm.checklist,
+      other_expenses: editForm.other_expenses, // Saved to DB
+      pfh_rate: editForm.pfh_rate, // Saved to DB
+      pozotron_rate: editForm.pozotron_rate, // Saved to DB
       internal_notes: editForm.internal_notes,
       strikes: editForm.strikes,
     };
@@ -539,782 +335,940 @@ export default function ProductionBoard() {
     const { error } = await supabase
       .from("4_production")
       .update(payload)
-      .eq("id", id);
+      .eq("id", editForm.id);
     if (!error) {
       setItems((prev) =>
-        prev.map((i) => (i.id === id ? { ...i, ...payload } : i))
+        prev.map((i) => (i.id === editForm.id ? { ...i, ...payload } : i))
       );
-      setExpandedId(null);
       showToast("Project Saved");
     } else {
       showToast("Save Failed", "error");
     }
   };
 
-  const updateForm = (field, val) =>
-    setEditForm((prev) => ({ ...prev, [field]: val }));
-  const modifyArray = (arrayName, index, field, val) => {
-    const copy = [...(editForm[arrayName] || [])];
-    if (field === null) copy.splice(index, 1);
-    else copy[index][field] = val;
-    setEditForm((prev) => ({ ...prev, [arrayName]: copy }));
+  const modifyArray = (key, idx, field, val) => {
+    const arr = [...(editForm[key] || [])];
+    if (field === null) arr.splice(idx, 1);
+    else arr[idx][field] = val;
+    setEditForm((prev) => ({ ...prev, [key]: arr }));
   };
-  const addBatch = () => {
-    const nextNum = (editForm.crx_batches || []).length + 1;
-    const template = {
-      name: `Batch ${nextNum}`,
-      fh: "0",
-      status: "Review",
-      submitted_date: new Date().toISOString().split("T")[0],
-    };
+
+  const addArrayItem = (key, template) => {
     setEditForm((prev) => ({
       ...prev,
-      crx_batches: [...(prev.crx_batches || []), template],
+      [key]: [...(prev[key] || []), template],
     }));
   };
 
-  // --- RENDER ---
   if (loading)
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-slate-50 gap-4">
-        <Loader2 className="animate-spin text-indigo-500" size={48} />
-        <span className="text-xs font-black uppercase tracking-widest text-slate-400">
-          Loading Dashboard...
-        </span>
+      <div className="h-screen flex items-center justify-center bg-slate-50">
+        <Loader2 className="animate-spin text-indigo-600" size={32} />
       </div>
     );
 
   return (
-    <div className="min-h-screen bg-slate-50/50 pb-20">
-      {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(null)}
-        />
-      )}
-      <ActionModal
-        {...modal}
-        onCancel={() => setModal({ ...modal, isOpen: false })}
-        onConfirm={modal.action}
-      />
+    <div className="h-screen w-screen flex bg-slate-50 overflow-hidden font-sans">
+      {toast && <Toast {...toast} onClose={() => setToast(null)} />}
 
-      {/* HEADER */}
-      <div className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm backdrop-blur-md bg-white/95">
-        <div className="max-w-[1800px] mx-auto px-4 md:px-8 py-4">
-          <div className="flex flex-col xl:flex-row justify-between xl:items-center gap-6">
-            <div>
-              <div className="flex items-center gap-2 text-[10px] font-bold uppercase text-slate-400 mb-1">
-                <span>Workspace</span>
-                <ArrowRight size={10} />
-                <span>Production</span>
-              </div>
-              <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-                Production Control{" "}
-                <span className="bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded text-[10px] font-bold">
-                  v4.0
-                </span>
-              </h1>
-            </div>
-            <div className="flex gap-4 overflow-x-auto pb-2 xl:pb-0 hide-scrollbar">
-              <StatCard
-                label="Active Projects"
-                value={stats.totalProjects}
-                icon={LayoutDashboard}
-              />
-              <StatCard
-                label="Pipeline Volume"
-                value={`${stats.totalFH.toFixed(1)} FH`}
-                icon={Layers}
-              />
-              <StatCard
-                label="Critical Due"
-                value={stats.urgentCount}
-                subtext="Next 3 Days"
-                icon={AlertTriangle}
-                alert={stats.urgentCount > 0}
-              />
-              <StatCard
-                label="Risk Level"
-                value={stats.activeStrikes}
-                subtext="Total Strikes"
-                icon={Skull}
-                alert={stats.activeStrikes > 2}
-              />
-            </div>
+      {/* --- SIDEBAR --- */}
+      <div className="w-80 bg-white border-r border-slate-200 flex flex-col flex-shrink-0 z-20 shadow-xl">
+        {/* Sidebar Header */}
+        <div className="p-5 border-b border-slate-100 bg-white/95 backdrop-blur-sm sticky top-0">
+          <div className="flex items-center gap-2 text-[10px] font-bold uppercase text-slate-400 mb-2">
+            <span>Workspace</span>
+            <ChevronRight size={10} />
+            <span>Projects</span>
           </div>
+          <h2 className="text-lg font-black text-slate-900 tracking-tight">
+            Production OS
+          </h2>
 
-          <div className="mt-6 flex flex-col md:flex-row gap-4 justify-between items-center border-t border-slate-100 pt-4">
-            <div className="relative w-full md:w-96 group">
-              <Search
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500"
-                size={18}
-              />
-              <input
-                type="text"
-                placeholder="Search title or client..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all"
-              />
-            </div>
-            <div className="flex items-center gap-3 w-full md:w-auto overflow-x-auto">
-              <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
-                {[
-                  "All",
-                  "Text Prep",
-                  "Recording",
-                  "CRX Review",
-                  "On Hold",
-                  "Complete",
-                ].map((status) => (
-                  <button
-                    key={status}
-                    onClick={() => setStatusFilter(status)}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all whitespace-nowrap ${statusFilter === status ? "bg-slate-900 text-white shadow-md" : "text-slate-400 hover:bg-slate-50 hover:text-slate-600"}`}
+          <div className="mt-4 relative">
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              size={14}
+            />
+            <input
+              placeholder="Find project..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold outline-none focus:border-indigo-400 focus:bg-white transition-all"
+            />
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className="flex gap-2 p-3 overflow-x-auto border-b border-slate-50 bg-slate-50/50 hide-scrollbar">
+          {["All", "Recording", "Review"].map((st) => (
+            <button
+              key={st}
+              onClick={() => setStatusFilter(st)}
+              className={`px-3 py-1 rounded-md text-[10px] font-black uppercase whitespace-nowrap transition-colors ${statusFilter === st ? "bg-indigo-600 text-white shadow-md" : "text-slate-400 hover:bg-slate-200"}`}
+            >
+              {st}
+            </button>
+          ))}
+        </div>
+
+        {/* Project List */}
+        <div className="flex-1 overflow-y-auto p-3 space-y-2">
+          {items
+            .filter((i) =>
+              statusFilter === "All"
+                ? true
+                : STATUS_MAP[i.status]?.label === statusFilter
+            )
+            .filter((i) =>
+              i.request.book_title
+                .toLowerCase()
+                .includes(searchQuery.toLowerCase())
+            )
+            .map((item) => {
+              const isActive = selectedId === item.id;
+              const statusConf =
+                STATUS_MAP[item.status] || STATUS_MAP.pre_production;
+
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setSelectedId(item.id)}
+                  className={`w-full text-left p-3 rounded-xl border transition-all duration-200 group ${isActive ? "bg-slate-900 border-slate-900 shadow-lg scale-[1.02]" : "bg-white border-slate-100 hover:border-indigo-200 hover:shadow-md"}`}
+                >
+                  <div className="flex justify-between items-start mb-1">
+                    <span
+                      className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${isActive ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"}`}
+                    >
+                      {statusConf.label}
+                    </span>
+                    {item.strikes > 0 && (
+                      <span className="bg-red-500 text-white text-[9px] font-bold px-1.5 rounded-full">
+                        {item.strikes}
+                      </span>
+                    )}
+                  </div>
+                  <h3
+                    className={`text-sm font-bold truncate leading-tight mb-1 ${isActive ? "text-white" : "text-slate-800"}`}
                   >
-                    {status}
-                  </button>
-                ))}
-              </div>
-              <button
-                onClick={fetchItems}
-                className="p-2.5 bg-white border border-slate-200 text-slate-400 rounded-xl hover:text-indigo-600 hover:border-indigo-200 active:rotate-180 transition-all"
-              >
-                <RefreshCw size={18} />
-              </button>
-            </div>
-          </div>
+                    {item.request.book_title}
+                  </h3>
+                  <div
+                    className={`text-[10px] font-medium truncate ${isActive ? "text-slate-400" : "text-slate-400"}`}
+                  >
+                    {item.request.client_name}
+                  </div>
+                </button>
+              );
+            })}
+        </div>
+
+        {/* Sidebar Footer */}
+        <div className="p-4 border-t border-slate-200 bg-slate-50 text-center">
+          <button
+            onClick={fetchItems}
+            className="flex items-center justify-center gap-2 text-[10px] font-bold uppercase text-slate-400 hover:text-indigo-600 transition-colors"
+          >
+            <RefreshCw size={12} /> Sync Data
+          </button>
         </div>
       </div>
 
-      {/* GRID */}
-      <div className="max-w-[1800px] mx-auto p-4 md:p-8 space-y-6">
-        {filteredItems.length === 0 && !loading && (
-          <div className="flex flex-col items-center justify-center py-24 bg-white rounded-3xl border border-dashed border-slate-200">
-            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4 text-slate-300">
-              <Search size={32} />
-            </div>
-            <h3 className="text-slate-900 font-bold text-lg">
-              No projects found
-            </h3>
-            <button
-              onClick={() => {
-                setSearchQuery("");
-                setStatusFilter("All");
-              }}
-              className="mt-4 text-xs font-bold uppercase text-indigo-600 hover:underline"
-            >
-              Clear Filters
-            </button>
+      {/* --- MAIN CONTENT AREA --- */}
+      <div className="flex-1 flex flex-col h-full overflow-hidden relative">
+        {!selectedId ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-slate-300">
+            <LayoutDashboard size={48} className="mb-4 opacity-50" />
+            <p className="text-sm font-bold uppercase tracking-widest">
+              Select a project
+            </p>
           </div>
-        )}
-
-        {filteredItems.map((item) => {
-          const isExpanded = expandedId === item.id;
-          const statusConf =
-            STATUS_MAP[item.status] || STATUS_MAP["pre_production"];
-          const StatusIcon = statusConf.icon;
-          const pfh = item.request.word_count
-            ? (item.request.word_count / 9300).toFixed(1)
-            : "0.0";
-          const batches = isExpanded ? editForm.crx_batches : item.crx_batches;
-          const totalFH = (batches || []).reduce(
-            (acc, b) => acc + (parseFloat(b.fh) || 0),
-            0
-          );
-          const progress = pfh > 0 ? Math.min(100, (totalFH / pfh) * 100) : 0;
-          const daysLeft = getDaysRemaining(item.recording_due_date);
-          const isHold = item.status === "on_hold";
-
-          return (
-            <div
-              key={item.id}
-              className={`bg-white rounded-[2rem] border transition-all duration-300 overflow-hidden relative ${isExpanded ? "ring-4 ring-slate-100 border-slate-300 shadow-2xl z-10 my-8" : "border-slate-100 shadow-sm hover:shadow-xl hover:border-slate-200"} ${isHold ? "opacity-75 grayscale-[0.5]" : ""}`}
-            >
-              <div className="flex flex-col xl:flex-row gap-6 p-6 xl:items-center relative">
-                {!isExpanded && !isHold && (
-                  <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-50">
-                    <div
-                      className="h-full bg-indigo-500/20"
-                      style={{ width: `${progress}%` }}
-                    ></div>
-                  </div>
-                )}
-                {/* IDENTITY */}
-                <div className="flex gap-5 min-w-[300px]">
-                  <div className="w-20 h-24 bg-slate-100 rounded-xl overflow-hidden shadow-inner flex-shrink-0 relative border border-slate-200">
-                    {item.request.cover_image_url ? (
-                      <img
-                        src={item.request.cover_image_url}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-slate-300">
-                        <BookOpen size={20} />
-                      </div>
-                    )}
-                    {item.strikes > 0 && (
-                      <div className="absolute top-0 right-0 w-5 h-5 bg-red-500 text-white flex items-center justify-center rounded-bl-lg text-[10px] font-black">
-                        {item.strikes}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex flex-col justify-center">
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="px-2 py-0.5 text-[9px] font-black uppercase rounded text-slate-500 bg-slate-100 border border-slate-200">
-                        {item.request.client_type}
-                      </span>
-                      <div
-                        className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5 border ${statusConf.color}`}
-                      >
-                        <StatusIcon size={10} />
-                        {statusConf.label}
-                      </div>
+        ) : (
+          <>
+            {/* Main Header */}
+            <div className="bg-white/80 backdrop-blur-md border-b border-slate-200 px-8 py-5 flex items-center justify-between sticky top-0 z-30">
+              <div className="flex items-center gap-6">
+                {/* Cover Thumb */}
+                <div className="w-12 h-16 bg-slate-100 rounded-lg shadow-inner overflow-hidden border border-slate-200">
+                  {editForm.request?.cover_image_url ? (
+                    <img
+                      src={editForm.request.cover_image_url}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-slate-300">
+                      <BookOpen size={16} />
                     </div>
-                    <h3 className="text-xl font-black text-slate-900 leading-tight mb-1 truncate max-w-[300px]">
-                      {item.request.book_title}
-                    </h3>
-                    <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase">
-                      <User size={12} /> {item.request.client_name}
-                    </div>
-                  </div>
+                  )}
                 </div>
-
-                {/* TIMELINE VISUAL */}
-                <div className="flex-1 xl:border-l xl:border-slate-100 xl:pl-8 py-2 overflow-hidden">
-                  <div className="flex justify-between items-end mb-2">
-                    <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
-                      CRX Timeline
+                <div>
+                  <h1 className="text-2xl font-black text-slate-900 tracking-tight leading-none mb-1">
+                    {editForm.request?.book_title}
+                  </h1>
+                  <div className="flex items-center gap-3 text-xs font-bold text-slate-500 uppercase tracking-wide">
+                    <span className="flex items-center gap-1">
+                      <User size={12} /> {editForm.request?.client_name}
                     </span>
-                    <div className="text-[10px] font-bold text-slate-500">
-                      <span
-                        className={
-                          progress >= 100
-                            ? "text-emerald-500"
-                            : "text-slate-900"
-                        }
-                      >
-                        {progress.toFixed(0)}%
-                      </span>{" "}
-                      of {pfh} FH
-                    </div>
+                    <span className="w-1 h-1 bg-slate-300 rounded-full" />
+                    <span className="flex items-center gap-1">
+                      <Clock size={12} /> Due:{" "}
+                      {formatDate(editForm.recording_due_date)}
+                    </span>
                   </div>
-                  <div className="flex items-center gap-2 w-full overflow-x-auto hide-scrollbar pb-2">
-                    {(batches || []).length === 0 ? (
-                      <div className="w-full h-10 border border-dashed border-slate-200 rounded-lg flex items-center justify-center text-[10px] text-slate-300 uppercase font-bold bg-slate-50/50">
-                        No Timeline Events
-                      </div>
-                    ) : (
-                      (batches || []).map((batch, idx) => {
-                        const isDone = batch.status === "Approved";
-                        const deadline = calculateBatchDeadline(
-                          batch.submitted_date,
-                          batch.fh
-                        );
-                        const bDays = getDaysRemaining(deadline);
-                        return (
-                          <div
-                            key={idx}
-                            className="flex-shrink-0 flex flex-col gap-1 w-24"
-                          >
-                            <div
-                              className={`h-1.5 rounded-full w-full ${isDone ? "bg-emerald-400" : batch.status === "Changes" ? "bg-amber-400" : "bg-indigo-400"}`}
-                            ></div>
-                            <div className="flex justify-between text-[9px] font-bold text-slate-400 uppercase">
-                              <span className="truncate max-w-[50px]">
-                                {batch.name}
-                              </span>
-                              <span className={bDays < 0 ? "text-red-500" : ""}>
-                                {bDays}d
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-
-                {/* ACTION */}
-                <div className="flex items-center justify-between xl:justify-end gap-6 xl:w-64">
-                  <div className="text-right">
-                    <div className="text-[9px] font-black uppercase text-slate-400 mb-1">
-                      Due Date
-                    </div>
-                    <div className="flex items-center justify-end gap-2">
-                      <span
-                        className={`text-sm font-black ${daysLeft < 0 ? "text-red-500" : daysLeft <= 3 ? "text-amber-500" : "text-slate-700"}`}
-                      >
-                        {item.recording_due_date
-                          ? formatDate(item.recording_due_date)
-                          : "Not Set"}
-                      </span>
-                      {daysLeft !== null && daysLeft <= 3 && (
-                        <AlertTriangle size={14} className="text-amber-500" />
-                      )}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleExpand(item)}
-                    className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all border shadow-sm ${isExpanded ? "bg-slate-900 text-white border-slate-900" : "bg-white border-slate-200 text-slate-400 hover:text-indigo-600 hover:border-indigo-200"}`}
-                  >
-                    {isExpanded ? (
-                      <ChevronUp size={20} />
-                    ) : (
-                      <MoreVertical size={20} />
-                    )}
-                  </button>
                 </div>
               </div>
+              <button
+                onClick={handleSave}
+                className="px-6 py-2.5 bg-indigo-600 text-white text-xs font-bold uppercase rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+              >
+                <Save size={16} /> Save Changes
+              </button>
+            </div>
 
-              {/* === EXPANDED PANEL === */}
-              {isExpanded && (
-                <div className="border-t border-slate-100 bg-slate-50/50 min-h-[500px] animate-in slide-in-from-top-2 duration-200">
-                  <div className="bg-white border-b border-slate-200 px-6 pt-4 flex items-center justify-between sticky top-0 z-20">
-                    <div className="flex gap-1 overflow-x-auto hide-scrollbar">
-                      {TABS.map((tab) => (
-                        <button
-                          key={tab.id}
-                          onClick={() => setActiveTab(tab.id)}
-                          className={`px-4 py-3 text-xs font-bold uppercase tracking-wide border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === tab.id ? "border-indigo-500 text-indigo-600 bg-indigo-50/50 rounded-t-lg" : "border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-t-lg"}`}
-                        >
-                          <tab.icon size={14} /> {tab.label}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="flex items-center gap-2 pl-4 pb-2">
-                      <div className="flex items-center gap-2 bg-slate-100 rounded-lg p-1 mr-2">
-                        <span className="text-[9px] font-black uppercase text-slate-400 px-2">
-                          Strikes
-                        </span>
-                        {[1, 2, 3].map((i) => (
-                          <button
-                            key={i}
-                            onClick={() =>
-                              updateForm(
-                                "strikes",
-                                editForm.strikes === i ? i - 1 : i
-                              )
-                            }
-                            className={`w-6 h-6 rounded flex items-center justify-center ${editForm.strikes >= i ? "bg-red-500 text-white" : "bg-white text-slate-300 shadow-sm"}`}
-                          >
-                            <Skull size={10} />
-                          </button>
-                        ))}
-                      </div>
-                      <button
-                        onClick={() => handleSave(item.id)}
-                        className="px-4 py-2 bg-slate-900 text-white text-xs font-bold uppercase rounded-lg hover:bg-slate-800 flex items-center gap-2 shadow-lg shadow-slate-300/50"
-                      >
-                        <Save size={14} /> Save
-                      </button>
-                    </div>
-                  </div>
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto p-8">
+              {/* Tab Navigation */}
+              <div className="flex gap-1 mb-8 border-b border-slate-200">
+                {TABS.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`px-6 py-3 text-xs font-bold uppercase tracking-wide border-b-2 transition-all flex items-center gap-2 ${activeTab === tab.id ? "border-indigo-600 text-indigo-600 bg-indigo-50/50 rounded-t-lg" : "border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-t-lg"}`}
+                  >
+                    <tab.icon size={14} /> {tab.label}
+                  </button>
+                ))}
+              </div>
 
-                  <div className="p-6">
-                    {/* OVERVIEW TAB */}
-                    {activeTab === "overview" && (
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in fade-in duration-300">
-                        <div className="space-y-6">
-                          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                            <h4 className="text-xs font-black uppercase text-slate-400 mb-4 flex items-center gap-2">
-                              <Activity size={14} /> Project Health
-                            </h4>
-                            <div className="grid grid-cols-2 gap-4">
-                              <div className="p-4 bg-slate-50 rounded-xl">
-                                <label className="text-[9px] font-black uppercase text-slate-400">
-                                  Current Status
-                                </label>
-                                <select
-                                  value={editForm.status}
-                                  onChange={(e) =>
-                                    updateForm("status", e.target.value)
-                                  }
-                                  className="w-full mt-1 bg-transparent text-sm font-bold text-slate-900 outline-none"
-                                >
-                                  {Object.entries(STATUS_MAP).map(
-                                    ([key, val]) => (
-                                      <option key={key} value={key}>
-                                        {val.label}
-                                      </option>
-                                    )
-                                  )}
-                                </select>
-                              </div>
-                              <div className="p-4 bg-slate-50 rounded-xl">
-                                <label className="text-[9px] font-black uppercase text-slate-400">
-                                  Word Count
-                                </label>
-                                <div className="text-sm font-bold text-slate-900 mt-1">
-                                  {item.request.word_count?.toLocaleString() ||
-                                    "0"}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="bg-white p-6 rounded-2xl border border-red-100 shadow-sm">
-                            <h4 className="text-xs font-black uppercase text-red-400 mb-4 flex items-center gap-2">
-                              <AlertTriangle size={14} /> Danger Zone
-                            </h4>
-                            <div className="flex flex-wrap gap-2">
-                              <button
-                                onClick={() => triggerModal("hold", item)}
-                                className="px-3 py-2 bg-amber-50 text-amber-600 rounded-lg text-[10px] font-bold uppercase hover:bg-amber-100 flex items-center gap-2"
-                              >
-                                <PauseCircle size={14} /> Place on Hold
-                              </button>
-                              <button
-                                onClick={() =>
-                                  triggerModal("move", item, {
-                                    label: "Onboarding",
-                                    status: "onboarding_check",
+              {/* TAB CONTENT */}
+              <div className="max-w-6xl mx-auto pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                {/* === OVERVIEW & FINANCIALS === */}
+                {activeTab === "overview" && financials && (
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                    {/* Left Column: Settings */}
+                    <div className="lg:col-span-5 space-y-6">
+                      {/* Status Card */}
+                      <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                        <h4 className="text-xs font-black uppercase text-slate-400 mb-6 flex items-center gap-2">
+                          <Activity size={14} /> Project Config
+                        </h4>
+                        <div className="space-y-4">
+                          <div>
+                            <label className="text-[9px] font-black uppercase text-slate-400 pl-1 mb-1 block">
+                              Current Phase
+                            </label>
+                            <div className="relative">
+                              <select
+                                value={editForm.status}
+                                onChange={(e) =>
+                                  setEditForm({
+                                    ...editForm,
+                                    status: e.target.value,
                                   })
                                 }
-                                className="px-3 py-2 bg-slate-50 text-slate-600 rounded-lg text-[10px] font-bold uppercase hover:bg-slate-100 flex items-center gap-2"
+                                className="w-full appearance-none p-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-indigo-400"
                               >
-                                <Briefcase size={14} /> Return to Onboarding
-                              </button>
-                              <button
-                                onClick={() => triggerModal("boot", item)}
-                                className="px-3 py-2 bg-red-50 text-red-600 rounded-lg text-[10px] font-bold uppercase hover:bg-red-100 flex items-center gap-2"
-                              >
-                                <Archive size={14} /> Boot to Archive
-                              </button>
+                                {Object.entries(STATUS_MAP).map(([k, v]) => (
+                                  <option key={k} value={k}>
+                                    {v.label}
+                                  </option>
+                                ))}
+                              </select>
+                              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                <ChevronRight size={14} className="rotate-90" />
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm h-fit">
-                          <h4 className="text-xs font-black uppercase text-slate-400 mb-4 flex items-center gap-2">
-                            <Calendar size={14} /> Key Dates
-                          </h4>
-                          <div className="space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
                             <div>
-                              <label className="text-[10px] font-black uppercase text-slate-400 mb-1 block">
-                                Recording Start
-                              </label>
-                              <input
-                                type="date"
-                                value={editForm.recording_start_date || ""}
-                                onChange={(e) =>
-                                  updateForm(
-                                    "recording_start_date",
-                                    e.target.value
-                                  )
-                                }
-                                className="w-full p-2.5 rounded-xl border border-slate-200 text-sm font-bold outline-none focus:border-indigo-500"
-                              />
-                            </div>
-                            <div>
-                              <label className="text-[10px] font-black uppercase text-slate-400 mb-1 block">
-                                Recording Deadline
+                              <label className="text-[9px] font-black uppercase text-slate-400 pl-1 mb-1 block">
+                                Recording Due
                               </label>
                               <input
                                 type="date"
                                 value={editForm.recording_due_date || ""}
                                 onChange={(e) =>
-                                  updateForm(
-                                    "recording_due_date",
-                                    e.target.value
-                                  )
+                                  setEditForm({
+                                    ...editForm,
+                                    recording_due_date: e.target.value,
+                                  })
                                 }
-                                className="w-full p-2.5 rounded-xl border border-slate-200 text-sm font-bold outline-none focus:border-indigo-500"
+                                className="w-full p-3 bg-white border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-indigo-400"
                               />
                             </div>
                             <div>
-                              <label className="text-[10px] font-black uppercase text-slate-400 mb-1 block">
-                                Files Sent (Full)
+                              <label className="text-[9px] font-black uppercase text-slate-400 pl-1 mb-1 block">
+                                Strikes
                               </label>
+                              <div className="flex gap-2">
+                                {[1, 2, 3].map((i) => (
+                                  <button
+                                    key={i}
+                                    onClick={() =>
+                                      setEditForm({
+                                        ...editForm,
+                                        strikes:
+                                          editForm.strikes === i ? i - 1 : i,
+                                      })
+                                    }
+                                    className={`flex-1 h-[42px] rounded-xl flex items-center justify-center transition-all ${editForm.strikes >= i ? "bg-red-500 text-white shadow-md shadow-red-200" : "bg-slate-50 border border-slate-100 text-slate-300"}`}
+                                  >
+                                    <Skull size={14} />
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Financial Inputs Card */}
+                      <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                        <h4 className="text-xs font-black uppercase text-slate-400 mb-6 flex items-center gap-2">
+                          <CreditCard size={14} /> Rates & Fees
+                        </h4>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-[9px] font-black uppercase text-slate-400 pl-1 mb-1 block">
+                              PFH Rate ($)
+                            </label>
+                            <div className="relative">
+                              <DollarSign
+                                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                                size={12}
+                              />
                               <input
-                                type="date"
-                                value={editForm.files_sent_date || ""}
+                                type="number"
+                                value={editForm.pfh_rate}
                                 onChange={(e) =>
-                                  updateForm("files_sent_date", e.target.value)
+                                  setEditForm({
+                                    ...editForm,
+                                    pfh_rate: e.target.value,
+                                  })
                                 }
-                                className="w-full p-2.5 rounded-xl border border-slate-200 text-sm font-bold outline-none focus:border-indigo-500"
+                                className="w-full pl-8 pr-3 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-50 transition-all"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="text-[9px] font-black uppercase text-slate-400 pl-1 mb-1 block">
+                              Pozotron Fee ($)
+                            </label>
+                            <div className="relative">
+                              <DollarSign
+                                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                                size={12}
+                              />
+                              <input
+                                type="number"
+                                value={editForm.pozotron_rate}
+                                onChange={(e) =>
+                                  setEditForm({
+                                    ...editForm,
+                                    pozotron_rate: e.target.value,
+                                  })
+                                }
+                                className="w-full pl-8 pr-3 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-50 transition-all"
                               />
                             </div>
                           </div>
                         </div>
                       </div>
-                    )}
-                    {/* CRX TAB */}
-                    {activeTab === "crx" && (
-                      <div className="space-y-4 animate-in fade-in duration-300">
-                        <div className="flex justify-between items-center mb-2">
-                          <div className="text-xs font-bold text-slate-500">
-                            Contract Logic:{" "}
-                            <span className="text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
-                              1 Biz Day per 2 FH
-                            </span>
-                          </div>
-                          <button
-                            onClick={addBatch}
-                            className="text-xs font-bold uppercase text-white bg-indigo-600 px-4 py-2 rounded-lg hover:bg-indigo-700 shadow-md shadow-indigo-200"
-                          >
-                            + Add Batch
-                          </button>
-                        </div>
-                        {(editForm.crx_batches || []).map((batch, idx) => {
-                          const deadline = calculateBatchDeadline(
-                            batch.submitted_date,
-                            batch.fh
-                          );
-                          return (
-                            <div
-                              key={idx}
-                              className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col lg:flex-row gap-4 items-end lg:items-center"
-                            >
-                              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 flex-1 w-full">
-                                <div>
-                                  <label className="text-[9px] font-black uppercase text-slate-400 pl-1 mb-1 block">
-                                    Batch Name
-                                  </label>
-                                  <input
-                                    value={batch.name}
-                                    onChange={(e) =>
-                                      modifyArray(
-                                        "crx_batches",
-                                        idx,
-                                        "name",
-                                        e.target.value
-                                      )
-                                    }
-                                    className="w-full p-2 border border-slate-200 rounded-lg text-xs font-bold outline-none focus:border-indigo-500"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="text-[9px] font-black uppercase text-slate-400 pl-1 mb-1 block">
-                                    FH (Hours)
-                                  </label>
-                                  <input
-                                    type="number"
-                                    step="0.1"
-                                    value={batch.fh}
-                                    onChange={(e) =>
-                                      modifyArray(
-                                        "crx_batches",
-                                        idx,
-                                        "fh",
-                                        e.target.value
-                                      )
-                                    }
-                                    className="w-full p-2 border border-slate-200 rounded-lg text-xs font-bold outline-none focus:border-indigo-500"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="text-[9px] font-black uppercase text-slate-400 pl-1 mb-1 block">
-                                    Sent Date
-                                  </label>
-                                  <input
-                                    type="date"
-                                    value={batch.submitted_date}
-                                    onChange={(e) =>
-                                      modifyArray(
-                                        "crx_batches",
-                                        idx,
-                                        "submitted_date",
-                                        e.target.value
-                                      )
-                                    }
-                                    className="w-full p-2 border border-slate-200 rounded-lg text-xs font-medium outline-none focus:border-indigo-500"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="text-[9px] font-black uppercase text-slate-400 pl-1 mb-1 block">
-                                    Status
-                                  </label>
-                                  <select
-                                    value={batch.status}
-                                    onChange={(e) =>
-                                      modifyArray(
-                                        "crx_batches",
-                                        idx,
-                                        "status",
-                                        e.target.value
-                                      )
-                                    }
-                                    className="w-full p-2 border border-slate-200 rounded-lg text-xs font-bold outline-none focus:border-indigo-500 bg-white"
-                                  >
-                                    <option value="Review">In Review</option>
-                                    <option value="Changes">Changes Req</option>
-                                    <option value="Approved">Approved</option>
-                                  </select>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-4 w-full lg:w-auto">
-                                <div className="flex-1 lg:w-40 bg-slate-50 border border-slate-200 rounded-lg p-2 text-center">
-                                  <div className="text-[9px] font-black uppercase text-slate-400 mb-0.5">
-                                    Calculated Due
-                                  </div>
-                                  <div className="text-sm font-black text-slate-800 flex items-center justify-center gap-1">
-                                    {deadline ? formatDate(deadline) : "-"}
-                                  </div>
-                                </div>
-                                <button
-                                  onClick={() =>
-                                    modifyArray("crx_batches", idx, null, null)
-                                  }
-                                  className="p-2 text-slate-300 hover:text-red-500 bg-white hover:bg-red-50 rounded-lg border border-transparent hover:border-red-100"
-                                >
-                                  <X size={18} />
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                        {(editForm.crx_batches || []).length === 0 && (
-                          <div className="text-center py-12 text-slate-300 font-bold uppercase text-xs border-2 border-dashed border-slate-200 rounded-xl">
-                            No Batches in Pipeline
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    {/* BIBLE TAB */}
-                    {activeTab === "bible" && (
-                      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in duration-300">
-                        <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
-                          <h4 className="text-xs font-black uppercase text-slate-500">
-                            Character List
+
+                      {/* Other Expenses Ledger */}
+                      <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                        <div className="flex justify-between items-center mb-4">
+                          <h4 className="text-xs font-black uppercase text-slate-400 flex items-center gap-2">
+                            <Receipt size={14} /> Other Expenses
                           </h4>
                           <button
                             onClick={() =>
-                              setEditForm((prev) => ({
-                                ...prev,
-                                characters: [
-                                  ...(prev.characters || []),
-                                  { name: "", voice: "" },
-                                ],
-                              }))
+                              addArrayItem("other_expenses", {
+                                desc: "",
+                                amount: "",
+                              })
                             }
-                            className="text-[10px] font-bold bg-white border border-slate-200 px-3 py-1.5 rounded-lg hover:border-indigo-300 shadow-sm"
+                            className="text-[10px] font-bold uppercase bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg hover:bg-slate-200"
                           >
-                            + Add Character
+                            + Add
                           </button>
                         </div>
-                        <div className="p-4 space-y-2 max-h-[400px] overflow-y-auto">
-                          {(editForm.characters || []).map((char, idx) => (
-                            <div key={idx} className="flex items-center gap-3">
-                              <span className="text-slate-300 font-mono text-xs w-6">
-                                {idx + 1}.
-                              </span>
+                        <div className="space-y-2">
+                          {(editForm.other_expenses || []).map((exp, idx) => (
+                            <div key={idx} className="flex gap-2">
                               <input
-                                placeholder="Character Name"
-                                value={char.name}
+                                placeholder="Description (e.g. Design)"
+                                value={exp.desc}
                                 onChange={(e) =>
                                   modifyArray(
-                                    "characters",
+                                    "other_expenses",
+                                    idx,
+                                    "desc",
+                                    e.target.value
+                                  )
+                                }
+                                className="flex-1 p-2 bg-slate-50 border border-slate-100 rounded-lg text-xs font-bold outline-none focus:border-indigo-300"
+                              />
+                              <div className="relative w-24">
+                                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]">
+                                  $
+                                </span>
+                                <input
+                                  type="number"
+                                  placeholder="0"
+                                  value={exp.amount}
+                                  onChange={(e) =>
+                                    modifyArray(
+                                      "other_expenses",
+                                      idx,
+                                      "amount",
+                                      e.target.value
+                                    )
+                                  }
+                                  className="w-full pl-5 p-2 bg-slate-50 border border-slate-100 rounded-lg text-xs font-bold outline-none focus:border-indigo-300"
+                                />
+                              </div>
+                              <button
+                                onClick={() =>
+                                  modifyArray("other_expenses", idx, null, null)
+                                }
+                                className="p-2 text-slate-300 hover:text-red-500"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          ))}
+                          {(editForm.other_expenses || []).length === 0 && (
+                            <div className="text-center py-4 text-[10px] text-slate-300 font-bold uppercase border border-dashed border-slate-100 rounded-xl">
+                              No extra expenses logged
+                            </div>
+                          )}
+                        </div>
+                        <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center">
+                          <span className="text-[10px] font-black uppercase text-slate-400">
+                            Total Deductions
+                          </span>
+                          <span className="text-sm font-black text-slate-700">
+                            {formatCurrency(financials.otherExpensesTotal)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right Column: Live Math */}
+                    <div className="lg:col-span-7">
+                      <div className="bg-slate-900 rounded-[2.5rem] p-8 md:p-10 text-white shadow-2xl relative overflow-hidden sticky top-24">
+                        <div className="absolute top-0 right-0 p-10 opacity-10">
+                          <DollarSign size={200} />
+                        </div>
+                        <div className="absolute bottom-0 left-0 p-10 opacity-10">
+                          <PieChart size={200} />
+                        </div>
+
+                        <h3 className="relative z-10 text-2xl font-black italic uppercase mb-10 flex items-center gap-3">
+                          <span className="bg-emerald-500 text-white px-3 py-1 rounded-lg text-[10px] tracking-widest not-italic shadow-lg shadow-emerald-900/50">
+                            LIVE P&L
+                          </span>
+                          Project Economics
+                        </h3>
+
+                        <div className="grid grid-cols-2 gap-x-8 gap-y-10 relative z-10">
+                          {/* Gross */}
+                          <div className="space-y-2">
+                            <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">
+                              Gross Revenue
+                            </p>
+                            <div className="text-4xl font-black tracking-tight">
+                              {formatCurrency(financials.gross)}
+                            </div>
+                            <div className="text-xs text-slate-500 font-medium">
+                              {financials.estFH.toFixed(1)} FH @{" "}
+                              {formatCurrency(editForm.pfh_rate)}
+                            </div>
+                          </div>
+
+                          {/* Net */}
+                          <div className="space-y-2">
+                            <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">
+                              Net Profit (Pre-Tax)
+                            </p>
+                            <div className="text-4xl font-black tracking-tight text-white">
+                              {formatCurrency(financials.net)}
+                            </div>
+                            <div className="flex flex-col gap-1">
+                              <div className="text-[10px] text-orange-400 font-medium flex justify-between max-w-[140px]">
+                                <span>- Pozotron:</span>{" "}
+                                <span>
+                                  {formatCurrency(financials.pozotronCost)}
+                                </span>
+                              </div>
+                              <div className="text-[10px] text-red-400 font-medium flex justify-between max-w-[140px]">
+                                <span>- Expenses:</span>{" "}
+                                <span>
+                                  {formatCurrency(
+                                    financials.otherExpensesTotal
+                                  )}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Take Home */}
+                          <div className="col-span-2 bg-white/5 rounded-3xl p-6 border border-white/10 flex flex-col md:flex-row justify-between items-center gap-6">
+                            <div className="space-y-2">
+                              <p className="text-[10px] font-black uppercase text-emerald-400 tracking-widest flex items-center gap-2">
+                                <ShieldCheck size={14} /> QBI Adjusted Take Home
+                              </p>
+                              <div className="text-5xl font-black tracking-tight text-emerald-400">
+                                {formatCurrency(financials.takeHome)}
+                              </div>
+                              <div className="text-xs text-emerald-500/60 font-medium">
+                                Est. Tax Bill:{" "}
+                                {formatCurrency(financials.taxBill)} (
+                                {financials.effectiveTaxRate.toFixed(1)}% Eff.
+                                Rate)
+                              </div>
+                            </div>
+                            <div className="h-16 w-px bg-white/10 hidden md:block"></div>
+                            <div className="text-right">
+                              <p className="text-[10px] font-black uppercase text-blue-400 tracking-widest mb-1">
+                                Real Hourly Rate
+                              </p>
+                              <div className="text-3xl font-black text-blue-400">
+                                {formatCurrency(financials.actualEPH)}
+                                <span className="text-sm text-blue-500/50">
+                                  /hr
+                                </span>
+                              </div>
+                              <div className="text-[10px] text-slate-500 mt-1">
+                                {financials.totalHoursWorked.toFixed(1)} hrs
+                                logged
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* === CRX MATRIX === */}
+                {activeTab === "crx" && (
+                  <div className="space-y-8">
+                    <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm">
+                      <div className="flex justify-between items-center mb-8">
+                        <h4 className="text-sm font-black uppercase text-slate-400 flex items-center gap-2">
+                          <PieChart size={16} /> Batch Timeline
+                        </h4>
+                        <button
+                          onClick={() =>
+                            addArrayItem("crx_batches", {
+                              name: `Batch ${(editForm.crx_batches || []).length + 1}`,
+                              fh: "0",
+                              status: "Review",
+                              submitted_date: new Date()
+                                .toISOString()
+                                .split("T")[0],
+                            })
+                          }
+                          className="text-xs font-bold uppercase bg-slate-900 text-white px-4 py-2 rounded-xl hover:bg-slate-800 shadow-lg"
+                        >
+                          + Add Batch
+                        </button>
+                      </div>
+
+                      {/* RECHARTS VISUALIZATION */}
+                      {(editForm.crx_batches || []).length > 0 ? (
+                        <div className="h-72 w-full mb-10">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart
+                              data={editForm.crx_batches}
+                              layout="vertical"
+                              margin={{
+                                top: 5,
+                                right: 30,
+                                left: 40,
+                                bottom: 5,
+                              }}
+                            >
+                              <XAxis type="number" hide />
+                              <YAxis
+                                dataKey="name"
+                                type="category"
+                                width={80}
+                                tick={{
+                                  fontSize: 11,
+                                  fill: "#64748b",
+                                  fontWeight: "bold",
+                                }}
+                                axisLine={false}
+                                tickLine={false}
+                              />
+                              <Tooltip
+                                cursor={{ fill: "transparent" }}
+                                contentStyle={{
+                                  borderRadius: "12px",
+                                  border: "none",
+                                  boxShadow: "0 10px 30px -5px rgba(0,0,0,0.1)",
+                                }}
+                              />
+                              <Bar
+                                dataKey="fh"
+                                name="Hours (FH)"
+                                radius={[0, 6, 6, 0]}
+                                barSize={24}
+                              >
+                                {(editForm.crx_batches || []).map(
+                                  (entry, index) => (
+                                    <Cell
+                                      key={`cell-${index}`}
+                                      fill={
+                                        entry.status === "Approved"
+                                          ? "#10b981"
+                                          : entry.status === "Changes"
+                                            ? "#f59e0b"
+                                            : "#6366f1"
+                                      }
+                                    />
+                                  )
+                                )}
+                              </Bar>
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      ) : (
+                        <div className="h-40 flex flex-col gap-2 items-center justify-center border-2 border-dashed border-slate-100 rounded-3xl mb-6 text-slate-300">
+                          <Clock size={32} className="opacity-50" />
+                          <span className="text-xs font-bold uppercase">
+                            No Batches in Pipeline
+                          </span>
+                        </div>
+                      )}
+
+                      {/* BATCH INPUTS */}
+                      <div className="space-y-4">
+                        {(editForm.crx_batches || []).map((batch, idx) => (
+                          <div
+                            key={idx}
+                            className="flex flex-col lg:flex-row gap-4 items-end bg-slate-50/50 p-4 rounded-2xl border border-slate-100 hover:border-slate-300 transition-colors group"
+                          >
+                            <div className="flex-1 space-y-1 w-full">
+                              <label className="text-[9px] font-black uppercase text-slate-400 ml-1">
+                                Batch Name
+                              </label>
+                              <input
+                                value={batch.name}
+                                onChange={(e) =>
+                                  modifyArray(
+                                    "crx_batches",
                                     idx,
                                     "name",
                                     e.target.value
                                   )
                                 }
-                                className="flex-1 p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold outline-none focus:bg-white focus:border-indigo-400"
+                                className="w-full p-3 rounded-xl border border-slate-200 text-xs font-bold focus:border-indigo-400 outline-none"
                               />
+                            </div>
+                            <div className="w-full lg:w-32 space-y-1">
+                              <label className="text-[9px] font-black uppercase text-slate-400 ml-1">
+                                FH
+                              </label>
                               <input
-                                placeholder="Voice Reference / Notes"
-                                value={char.voice}
+                                type="number"
+                                step="0.1"
+                                value={batch.fh}
                                 onChange={(e) =>
                                   modifyArray(
-                                    "characters",
+                                    "crx_batches",
                                     idx,
-                                    "voice",
+                                    "fh",
                                     e.target.value
                                   )
                                 }
-                                className="flex-1 p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-600 outline-none focus:bg-white focus:border-indigo-400"
+                                className="w-full p-3 rounded-xl border border-slate-200 text-xs font-bold focus:border-indigo-400 outline-none"
                               />
-                              <button
-                                onClick={() =>
-                                  modifyArray("characters", idx, null, null)
+                            </div>
+                            <div className="w-full lg:w-40 space-y-1">
+                              <label className="text-[9px] font-black uppercase text-slate-400 ml-1">
+                                Sent Date
+                              </label>
+                              <input
+                                type="date"
+                                value={batch.submitted_date}
+                                onChange={(e) =>
+                                  modifyArray(
+                                    "crx_batches",
+                                    idx,
+                                    "submitted_date",
+                                    e.target.value
+                                  )
                                 }
-                                className="text-slate-300 hover:text-red-500 p-2"
+                                className="w-full p-3 rounded-xl border border-slate-200 text-xs font-bold focus:border-indigo-400 outline-none"
+                              />
+                            </div>
+                            <div className="w-full lg:w-40 space-y-1">
+                              <label className="text-[9px] font-black uppercase text-slate-400 ml-1">
+                                Status
+                              </label>
+                              <select
+                                value={batch.status}
+                                onChange={(e) =>
+                                  modifyArray(
+                                    "crx_batches",
+                                    idx,
+                                    "status",
+                                    e.target.value
+                                  )
+                                }
+                                className="w-full p-3 rounded-xl border border-slate-200 text-xs font-bold bg-white focus:border-indigo-400 outline-none"
                               >
-                                <X size={16} />
-                              </button>
+                                <option>Review</option>
+                                <option>Changes</option>
+                                <option>Approved</option>
+                              </select>
                             </div>
-                          ))}
-                          {(editForm.characters || []).length === 0 && (
-                            <div className="text-center py-8 text-slate-300 italic text-sm">
-                              List empty.
+                            <div className="bg-white px-4 py-3 rounded-xl border border-slate-200 h-[42px] flex items-center justify-center min-w-[120px] shadow-sm">
+                              <span className="text-[10px] font-black text-slate-500">
+                                Due:{" "}
+                                {formatDate(
+                                  calculateCRXDeadline(
+                                    batch.submitted_date,
+                                    batch.fh
+                                  )
+                                )}
+                              </span>
                             </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                    {/* TASKS TAB */}
-                    {activeTab === "tasks" && (
-                      <div className="animate-in fade-in duration-300 space-y-4">
-                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                          <h4 className="text-xs font-black uppercase text-slate-400 mb-6 flex items-center gap-2">
-                            <ListTodo size={14} /> Production Steps
-                          </h4>
-                          <div className="grid grid-cols-1 gap-3">
-                            {(editForm.checklist || DEFAULT_CHECKLIST).map(
-                              (task, idx) => (
-                                <div
-                                  key={task.id || idx}
-                                  className={`flex items-center gap-4 p-4 rounded-xl border transition-all cursor-pointer ${task.checked ? "bg-emerald-50 border-emerald-100" : "bg-slate-50 border-slate-100 hover:border-slate-200"}`}
-                                  onClick={() => {
-                                    const copy = [
-                                      ...(editForm.checklist ||
-                                        DEFAULT_CHECKLIST),
-                                    ];
-                                    copy[idx].checked = !copy[idx].checked;
-                                    setEditForm((prev) => ({
-                                      ...prev,
-                                      checklist: copy,
-                                    }));
-                                  }}
-                                >
-                                  <div
-                                    className={`w-6 h-6 rounded-md border flex items-center justify-center transition-colors ${task.checked ? "bg-emerald-500 border-emerald-500 text-white" : "bg-white border-slate-300"}`}
-                                  >
-                                    {task.checked && (
-                                      <Check size={16} strokeWidth={4} />
-                                    )}
-                                  </div>
-                                  <span
-                                    className={`text-sm font-bold ${task.checked ? "text-emerald-700 line-through decoration-emerald-300" : "text-slate-700"}`}
-                                  >
-                                    {task.label}
-                                  </span>
-                                </div>
-                              )
-                            )}
+                            <button
+                              onClick={() =>
+                                modifyArray("crx_batches", idx, null, null)
+                              }
+                              className="p-3 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                            >
+                              <X size={16} />
+                            </button>
                           </div>
-                        </div>
+                        ))}
                       </div>
-                    )}
-                    {/* NOTES TAB */}
-                    {activeTab === "notes" && (
-                      <div className="animate-in fade-in duration-300 h-full">
-                        <div className="bg-white p-1 rounded-2xl border border-slate-200 shadow-sm h-[400px] flex flex-col">
-                          <div className="p-3 border-b border-slate-100 bg-slate-50 rounded-t-xl flex justify-between">
-                            <span className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-2">
-                              <StickyNote size={14} /> Internal Notes
-                            </span>
-                            <span className="text-[10px] font-bold text-slate-400">
-                              Autosaves on Save
-                            </span>
-                          </div>
-                          <textarea
-                            value={editForm.internal_notes}
-                            onChange={(e) =>
-                              updateForm("internal_notes", e.target.value)
-                            }
-                            className="flex-1 w-full p-4 resize-none outline-none text-sm text-slate-700 font-medium leading-relaxed"
-                            placeholder="Type internal production notes here..."
-                          ></textarea>
-                        </div>
-                      </div>
-                    )}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+
+                {/* === BIBLE === */}
+                {activeTab === "bible" && (
+                  <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden">
+                    <div className="p-6 bg-slate-50 flex justify-between items-center border-b border-slate-100">
+                      <h4 className="text-sm font-black uppercase text-slate-500 flex items-center gap-2">
+                        <BookOpen size={16} /> Character List
+                      </h4>
+                      <button
+                        onClick={() =>
+                          addArrayItem("characters", {
+                            name: "",
+                            voice: "",
+                            page: "",
+                            time: "",
+                          })
+                        }
+                        className="text-[10px] font-bold bg-white border border-slate-200 px-4 py-2 rounded-xl hover:border-indigo-300 shadow-sm transition-all"
+                      >
+                        + Add Character
+                      </button>
+                    </div>
+                    <div className="p-6 space-y-2 max-h-[60vh] overflow-y-auto">
+                      <div className="grid grid-cols-12 gap-4 mb-4 px-2">
+                        <div className="col-span-3 text-[9px] font-black uppercase text-slate-400">
+                          Name
+                        </div>
+                        <div className="col-span-4 text-[9px] font-black uppercase text-slate-400">
+                          Voice/Notes
+                        </div>
+                        <div className="col-span-2 text-[9px] font-black uppercase text-slate-400">
+                          Page/Par
+                        </div>
+                        <div className="col-span-2 text-[9px] font-black uppercase text-slate-400">
+                          Audio Time
+                        </div>
+                        <div className="col-span-1"></div>
+                      </div>
+                      {(editForm.characters || []).map((char, idx) => (
+                        <div
+                          key={idx}
+                          className="grid grid-cols-12 gap-4 items-center group"
+                        >
+                          <div className="col-span-3">
+                            <input
+                              placeholder="Name"
+                              value={char.name}
+                              onChange={(e) =>
+                                modifyArray(
+                                  "characters",
+                                  idx,
+                                  "name",
+                                  e.target.value
+                                )
+                              }
+                              className="w-full p-3 bg-slate-50 rounded-xl text-xs font-bold border-transparent focus:bg-white focus:border-indigo-200 border outline-none"
+                            />
+                          </div>
+                          <div className="col-span-4">
+                            <input
+                              placeholder="Voice Desc"
+                              value={char.voice}
+                              onChange={(e) =>
+                                modifyArray(
+                                  "characters",
+                                  idx,
+                                  "voice",
+                                  e.target.value
+                                )
+                              }
+                              className="w-full p-3 bg-slate-50 rounded-xl text-xs border-transparent focus:bg-white focus:border-indigo-200 border outline-none"
+                            />
+                          </div>
+                          <div className="col-span-2">
+                            <input
+                              placeholder="Pg 12"
+                              value={char.page}
+                              onChange={(e) =>
+                                modifyArray(
+                                  "characters",
+                                  idx,
+                                  "page",
+                                  e.target.value
+                                )
+                              }
+                              className="w-full p-3 bg-slate-50 rounded-xl text-xs border-transparent focus:bg-white focus:border-indigo-200 border outline-none"
+                            />
+                          </div>
+                          <div className="col-span-2">
+                            <input
+                              placeholder="00:00"
+                              value={char.time}
+                              onChange={(e) =>
+                                modifyArray(
+                                  "characters",
+                                  idx,
+                                  "time",
+                                  e.target.value
+                                )
+                              }
+                              className="w-full p-3 bg-slate-50 rounded-xl text-xs border-transparent focus:bg-white focus:border-indigo-200 border outline-none"
+                            />
+                          </div>
+                          <div className="col-span-1 text-right">
+                            <button
+                              onClick={() =>
+                                modifyArray("characters", idx, null, null)
+                              }
+                              className="text-slate-300 hover:text-red-500 p-2"
+                            >
+                              <X size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      {(editForm.characters || []).length === 0 && (
+                        <div className="text-center py-10 text-slate-300 text-xs italic">
+                          No characters added yet.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* === TASKS === */}
+                {activeTab === "tasks" && (
+                  <div className="space-y-4">
+                    <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm">
+                      <div className="flex justify-between items-center mb-8">
+                        <h4 className="text-sm font-black uppercase text-slate-400 flex items-center gap-2">
+                          <ListTodo size={16} /> Production Steps
+                        </h4>
+                        <button
+                          onClick={() =>
+                            addArrayItem("checklist", {
+                              label: "New Task",
+                              checked: false,
+                            })
+                          }
+                          className="text-[10px] font-bold uppercase bg-indigo-50 text-indigo-600 px-4 py-2 rounded-xl hover:bg-indigo-100"
+                        >
+                          + Add Task
+                        </button>
+                      </div>
+                      <div className="space-y-3">
+                        {(editForm.checklist || []).map((task, idx) => (
+                          <div
+                            key={idx}
+                            className="group flex items-center gap-4 p-4 rounded-2xl border border-transparent hover:border-slate-100 hover:bg-slate-50 transition-all bg-white shadow-sm"
+                          >
+                            <button
+                              onClick={() =>
+                                modifyArray(
+                                  "checklist",
+                                  idx,
+                                  "checked",
+                                  !task.checked
+                                )
+                              }
+                              className={`w-8 h-8 rounded-xl border flex items-center justify-center transition-all ${task.checked ? "bg-emerald-500 border-emerald-500 text-white" : "bg-white border-slate-200 text-slate-200"}`}
+                            >
+                              {task.checked && (
+                                <Check size={16} strokeWidth={4} />
+                              )}
+                            </button>
+                            <input
+                              value={task.label}
+                              onChange={(e) =>
+                                modifyArray(
+                                  "checklist",
+                                  idx,
+                                  "label",
+                                  e.target.value
+                                )
+                              }
+                              className={`flex-1 bg-transparent text-sm font-bold outline-none ${task.checked ? "text-slate-400 line-through decoration-2 decoration-emerald-200" : "text-slate-700"}`}
+                            />
+                            <button
+                              onClick={() =>
+                                modifyArray("checklist", idx, null, null)
+                              }
+                              className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-opacity p-2"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* === NOTES === */}
+                {activeTab === "notes" && (
+                  <div className="bg-yellow-50/50 p-8 rounded-[2rem] border border-yellow-100 shadow-sm h-[600px] flex flex-col relative">
+                    <div className="absolute top-0 right-0 p-6 opacity-5">
+                      <StickyNote size={100} className="text-yellow-600" />
+                    </div>
+                    <h4 className="text-sm font-black uppercase text-yellow-600/50 mb-6 flex items-center gap-2 relative z-10">
+                      <StickyNote size={16} /> Internal Notes
+                    </h4>
+                    <textarea
+                      value={editForm.internal_notes}
+                      onChange={(e) =>
+                        setEditForm({
+                          ...editForm,
+                          internal_notes: e.target.value,
+                        })
+                      }
+                      className="flex-1 w-full resize-none outline-none text-base font-medium text-slate-700 leading-relaxed bg-transparent relative z-10 placeholder-yellow-600/30"
+                      placeholder="Type details here..."
+                    ></textarea>
+                  </div>
+                )}
+              </div>
             </div>
-          );
-        })}
+          </>
+        )}
       </div>
     </div>
   );

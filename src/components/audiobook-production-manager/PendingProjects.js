@@ -31,6 +31,7 @@ import {
   Mic,
   Clapperboard,
   UserPlus,
+  Rocket, // Added Rocket icon for Production tab
 } from "lucide-react";
 
 const supabase = createClient(
@@ -47,6 +48,7 @@ const TABS = [
   { id: "postponed", label: "Postponed", icon: Clock },
   { id: "on_hold", label: "On Hold", icon: PauseCircle },
   { id: "greenlit", label: "Greenlit", icon: CheckCircle2 },
+  { id: "production", label: "Production", icon: Briefcase }, // NEW TAB ADDED
 ];
 
 // --- HELPERS ---
@@ -77,7 +79,8 @@ const formatDate = (dateStr) => {
   });
 };
 
-export default function PendingProjects({ onUpdate }) {
+// ACCEPT NEW PROP: navigateTab
+export default function PendingProjects({ onUpdate, navigateTab }) {
   const [requests, setRequests] = useState([]);
   const [trackedIds, setTrackedIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
@@ -391,6 +394,7 @@ export default function PendingProjects({ onUpdate }) {
     }
   };
 
+  // UPDATED LOGIC TO CATCH PRODUCTION STATUS
   const getTabForStatus = (status) => {
     if (status === "pending") return "pending";
     if (status === "cinesonic") return "cinesonic";
@@ -402,6 +406,7 @@ export default function PendingProjects({ onUpdate }) {
       status === "first_15"
     )
       return "greenlit";
+    if (status === "production") return "production"; // NEW PRODUCTION CATCH
     return null;
   };
 
@@ -493,13 +498,18 @@ export default function PendingProjects({ onUpdate }) {
             const isInPipeline = trackedIds.has(item.id);
             const destinationName = isRoster ? "First 15" : "Onboarding";
 
+            // CHECK IF PRODUCTION TAB
+            const isProduction = activeTab === "production";
+
             return (
               <div
                 key={item.id}
                 className={`group bg-white p-6 lg:p-8 rounded-[2.5rem] border shadow-xl shadow-slate-200/50 hover:shadow-2xl transition-all duration-300 ${
                   isEditing
                     ? "border-slate-300 ring-2 ring-slate-100"
-                    : "border-slate-100 hover:border-slate-200"
+                    : isProduction
+                      ? "border-emerald-100 ring-1 ring-emerald-50"
+                      : "border-slate-100 hover:border-slate-200"
                 }`}
               >
                 <div className="flex flex-col lg:flex-row gap-8">
@@ -651,7 +661,12 @@ export default function PendingProjects({ onUpdate }) {
                           <div>
                             <div className="flex items-center gap-2 mb-2">
                               {/* TYPE BADGE */}
-                              {activeTab === "greenlit" ? (
+                              {/* --- MODIFIED BADGE LOGIC --- */}
+                              {isProduction ? (
+                                <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest bg-emerald-100 text-emerald-700 animate-pulse">
+                                  In Production
+                                </span>
+                              ) : activeTab === "greenlit" ? (
                                 <button
                                   onClick={() => toggleClientType(item)}
                                   className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest transition-colors ${
@@ -778,6 +793,40 @@ export default function PendingProjects({ onUpdate }) {
                   {/* --- ACTIONS --- */}
                   {!isEditing && (
                     <div className="lg:w-56 shrink-0 flex flex-col justify-center gap-3 border-t lg:border-t-0 lg:border-l border-slate-100 pt-6 lg:pt-0 lg:pl-8">
+                      {/* --- NEW PRODUCTION ACTIONS --- */}
+                      {activeTab === "production" && (
+                        <div className="flex flex-col gap-3">
+                          <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl text-center">
+                            <Rocket
+                              size={24}
+                              className="mx-auto text-emerald-500 mb-2"
+                            />
+                            <p className="text-[10px] font-bold text-emerald-800 uppercase tracking-wide">
+                              Project is Active
+                            </p>
+                          </div>
+                          {navigateTab ? (
+                            <button
+                              onClick={() => navigateTab("production")}
+                              className="w-full py-4 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 shadow-lg shadow-slate-200 transition-all flex items-center justify-center gap-2"
+                            >
+                              <Briefcase size={16} /> Go To Board
+                            </button>
+                          ) : (
+                            <div className="text-[9px] text-slate-400 text-center">
+                              View in Production Tab
+                            </div>
+                          )}
+
+                          <button
+                            onClick={() => updateStatus(item, "first_15")}
+                            className="w-full py-3 bg-white border border-slate-200 text-slate-400 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-slate-50 hover:text-slate-600 transition-all flex items-center justify-center gap-2"
+                          >
+                            <Undo2 size={14} /> Revert to First 15
+                          </button>
+                        </div>
+                      )}
+
                       {/* --- CINESONIC TAB --- */}
                       {activeTab === "cinesonic" && (
                         <div className="flex flex-col gap-2">
