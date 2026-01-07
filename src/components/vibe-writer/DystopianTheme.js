@@ -98,8 +98,8 @@ function useSnowTexture() {
   }, []);
 }
 
-// --- SYSTEM 1: UNIFIED & DENSE SNOW ---
-const SnowSystem = ({ theme }) => {
+// --- SYSTEM 1: SNOW (REVERSED WIND) ---
+const SnowSystem = ({ theme, intensity, windVector }) => {
   const ref = useRef();
   const tex = useSnowTexture();
   const count = 65000;
@@ -107,15 +107,8 @@ const SnowSystem = ({ theme }) => {
   const xBound = 55;
   const yBound = 40;
 
-  // OPTIMIZED Z-DEPTH:
-  // -60 is back in the fog.
-  // 0 is right in front of the camera (but not clipping through it at +10).
-  // This compresses all 65k particles into the visible volume, making it look much fuller.
   const zMin = -60;
   const zMax = 0;
-
-  // Unified wind bias (Drift Right)
-  const windBias = 0.025;
 
   const [positions, data] = useMemo(() => {
     const pos = new Float32Array(count * 3);
@@ -126,7 +119,6 @@ const SnowSystem = ({ theme }) => {
       pos[i * 3 + 1] = (Math.random() - 0.5) * yBound * 2;
       pos[i * 3 + 2] = zMin + Math.random() * (zMax - zMin);
 
-      // Data: [AmplitudeX, FallSpeed, AmplitudeZ, Phase]
       dat[i * 4] = 0.03 + Math.random() * 0.04;
       dat[i * 4 + 1] = 0.05 + Math.random() * 0.2;
       dat[i * 4 + 2] = 0.05 + Math.random() * 0.1;
@@ -141,30 +133,45 @@ const SnowSystem = ({ theme }) => {
     const p = ref.current.geometry.attributes.position.array;
     const time = state.clock.elapsedTime;
 
+    const activeThreshold = Math.floor(count * intensity);
+
+    // CONTROL: Wind (REVERSED)
+    // Multiplied by negative constant to oppose the wind vector
+    const windForce = windVector * -0.04;
+
     for (let i = 0; i < count; i++) {
       const ix = i * 3;
-      const id = i * 4;
 
+      if (i > activeThreshold) {
+        p[ix + 1] = 1000;
+        continue;
+      }
+      if (p[ix + 1] === 1000) {
+        p[ix + 1] = yBound;
+        p[ix] = (Math.random() - 0.5) * xBound * 2;
+      }
+
+      const id = i * 4;
       const swayX = data[id];
       const speed = data[id + 1];
       const swayZ = data[id + 2];
       const phase = data[id + 3];
 
-      // 1. UNIFIED DIRECTION + FLUTTER
+      // 1. DIRECTIONAL MOVEMENT + FLUTTER
       const flutterX = Math.sin(time * 0.3 + phase) * swayX;
-      p[ix] += (windBias + flutterX) * (dt * 20);
+      p[ix] += (windForce + flutterX) * (dt * 20);
 
       // Z-axis gentle wobble
       p[ix + 2] += Math.cos(time * 0.2 + phase) * swayZ * (dt * 20);
 
       // 2. GRAVITY
-      p[ix + 1] -= speed * (dt * 15);
+      const velocityMod = 1 + Math.abs(windVector) * 0.1;
+      p[ix + 1] -= speed * velocityMod * (dt * 15);
 
       // 3. WRAPPING
       if (p[ix + 1] < -yBound) {
         p[ix + 1] = yBound;
         p[ix] = (Math.random() - 0.5) * xBound * 2;
-        // Respawn within visible depth
         p[ix + 2] = zMin + Math.random() * (zMax - zMin);
       }
 
@@ -191,16 +198,14 @@ const SnowSystem = ({ theme }) => {
   );
 };
 
-// --- SYSTEM 2: PERFECTED RAIN ---
-const RainSystem = ({ theme }) => {
+// --- SYSTEM 2: RAIN (NORMAL WIND) ---
+const RainSystem = ({ theme, intensity, windVector }) => {
   const meshRef = useRef();
   const dummy = useMemo(() => new THREE.Object3D(), []);
 
   const count = 20000;
   const xBound = 60;
   const yBound = 50;
-
-  // Z Buffer Zone (Prevents clipping)
   const zMin = -80;
   const zMax = 0;
 
@@ -217,11 +222,27 @@ const RainSystem = ({ theme }) => {
     if (!meshRef.current) return;
     const dt = Math.min(delta, 0.1);
 
+    const activeThreshold = Math.floor(count * intensity);
+
+    // CONTROL: Wind (NORMAL)
+    const windForce = windVector * 0.6;
+
+    const rotationAngle = -windVector * 0.05;
+    const velocityMod = 1 + Math.abs(windVector) * 0.3;
+
     for (let i = 0; i < count; i++) {
       const p = particles[i];
 
-      // Gravity
-      p.y -= p.speed * (dt * 30);
+      if (i > activeThreshold) {
+        dummy.position.set(0, 1000, 0);
+        dummy.updateMatrix();
+        meshRef.current.setMatrixAt(i, dummy.matrix);
+        continue;
+      }
+
+      // Physics
+      p.y -= p.speed * velocityMod * (dt * 30);
+      p.x += windForce * (dt * 30);
 
       if (p.y < -yBound) {
         p.y = yBound;
@@ -229,11 +250,13 @@ const RainSystem = ({ theme }) => {
         p.z = zMin + Math.random() * (zMax - zMin);
       }
 
-      dummy.position.set(p.x, p.y, p.z);
-      dummy.rotation.z = 0;
+      if (p.x > xBound * 2) p.x = -xBound * 2;
+      if (p.x < -xBound * 2) p.x = xBound * 2;
 
-      // Thin & Long
-      dummy.scale.set(0.008, 3.0, 1);
+      dummy.position.set(p.x, p.y, p.z);
+      dummy.rotation.z = rotationAngle;
+
+      dummy.scale.set(0.008, 3.0 + Math.abs(windVector) * 0.5, 1);
 
       dummy.updateMatrix();
       meshRef.current.setMatrixAt(i, dummy.matrix);
@@ -263,6 +286,8 @@ const RainSystem = ({ theme }) => {
 export default function DystopianTheme({
   theme = "teal",
   weatherMode = "snow",
+  intensity = 0.5,
+  windVector = 0,
 }) {
   const bg = THEME_COLORS[theme] || THEME_COLORS.teal;
 
@@ -278,9 +303,17 @@ export default function DystopianTheme({
       </React.Suspense>
 
       {weatherMode === "snow" ? (
-        <SnowSystem theme={theme} />
+        <SnowSystem
+          theme={theme}
+          intensity={intensity}
+          windVector={windVector}
+        />
       ) : (
-        <RainSystem theme={theme} />
+        <RainSystem
+          theme={theme}
+          intensity={intensity}
+          windVector={windVector}
+        />
       )}
     </>
   );
