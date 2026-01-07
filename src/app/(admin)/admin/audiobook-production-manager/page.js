@@ -43,7 +43,7 @@ const TABS = [
   { id: "calendar", label: "Calendar Ops", icon: CalendarRange },
   { id: "onboarding", label: "Onboarding & First 15", icon: Kanban },
   { id: "production", label: "Production", icon: Briefcase },
-  { id: "hours", label: "Hours & ROI", icon: Clock },
+
   { id: "financials", label: "Payments & Contracts", icon: DollarSign },
   { id: "archive", label: "Archive", icon: Archive },
 ];

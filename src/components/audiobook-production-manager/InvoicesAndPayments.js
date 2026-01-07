@@ -4,10 +4,12 @@ import { useState, useEffect, useMemo } from "react";
 import nextDynamic from "next/dynamic";
 import { createClient } from "@/src/utils/supabase/client";
 import {
+  FileText,
   Save,
   Loader2,
   Calculator,
   TrendingUp,
+  RotateCcw,
   Percent,
   PlusCircle,
   Receipt,
@@ -26,11 +28,10 @@ import {
   CheckCircle,
   CheckCircle2,
   XCircle,
-  FileText,
-  RotateCcw,
+  Image as ImageIcon,
+  UploadCloud,
 } from "lucide-react";
 
-// Assumes you created the separate file as discussed
 import InvoicePDF from "./InvoicePDF";
 
 const PDFDownloadLink = nextDynamic(
@@ -141,7 +142,7 @@ const ActionModal = ({ isOpen, type, title, message, onConfirm, onCancel }) => {
 export default function InvoicesAndPayments({ initialProject }) {
   const [projects, setProjects] = useState([]);
   const [invoices, setInvoices] = useState([]);
-  const [productionData, setProductionData] = useState([]); // Store Production Table data
+  const [productionData, setProductionData] = useState([]);
 
   const [activeTab, setActiveTab] = useState("open");
   const [selectedProject, setSelectedProject] = useState(
@@ -149,11 +150,13 @@ export default function InvoicesAndPayments({ initialProject }) {
   );
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [mailFeedback, setMailFeedback] = useState(false);
   const [showPDF, setShowPDF] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [toast, setToast] = useState(null);
   const [modal, setModal] = useState({ isOpen: false });
+  const [lastSaved, setLastSaved] = useState(Date.now());
 
   const [formData, setFormData] = useState({
     pfh_count: 0,
@@ -167,13 +170,13 @@ export default function InvoicesAndPayments({ initialProject }) {
     due_date: "",
     reminders_sent: 0,
     ledger_tab: "open",
+    logo_url: "",
   });
 
   const showToast = (msg, type = "success") => setToast({ message: msg, type });
 
-  // --- FETCHING THE GLUE ---
+  // --- FETCHING ---
   const fetchData = async () => {
-    // 1. Fetch Projects (Table 2)
     const { data: bData } = await supabase
       .from("2_booking_requests")
       .select("*")
@@ -182,15 +185,20 @@ export default function InvoicesAndPayments({ initialProject }) {
       .neq("status", "completed")
       .order("created_at", { ascending: false });
 
-    // 2. Fetch Existing Invoices (Table 9)
-    const { data: iData } = await supabase.from("9_invoices").select("*");
-
-    // 3. FETCH PRODUCTION DATA (Table 4) - This contains the Rate glue
     const { data: pData } = await supabase
       .from("4_production")
       .select("request_id, pfh_rate, pozotron_rate");
+    const activeProductionIds = new Set(pData?.map((p) => p.request_id));
 
-    setProjects(bData || []);
+    const { data: iData } = await supabase.from("9_invoices").select("*");
+    const existingInvoiceIds = new Set(iData?.map((i) => i.project_id));
+
+    // Filter: Must be in Production OR Have an Invoice
+    const validProjects = (bData || []).filter((p) => {
+      return activeProductionIds.has(p.id) || existingInvoiceIds.has(p.id);
+    });
+
+    setProjects(validProjects);
     setInvoices(iData || []);
     setProductionData(pData || []);
   };
@@ -215,36 +223,37 @@ export default function InvoicesAndPayments({ initialProject }) {
     }
   }, [projects]);
 
-  // --- DATA MAPPING (THE LOGIC LINK) ---
+  // --- LOAD DATA ---
   useEffect(() => {
     const loadData = async () => {
       if (!selectedProject?.id) return;
       setLoading(true);
       setShowPDF(false);
 
-      // Check if invoice exists
       const existingInvoice = invoices.find(
         (i) => i.project_id === selectedProject.id
       );
+      const savedLogo =
+        typeof window !== "undefined"
+          ? localStorage.getItem("default_invoice_logo")
+          : "";
 
       if (existingInvoice) {
-        // If invoice exists, it is the SOURCE OF TRUTH.
-        setFormData({ ...existingInvoice });
+        setFormData({
+          ...existingInvoice,
+          logo_url: existingInvoice.logo_url || savedLogo,
+        });
         setIsEditing(false);
       } else {
-        // If NEW invoice, grab defaults from Production Board (Table 4)
         const prodInfo = productionData.find(
           (p) => p.request_id === selectedProject.id
         );
-
-        // Calculate Word Count -> PFH
         const calculatedPFH = selectedProject.word_count
           ? (selectedProject.word_count / 9300).toFixed(2)
           : 0;
 
         setFormData({
           pfh_count: calculatedPFH,
-          // Use Rate from Production Board if available, otherwise default
           pfh_rate: prodInfo?.pfh_rate || 250,
           sag_ph_percent: 0,
           convenience_fee: 0,
@@ -255,6 +264,7 @@ export default function InvoicesAndPayments({ initialProject }) {
           due_date: "",
           reminders_sent: 0,
           ledger_tab: "open",
+          logo_url: savedLogo,
         });
         setIsEditing(true);
       }
@@ -263,7 +273,7 @@ export default function InvoicesAndPayments({ initialProject }) {
     loadData();
   }, [selectedProject, invoices, productionData]);
 
-  // --- CALCULATIONS ---
+  // --- CALCS ---
   const calcs = useMemo(() => {
     const base = Number(formData.pfh_count) * Number(formData.pfh_rate);
     const sag = base * (Number(formData.sag_ph_percent) / 100);
@@ -276,7 +286,7 @@ export default function InvoicesAndPayments({ initialProject }) {
     formData.convenience_fee,
   ]);
 
-  // --- DATE MATH ---
+  // --- DATE LOGIC ---
   useEffect(() => {
     if (formData.invoiced_date && isEditing) {
       let date = new Date(formData.invoiced_date);
@@ -296,6 +306,39 @@ export default function InvoicesAndPayments({ initialProject }) {
     return due ? Math.ceil((today - due) / (1000 * 60 * 60 * 24)) : 0;
   }, [formData.due_date, formData.ledger_tab]);
 
+  // --- LOGO UPLOAD ---
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setIsUploadingLogo(true);
+    try {
+      const fileExt = file.name.split(".").pop();
+      const fileName = `logo-${Date.now()}.${fileExt}`;
+      const filePath = `${fileName}`; // Corrected path
+
+      // Upload to 'admin' bucket in 'logos' folder
+      const { error: uploadError } = await supabase.storage
+        .from("admin")
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from("admin").getPublicUrl(filePath);
+      const publicUrl = data.publicUrl;
+
+      setFormData((prev) => ({ ...prev, logo_url: publicUrl }));
+      localStorage.setItem("default_invoice_logo", publicUrl);
+
+      showToast("Logo Uploaded");
+    } catch (error) {
+      console.error("Logo upload error:", error);
+      showToast("Upload Failed", "error");
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  };
+
   // --- SAVE ---
   const handleSave = async (silent = false) => {
     if (!selectedProject) return;
@@ -307,13 +350,20 @@ export default function InvoicesAndPayments({ initialProject }) {
       project_id: selectedProject.id,
     };
 
-    const inv = invoices.find((i) => i.project_id === selectedProject.id);
+    let invoiceId = formData.id;
+    if (!invoiceId) {
+      const existing = invoices.find(
+        (i) => i.project_id === selectedProject.id
+      );
+      if (existing) invoiceId = existing.id;
+    }
+
     let result;
-    if (inv?.id) {
+    if (invoiceId) {
       result = await supabase
         .from("9_invoices")
         .update(payload)
-        .eq("id", inv.id)
+        .eq("id", invoiceId)
         .select()
         .single();
     } else {
@@ -325,20 +375,24 @@ export default function InvoicesAndPayments({ initialProject }) {
     }
 
     if (!result.error) {
-      // Re-fetch to keep local state in sync
-      const { data: updatedInv } = await supabase
-        .from("9_invoices")
-        .select("*");
-      setInvoices(updatedInv);
-
+      setInvoices((prev) => {
+        const exists = prev.find((i) => i.id === result.data.id);
+        if (exists)
+          return prev.map((i) => (i.id === result.data.id ? result.data : i));
+        return [...prev, result.data];
+      });
+      setFormData(result.data);
       setIsEditing(false);
+      setLastSaved(Date.now());
       if (!silent) showToast("Invoice Saved");
+    } else {
+      if (!silent) showToast("Save Failed", "error");
     }
     if (!silent) setLoading(false);
     return result;
   };
 
-  // --- COMPLETE PROJECT LOGIC ---
+  // --- COMPLETE LOGIC ---
   const triggerComplete = () => {
     setModal({
       isOpen: true,
@@ -351,13 +405,8 @@ export default function InvoicesAndPayments({ initialProject }) {
 
   const executeComplete = async () => {
     setLoading(true);
-
-    // 1. Snapshot the final financial state into Table 9 (Invoices)
-    // This effectively "Archives" the money data
     await handleSave(true);
 
-    // 2. Update Master Record (Table 2) status to 'completed'
-    // This moves it visually to the Archive Board -> Completed Tab
     const { error: updateError } = await supabase
       .from("2_booking_requests")
       .update({ status: "completed", end_date: new Date().toISOString() })
@@ -370,21 +419,17 @@ export default function InvoicesAndPayments({ initialProject }) {
       return;
     }
 
-    // 3. Remove from Active Production (Table 4)
-    // This cleans up the Production Board
     await supabase
       .from("4_production")
       .delete()
       .eq("request_id", selectedProject.id);
 
-    // 4. Update Local UI
     setProjects((prev) => prev.filter((p) => p.id !== selectedProject.id));
     setModal({ isOpen: false });
     setLoading(false);
     showToast("Project Completed!");
   };
 
-  // --- UI HELPERS ---
   const copyEmailDraft = () => {
     const total = formatCurrency(calcs.total);
     let subject = `Invoice ${selectedProject.ref_number}: ${selectedProject.book_title}`;
@@ -511,9 +556,57 @@ export default function InvoicesAndPayments({ initialProject }) {
           <div className="space-y-10">
             {/* HEADER */}
             <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center bg-white sticky top-0 z-20 pb-6 border-b gap-4">
-              <h2 className="text-2xl md:text-3xl font-black italic uppercase tracking-tighter leading-none">
-                Collection: {selectedProject.ref_number}
-              </h2>
+              {/* LOGO & TITLE */}
+              <div className="flex items-center gap-6">
+                <div className="relative group w-20 h-20 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
+                  {formData.logo_url ? (
+                    <img
+                      src={formData.logo_url}
+                      className="w-full h-full object-contain p-1"
+                      alt="Logo"
+                    />
+                  ) : (
+                    <ImageIcon size={24} className="text-slate-300" />
+                  )}
+
+                  {/* EDIT OVERLAY - Fixed Clickability */}
+                  {isEditing && (
+                    <label className="absolute inset-0 bg-slate-900/10 hover:bg-slate-900/60 flex flex-col items-center justify-center cursor-pointer z-20 transition-all">
+                      <div className="opacity-0 group-hover:opacity-100 flex flex-col items-center">
+                        {isUploadingLogo ? (
+                          <Loader2
+                            size={16}
+                            className="text-white animate-spin"
+                          />
+                        ) : (
+                          <UploadCloud size={16} className="text-white" />
+                        )}
+                        <span className="text-[8px] text-white font-bold uppercase mt-1">
+                          Upload
+                        </span>
+                      </div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleLogoUpload}
+                        disabled={isUploadingLogo}
+                      />
+                    </label>
+                  )}
+                </div>
+
+                <div>
+                  <h2 className="text-2xl md:text-3xl font-black italic uppercase tracking-tighter leading-none">
+                    Collection: {selectedProject.ref_number}
+                  </h2>
+                  <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-wider">
+                    {selectedProject.book_title}
+                  </p>
+                </div>
+              </div>
+
+              {/* ACTIONS */}
               <div className="flex flex-wrap gap-2 md:gap-3 w-full xl:w-auto">
                 {!isEditing && (
                   <>
@@ -526,7 +619,7 @@ export default function InvoicesAndPayments({ initialProject }) {
                       </button>
                     ) : (
                       <PDFDownloadLink
-                        key={`${selectedProject.id}-${calcs.total}`}
+                        key={`${selectedProject.id}-${lastSaved}`}
                         document={
                           <InvoicePDF
                             project={selectedProject}
@@ -563,8 +656,14 @@ export default function InvoicesAndPayments({ initialProject }) {
                   )}{" "}
                   {mailFeedback ? "Copied" : "Draft"}
                 </button>
+
+                {/* Save/Edit Logic Fix */}
                 <button
-                  onClick={isEditing ? handleSave : () => setIsEditing(true)}
+                  onClick={
+                    isEditing
+                      ? () => handleSave(false)
+                      : () => setIsEditing(true)
+                  }
                   className="flex-grow xl:flex-grow-0 px-6 md:px-8 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] md:text-xs shadow-xl flex items-center justify-center gap-2"
                 >
                   {loading ? (
@@ -576,6 +675,7 @@ export default function InvoicesAndPayments({ initialProject }) {
                   )}{" "}
                   {isEditing ? "Lock In" : "Edit"}
                 </button>
+
                 {!isEditing && (
                   <button
                     onClick={triggerComplete}
@@ -644,7 +744,7 @@ export default function InvoicesAndPayments({ initialProject }) {
               </div>
             </div>
 
-            {/* LINKS */}
+            {/* LINKS & STATUS & DATES (Kept same as provided code, just ensured inputs are wired to state) */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
               <div className="p-6 md:p-10 rounded-[2.5rem] bg-slate-50 border shadow-sm space-y-4">
                 <h3 className="font-black uppercase text-xs tracking-widest flex items-center gap-2">
@@ -697,7 +797,6 @@ export default function InvoicesAndPayments({ initialProject }) {
               </div>
             </div>
 
-            {/* STATUS & DATES */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 md:gap-8">
               <div
                 className={`p-6 md:p-10 rounded-[2.5rem] border-2 transition-all duration-300 flex flex-col justify-center gap-6 ${formData.reminders_sent === 3 ? "bg-red-50 border-red-600" : "bg-slate-50 border-slate-100"}`}

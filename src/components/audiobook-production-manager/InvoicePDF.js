@@ -1,4 +1,5 @@
 // src/components/production-manager/InvoicePDF.js
+import React from "react";
 import {
   Document,
   Page,
@@ -20,9 +21,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 20,
-    alignItems: "center",
+    alignItems: "flex-start", // Changed to flex-start for better logo alignment
   },
-  logo: { width: 140, height: 140, marginBottom: 10, objectFit: "contain" },
+  // Updated Logo Style
+  logo: {
+    width: 80,
+    height: 80,
+    marginBottom: 10,
+    objectFit: "contain",
+    borderRadius: 4,
+  },
   branding: { fontSize: 11, fontWeight: "bold", lineHeight: 1.4 },
   title: {
     fontSize: 32,
@@ -63,8 +71,6 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   grandTotal: { fontSize: 18, fontWeight: "bold", color: "#059669" },
-
-  // SMALLER, REFINED PAYMENT BUTTON
   payLink: {
     marginTop: 20,
     marginBottom: 10,
@@ -85,7 +91,6 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
-
   noteSection: {
     marginTop: 20,
     padding: 15,
@@ -109,35 +114,37 @@ export default function InvoicePDF({ project, data, calcs }) {
       currency: "USD",
     }).format(amount || 0);
 
-  // Sanitizer to prevent URL appending
   const sanitizeUrl = (url) => {
     if (!url) return "";
     return url.startsWith("http") ? url : `https://${url}`;
   };
 
   const getRealTime = (decimalHours) => {
-    const totalSeconds = Math.floor(decimalHours * 3600);
+    if (!decimalHours) return "00:00:00";
+    const totalSeconds = Math.floor(Number(decimalHours) * 3600);
     const h = Math.floor(totalSeconds / 3600);
     const m = Math.floor((totalSeconds % 3600) / 60);
     const s = totalSeconds % 60;
-    return `${String(h).padStart(2, "0")}:${String(m).padStart(
-      2,
-      "0"
-    )}:${String(s).padStart(2, "0")}`;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   };
+
+  // Fallback if no logo uploaded
+  const logoSrc = data.logo_url || "https://placehold.co/150x150?text=LOGO";
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
           <View>
-            <Image src="/images/dndl-logo.png" style={styles.logo} />
+            {/* DYNAMIC LOGO HERE */}
+            <Image src={logoSrc} style={styles.logo} />
+
             <Text style={styles.branding}>DnDL Creative LLC</Text>
             <Text>DBA Daniel (not Day) Lewis</Text>
             <Text>6809 Main St. #1118</Text>
             <Text>Cincinnati, Ohio 45244</Text>
           </View>
-          <View style={{ alignItems: "right" }}>
+          <View style={{ alignItems: "flex-end" }}>
             <Text style={styles.title}>Invoice</Text>
             <Text style={{ marginTop: 5, fontWeight: "bold" }}>
               Ref #: {project.ref_number || "N/A"}
@@ -167,7 +174,9 @@ export default function InvoicePDF({ project, data, calcs }) {
 
         <View style={styles.tableRow}>
           <Text style={{ flex: 3 }}>Audiobook Production (Performance)</Text>
-          <Text style={{ flex: 1, textAlign: "right" }}>{data.pfh_count}</Text>
+          <Text style={{ flex: 1, textAlign: "right" }}>
+            {Number(data.pfh_count).toFixed(2)}
+          </Text>
           <Text style={{ flex: 1, textAlign: "right" }}>
             {formatCurrency(data.pfh_rate)}
           </Text>
@@ -189,7 +198,6 @@ export default function InvoicePDF({ project, data, calcs }) {
           </View>
         )}
 
-        {/* FIXED MULTI-PERFORMER ROW */}
         {Number(data.convenience_fee) > 0 && (
           <View style={styles.tableRow}>
             <Text style={{ flex: 3 }}>Multi-Performer Flat Rate</Text>
@@ -214,7 +222,6 @@ export default function InvoicePDF({ project, data, calcs }) {
           </View>
         </View>
 
-        {/* CLICKABLE LINK FIX */}
         {data.payment_link && (
           <View style={styles.payLink}>
             <Link
@@ -222,7 +229,7 @@ export default function InvoicePDF({ project, data, calcs }) {
               style={{ textDecoration: "none" }}
             >
               <View style={styles.payButton}>
-                <Text style={styles.payText}>Pay Online</Text>
+                <Text style={styles.payText}>Click to Pay Online</Text>
               </View>
             </Link>
           </View>
