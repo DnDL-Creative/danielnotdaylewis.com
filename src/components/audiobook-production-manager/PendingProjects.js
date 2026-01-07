@@ -31,7 +31,10 @@ import {
   Mic,
   Clapperboard,
   UserPlus,
-  Rocket, // Added Rocket icon for Production tab
+  Rocket,
+  AtSign,
+  Link as LinkIcon,
+  Calendar,
 } from "lucide-react";
 
 const supabase = createClient(
@@ -48,7 +51,7 @@ const TABS = [
   { id: "postponed", label: "Postponed", icon: Clock },
   { id: "on_hold", label: "On Hold", icon: PauseCircle },
   { id: "greenlit", label: "Greenlit", icon: CheckCircle2 },
-  { id: "production", label: "Production", icon: Briefcase }, // NEW TAB ADDED
+  { id: "production", label: "Production", icon: Briefcase },
 ];
 
 // --- HELPERS ---
@@ -79,7 +82,6 @@ const formatDate = (dateStr) => {
   });
 };
 
-// ACCEPT NEW PROP: navigateTab
 export default function PendingProjects({ onUpdate, navigateTab }) {
   const [requests, setRequests] = useState([]);
   const [trackedIds, setTrackedIds] = useState(new Set());
@@ -95,7 +97,7 @@ export default function PendingProjects({ onUpdate, navigateTab }) {
   // Modal State
   const [modal, setModal] = useState({
     isOpen: false,
-    type: null, // 'boot' | 'greenlight'
+    type: null,
     item: null,
   });
 
@@ -369,7 +371,6 @@ export default function PendingProjects({ onUpdate, navigateTab }) {
       if (uploadError) throw uploadError;
 
       const { data } = supabase.storage.from("admin").getPublicUrl(filePath);
-
       const publicUrl = data.publicUrl;
 
       if (isEditingMode) {
@@ -394,7 +395,6 @@ export default function PendingProjects({ onUpdate, navigateTab }) {
     }
   };
 
-  // UPDATED LOGIC TO CATCH PRODUCTION STATUS
   const getTabForStatus = (status) => {
     if (status === "pending") return "pending";
     if (status === "cinesonic") return "cinesonic";
@@ -406,7 +406,7 @@ export default function PendingProjects({ onUpdate, navigateTab }) {
       status === "first_15"
     )
       return "greenlit";
-    if (status === "production") return "production"; // NEW PRODUCTION CATCH
+    if (status === "production") return "production";
     return null;
   };
 
@@ -416,6 +416,7 @@ export default function PendingProjects({ onUpdate, navigateTab }) {
 
   return (
     <div className="space-y-8 pb-24 md:px-12 relative">
+      {/* Toast Notification */}
       <div
         className={`fixed top-6 right-6 z-50 transition-all duration-300 transform ${
           toast.show
@@ -439,6 +440,7 @@ export default function PendingProjects({ onUpdate, navigateTab }) {
         </div>
       </div>
 
+      {/* Tabs */}
       <div className="flex justify-center">
         <div className="flex bg-white p-1.5 rounded-full border border-slate-200 shadow-sm overflow-x-auto max-w-full">
           {TABS.map((tab) => {
@@ -497,8 +499,6 @@ export default function PendingProjects({ onUpdate, navigateTab }) {
 
             const isInPipeline = trackedIds.has(item.id);
             const destinationName = isRoster ? "First 15" : "Onboarding";
-
-            // CHECK IF PRODUCTION TAB
             const isProduction = activeTab === "production";
 
             return (
@@ -506,7 +506,7 @@ export default function PendingProjects({ onUpdate, navigateTab }) {
                 key={item.id}
                 className={`group bg-white p-6 lg:p-8 rounded-[2.5rem] border shadow-xl shadow-slate-200/50 hover:shadow-2xl transition-all duration-300 ${
                   isEditing
-                    ? "border-slate-300 ring-2 ring-slate-100"
+                    ? "border-indigo-200 ring-4 ring-indigo-50 z-20"
                     : isProduction
                       ? "border-emerald-100 ring-1 ring-emerald-50"
                       : "border-slate-100 hover:border-slate-200"
@@ -593,75 +593,321 @@ export default function PendingProjects({ onUpdate, navigateTab }) {
                   {/* --- DETAILS (VIEW VS EDIT) --- */}
                   <div className="flex-grow flex flex-col justify-between">
                     {isEditing ? (
-                      <div className="space-y-4 animate-fade-in">
-                        {/* EDIT FORM (Simplified) */}
-                        <div className="bg-amber-50 p-4 rounded-xl border border-amber-100">
-                          <label className="text-[10px] font-black uppercase tracking-widest text-amber-500 mb-2 block">
-                            Internal Routing (Required)
-                          </label>
-                          <div className="flex gap-4">
-                            <label className="flex items-center gap-2 cursor-pointer">
-                              <input
-                                type="radio"
-                                name="client_type"
-                                value="Direct"
-                                checked={editForm.client_type === "Direct"}
-                                onChange={(e) =>
-                                  setEditForm({
-                                    ...editForm,
-                                    client_type: e.target.value,
-                                  })
-                                }
-                                className="accent-slate-900"
-                              />
-                              <span className="text-sm font-bold text-slate-700">
-                                Direct
-                              </span>
-                            </label>
-                            <label className="flex items-center gap-2 cursor-pointer">
-                              <input
-                                type="radio"
-                                name="client_type"
-                                value="Roster"
-                                checked={editForm.client_type === "Roster"}
-                                onChange={(e) =>
-                                  setEditForm({
-                                    ...editForm,
-                                    client_type: e.target.value,
-                                  })
-                                }
-                                className="accent-slate-900"
-                              />
-                              <span className="text-sm font-bold text-slate-700">
-                                Roster
-                              </span>
-                            </label>
+                      <div className="animate-in fade-in slide-in-from-bottom-2">
+                        {/* --- ROBUST EDIT FORM --- */}
+                        <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200 shadow-inner mb-4">
+                          <div className="flex justify-between items-center mb-4 border-b border-slate-200 pb-2">
+                            <h3 className="text-xs font-black uppercase text-slate-400 flex items-center gap-2">
+                              <Pencil size={14} /> Editing Project Data
+                            </h3>
+                            <span className="text-[10px] font-bold text-slate-300 uppercase">
+                              ID: {editingId.slice(0, 8)}
+                            </span>
                           </div>
-                        </div>
-                        {/* ... Rest of Edit Fields ... */}
-                        <div className="flex gap-2 justify-end pt-2">
-                          <button
-                            onClick={() => setEditingId(null)}
-                            className="px-4 py-2 text-xs font-bold text-slate-500 bg-slate-100 rounded-lg hover:bg-slate-200"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            onClick={saveEdits}
-                            className="px-6 py-2 text-xs font-bold text-white bg-slate-900 rounded-lg hover:bg-emerald-600 shadow-md flex items-center gap-2"
-                          >
-                            <Save size={14} /> Save Changes
-                          </button>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* CORE DETAILS */}
+                            <div className="space-y-4">
+                              <div>
+                                <label className="text-[9px] font-black uppercase text-slate-400 pl-1">
+                                  Book Title
+                                </label>
+                                <div className="relative mt-1">
+                                  <BookOpen
+                                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300"
+                                    size={14}
+                                  />
+                                  <input
+                                    value={editForm.book_title}
+                                    onChange={(e) =>
+                                      setEditForm({
+                                        ...editForm,
+                                        book_title: e.target.value,
+                                      })
+                                    }
+                                    className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-200 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-200 outline-none"
+                                  />
+                                </div>
+                              </div>
+                              <div>
+                                <label className="text-[9px] font-black uppercase text-slate-400 pl-1">
+                                  Client Name
+                                </label>
+                                <div className="relative mt-1">
+                                  <User
+                                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300"
+                                    size={14}
+                                  />
+                                  <input
+                                    value={editForm.client_name}
+                                    onChange={(e) =>
+                                      setEditForm({
+                                        ...editForm,
+                                        client_name: e.target.value,
+                                      })
+                                    }
+                                    className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-200 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-200 outline-none"
+                                  />
+                                </div>
+                              </div>
+                              <div>
+                                <label className="text-[9px] font-black uppercase text-slate-400 pl-1">
+                                  Email
+                                </label>
+                                <div className="relative mt-1">
+                                  <AtSign
+                                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300"
+                                    size={14}
+                                  />
+                                  <input
+                                    value={editForm.email}
+                                    onChange={(e) =>
+                                      setEditForm({
+                                        ...editForm,
+                                        email: e.target.value,
+                                      })
+                                    }
+                                    className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-200 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-200 outline-none"
+                                  />
+                                </div>
+                              </div>
+                              <div>
+                                <label className="text-[9px] font-black uppercase text-slate-400 pl-1">
+                                  Ref Number
+                                </label>
+                                <div className="relative mt-1">
+                                  <Hash
+                                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300"
+                                    size={14}
+                                  />
+                                  <input
+                                    value={editForm.ref_number}
+                                    onChange={(e) =>
+                                      setEditForm({
+                                        ...editForm,
+                                        ref_number: e.target.value,
+                                      })
+                                    }
+                                    className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-200 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-200 outline-none"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* PRODUCTION SPECS */}
+                            <div className="space-y-4">
+                              <div>
+                                <label className="text-[9px] font-black uppercase text-slate-400 pl-1">
+                                  Word Count
+                                </label>
+                                <div className="relative mt-1">
+                                  <Calculator
+                                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300"
+                                    size={14}
+                                  />
+                                  <input
+                                    value={editForm.word_count_display}
+                                    onChange={(e) =>
+                                      setEditForm({
+                                        ...editForm,
+                                        word_count_display:
+                                          formatNumberWithCommas(
+                                            e.target.value.replace(/,/g, "")
+                                          ),
+                                      })
+                                    }
+                                    className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-200 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-200 outline-none"
+                                  />
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <label className="text-[9px] font-black uppercase text-slate-400 pl-1">
+                                    Genre
+                                  </label>
+                                  <div className="relative mt-1">
+                                    <Tag
+                                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300"
+                                      size={14}
+                                    />
+                                    <input
+                                      value={editForm.genre}
+                                      onChange={(e) =>
+                                        setEditForm({
+                                          ...editForm,
+                                          genre: e.target.value,
+                                        })
+                                      }
+                                      className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-200 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-200 outline-none"
+                                    />
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="text-[9px] font-black uppercase text-slate-400 pl-1">
+                                    Style
+                                  </label>
+                                  <div className="relative mt-1">
+                                    <Mic2
+                                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300"
+                                      size={14}
+                                    />
+                                    <input
+                                      value={editForm.narration_style}
+                                      onChange={(e) =>
+                                        setEditForm({
+                                          ...editForm,
+                                          narration_style: e.target.value,
+                                        })
+                                      }
+                                      className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-200 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-200 outline-none"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <label className="text-[9px] font-black uppercase text-slate-400 pl-1">
+                                    Start Date
+                                  </label>
+                                  <input
+                                    type="date"
+                                    value={editForm.start_date}
+                                    onChange={(e) =>
+                                      setEditForm({
+                                        ...editForm,
+                                        start_date: e.target.value,
+                                      })
+                                    }
+                                    className="mt-1 w-full p-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 focus:ring-2 focus:ring-indigo-200 outline-none"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-[9px] font-black uppercase text-slate-400 pl-1">
+                                    End Date
+                                  </label>
+                                  <input
+                                    type="date"
+                                    value={editForm.end_date}
+                                    onChange={(e) =>
+                                      setEditForm({
+                                        ...editForm,
+                                        end_date: e.target.value,
+                                      })
+                                    }
+                                    className="mt-1 w-full p-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 focus:ring-2 focus:ring-indigo-200 outline-none"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* ADMIN & NOTES */}
+                            <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-slate-200">
+                              <div>
+                                <label className="text-[9px] font-black uppercase text-slate-400 pl-1 mb-2 block">
+                                  Routing & Status
+                                </label>
+                                <div className="flex gap-4 mb-4">
+                                  <label className="flex items-center gap-2 cursor-pointer bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm">
+                                    <input
+                                      type="radio"
+                                      name="client_type"
+                                      value="Direct"
+                                      checked={
+                                        editForm.client_type === "Direct"
+                                      }
+                                      onChange={(e) =>
+                                        setEditForm({
+                                          ...editForm,
+                                          client_type: e.target.value,
+                                        })
+                                      }
+                                      className="accent-indigo-600"
+                                    />
+                                    <span className="text-xs font-bold text-slate-700">
+                                      Direct (Onboarding)
+                                    </span>
+                                  </label>
+                                  <label className="flex items-center gap-2 cursor-pointer bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm">
+                                    <input
+                                      type="radio"
+                                      name="client_type"
+                                      value="Roster"
+                                      checked={
+                                        editForm.client_type === "Roster"
+                                      }
+                                      onChange={(e) =>
+                                        setEditForm({
+                                          ...editForm,
+                                          client_type: e.target.value,
+                                        })
+                                      }
+                                      className="accent-indigo-600"
+                                    />
+                                    <span className="text-xs font-bold text-slate-700">
+                                      Roster (First 15)
+                                    </span>
+                                  </label>
+                                </div>
+                                <div className="relative">
+                                  <LinkIcon
+                                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300"
+                                    size={14}
+                                  />
+                                  <input
+                                    placeholder="Email Thread Link"
+                                    value={editForm.email_thread_link}
+                                    onChange={(e) =>
+                                      setEditForm({
+                                        ...editForm,
+                                        email_thread_link: e.target.value,
+                                      })
+                                    }
+                                    className="w-full pl-9 pr-3 py-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 focus:ring-2 focus:ring-indigo-200 outline-none"
+                                  />
+                                </div>
+                              </div>
+                              <div>
+                                <label className="text-[9px] font-black uppercase text-slate-400 pl-1 mb-1 block">
+                                  Notes
+                                </label>
+                                <textarea
+                                  value={editForm.notes}
+                                  onChange={(e) =>
+                                    setEditForm({
+                                      ...editForm,
+                                      notes: e.target.value,
+                                    })
+                                  }
+                                  className="w-full p-3 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 h-24 resize-none focus:ring-2 focus:ring-indigo-200 outline-none"
+                                  placeholder="Internal notes..."
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-3 justify-end pt-6 mt-4 border-t border-slate-200">
+                            <button
+                              onClick={() => setEditingId(null)}
+                              className="px-6 py-2.5 text-xs font-bold uppercase text-slate-500 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:text-slate-700"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={saveEdits}
+                              className="px-8 py-2.5 text-xs font-bold uppercase text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 shadow-lg shadow-indigo-200 flex items-center gap-2"
+                            >
+                              <Save size={14} /> Save Changes
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ) : (
-                      <div>
+                      <div className="animate-in fade-in">
                         {/* READ ONLY MODE */}
                         <div className="flex items-start justify-between gap-4 mb-4">
                           <div>
                             <div className="flex items-center gap-2 mb-2">
                               {/* TYPE BADGE */}
-                              {/* --- MODIFIED BADGE LOGIC --- */}
                               {isProduction ? (
                                 <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest bg-emerald-100 text-emerald-700 animate-pulse">
                                   In Production
@@ -718,15 +964,15 @@ export default function PendingProjects({ onUpdate, navigateTab }) {
                             {!activeTab.includes("cinesonic") && (
                               <button
                                 onClick={() => startEditing(item)}
-                                className="p-2 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                                className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-transparent hover:border-indigo-100"
                               >
-                                <Pencil size={16} />
+                                <Pencil size={18} />
                               </button>
                             )}
                           </div>
                         </div>
 
-                        {/* --- STATS GRID (SHOWS DATE FOR CINESONIC TOO) --- */}
+                        {/* --- STATS GRID --- */}
                         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
                           <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
                             <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
@@ -793,7 +1039,6 @@ export default function PendingProjects({ onUpdate, navigateTab }) {
                   {/* --- ACTIONS --- */}
                   {!isEditing && (
                     <div className="lg:w-56 shrink-0 flex flex-col justify-center gap-3 border-t lg:border-t-0 lg:border-l border-slate-100 pt-6 lg:pt-0 lg:pl-8">
-                      {/* --- NEW PRODUCTION ACTIONS --- */}
                       {activeTab === "production" && (
                         <div className="flex flex-col gap-3">
                           <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl text-center">
@@ -865,8 +1110,6 @@ export default function PendingProjects({ onUpdate, navigateTab }) {
                             )}
                             Greenlight
                           </button>
-
-                          {/* NEW: ADD TO LEADS BUTTON */}
                           <button
                             onClick={() => handleAddToLeads(item)}
                             className="w-full py-3 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all flex items-center justify-center gap-2"
@@ -874,7 +1117,6 @@ export default function PendingProjects({ onUpdate, navigateTab }) {
                           >
                             <UserPlus size={14} /> Add to Leads
                           </button>
-
                           <div className="grid grid-cols-2 gap-2">
                             <button
                               onClick={() => updateStatus(item, "on_hold")}
@@ -898,7 +1140,7 @@ export default function PendingProjects({ onUpdate, navigateTab }) {
                         </>
                       )}
 
-                      {/* ... (Other tabs remain the same) ... */}
+                      {/* ... Other Tabs ... */}
                       {activeTab === "on_hold" && (
                         <>
                           <button
@@ -994,7 +1236,7 @@ export default function PendingProjects({ onUpdate, navigateTab }) {
         </div>
       )}
 
-      {/* ... (Modals) ... */}
+      {/* ... (Modals remain unchanged) ... */}
       {modal.isOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div

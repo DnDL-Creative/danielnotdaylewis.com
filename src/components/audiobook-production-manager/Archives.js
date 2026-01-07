@@ -66,12 +66,13 @@ export default function Archives() {
         .order("archived_at", { ascending: false });
 
       const mappedBooted = (bootedData || []).map((row) => {
+        // Handle nested or flat structure depending on how it was saved
         const details = row.original_data?.request || row.original_data || {};
         return {
           ...details,
           ...row,
           archive_id: row.id, // CRITICAL: This is the ID for table 6
-          request_id: details.id,
+          request_id: details.id || row.original_data?.id, // ID for table 2
           status: "booted",
         };
       });
@@ -84,6 +85,7 @@ export default function Archives() {
         .in("status", ["archived", "completed"])
         .order("end_date", { ascending: false });
 
+      // Filter out items that are physically in the archive table to avoid dupes
       const bootedIds = mappedBooted.map((b) => b.request_id);
       const cleanCompleted = (completedData || []).filter(
         (c) => !bootedIds.includes(c.id)
@@ -131,27 +133,32 @@ export default function Archives() {
     setBootedItems((prev) =>
       prev.filter((i) => i.archive_id !== item.archive_id)
     );
-    closeModal(); // Close modal immediately for speed
+    closeModal();
 
     try {
-      // 2. Insert back into 2_booking_requests as deleted
-      const payload = { ...item.original_data, status: "deleted" };
-      await supabase.from("2_booking_requests").insert([payload]);
+      // 2. UPSERT into 2_booking_requests as deleted
+      // CHANGED FROM INSERT TO UPSERT to handle existing records
+      const requestData = item.original_data.request || item.original_data;
+      const payload = { ...requestData, status: "deleted" };
 
-      // 3. DELETE FROM 6_ARCHIVE (Fixed Table Name)
-      const { error } = await supabase
+      const { error: upsertError } = await supabase
+        .from("2_booking_requests")
+        .upsert([payload]);
+
+      if (upsertError) throw upsertError;
+
+      // 3. DELETE FROM 6_archive
+      const { error: deleteError } = await supabase
         .from("6_archive")
         .delete()
         .eq("id", item.archive_id);
 
-      if (error) throw error;
+      if (deleteError) throw deleteError;
 
-      // 4. Silent Re-fetch to sync
       fetchArchives();
     } catch (err) {
       console.error("Error trashing item:", err);
-      // Revert optimism if needed (optional)
-      fetchArchives();
+      fetchArchives(); // Revert optimism on error
     }
   };
 
@@ -163,13 +170,16 @@ export default function Archives() {
     setDeletedItems((prev) => prev.filter((i) => i.id !== item.id));
     closeModal();
 
-    await supabase
-      .from("3_onboarding_first_15")
-      .delete()
-      .eq("request_id", item.id);
-    await supabase.from("2_booking_requests").delete().eq("id", item.id);
-
-    fetchArchives();
+    try {
+      await supabase
+        .from("3_onboarding_first_15")
+        .delete()
+        .eq("request_id", item.id);
+      await supabase.from("2_booking_requests").delete().eq("id", item.id);
+      fetchArchives();
+    } catch (error) {
+      console.error("Wipe failed", error);
+    }
   };
 
   const executeRestore = async () => {
@@ -186,23 +196,34 @@ export default function Archives() {
     }
     closeModal();
 
-    if (view === "booted") {
-      const payload = { ...item.original_data, status: "pending" };
-      const { error } = await supabase
-        .from("2_booking_requests")
-        .insert([payload]);
+    try {
+      if (view === "booted") {
+        // --- FIX IS HERE: CHANGED INSERT TO UPSERT ---
+        // 1. Prepare Data: Ensure we grab the core request data, stripped of join artifacts
+        const requestData = item.original_data.request || item.original_data;
+        const payload = { ...requestData, status: "pending" };
 
-      if (!error) {
-        // DELETE FROM 6_ARCHIVE (Fixed Table Name)
+        // 2. Upsert (Update if exists, Insert if not)
+        const { error: restoreError } = await supabase
+          .from("2_booking_requests")
+          .upsert([payload]);
+
+        if (restoreError) throw restoreError;
+
+        // 3. Remove from Archive Table
         await supabase.from("6_archive").delete().eq("id", item.archive_id);
+      } else {
+        // Restoring from Trash/Deleted
+        await supabase
+          .from("2_booking_requests")
+          .update({ status: "pending" })
+          .eq("id", item.id);
       }
-    } else {
-      await supabase
-        .from("2_booking_requests")
-        .update({ status: "pending" })
-        .eq("id", item.id);
+      fetchArchives();
+    } catch (error) {
+      console.error("Restore failed:", error);
+      fetchArchives(); // Revert
     }
-    fetchArchives();
   };
 
   const executeDNC = async () => {
