@@ -454,7 +454,7 @@ export default function MasterEditorPage() {
 
       {/* --- BACKGROUND CANVAS --- */}
       {isDark && mountCanvas && (
-        <div className="absolute inset-0 z-0 opacity-100 pointer-events-none">
+        <div className="absolute inset-0 z-0 opacity-100 pointer-events-none hidden md:block">
           <Suspense fallback={null}>
             <Canvas camera={{ position: [0, 0, 10], fov: 60 }}>
               <DystopianSnow
