@@ -66,6 +66,8 @@ import {
   ChevronDown,
   Loader2,
   Database,
+  Pin,
+  PinOff,
 } from "lucide-react";
 
 // --- EXPORT DEPENDENCIES ---
@@ -74,6 +76,7 @@ import {
   Document,
   Page,
   Text as PdfText,
+  View as PdfView,
   StyleSheet,
 } from "@react-pdf/renderer";
 import {
@@ -82,30 +85,73 @@ import {
   Paragraph,
   TextRun,
   HeadingLevel,
+  AlignmentType,
 } from "docx";
 import { saveAs } from "file-saver";
 
 // -----------------------------------------------------------------------------
-// 0. EXPORT LOGIC & STYLES
+// 0. RICH TEXT PARSING LOGIC
 // -----------------------------------------------------------------------------
-
-const extractTextSegments = (html) => {
+const parseHtmlToRichSegments = (html) => {
   if (typeof window === "undefined") return [];
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, "text/html");
-  // Added 'li' to capture list items
-  const nodes = doc.body.querySelectorAll(
-    "p, h1, h2, h3, h4, li, blockquote, pre"
-  );
-  return Array.from(nodes)
-    .map((node) => ({
-      type: node.tagName.toLowerCase(),
-      text: node.textContent || "",
-    }))
-    .filter((item) => item.text.trim() !== "");
+  const blocks = [];
+
+  const parseInline = (node, style = {}) => {
+    if (node.nodeType === 3) return [{ text: node.textContent, ...style }];
+    if (node.nodeType === 1) {
+      const newStyle = { ...style };
+      const tag = node.tagName.toLowerCase();
+      if (tag === "strong" || tag === "b") newStyle.bold = true;
+      if (tag === "em" || tag === "i") newStyle.italic = true;
+      if (tag === "u") newStyle.underline = true;
+      if (tag === "s" || tag === "strike" || tag === "del")
+        newStyle.strike = true;
+      if (tag === "sup") newStyle.superScript = true;
+      if (tag === "sub") newStyle.subScript = true;
+      if (tag === "code") newStyle.code = true;
+      let runs = [];
+      node.childNodes.forEach((child) => {
+        runs = runs.concat(parseInline(child, newStyle));
+      });
+      return runs;
+    }
+    return [];
+  };
+
+  const getAlignment = (node) => {
+    const align = node.style.textAlign;
+    if (align === "center") return "center";
+    if (align === "right") return "right";
+    if (align === "justify") return "justify";
+    return "left";
+  };
+
+  Array.from(doc.body.children).forEach((node) => {
+    const tag = node.tagName.toLowerCase();
+    const align = getAlignment(node);
+    if (["p", "h1", "h2", "h3", "h4", "blockquote"].includes(tag)) {
+      blocks.push({ type: tag, align: align, children: parseInline(node) });
+    } else if (tag === "ul" || tag === "ol") {
+      Array.from(node.children).forEach((li) => {
+        if (li.tagName.toLowerCase() === "li") {
+          blocks.push({
+            type: "li",
+            listType: tag,
+            align: getAlignment(li) || align,
+            children: parseInline(li),
+          });
+        }
+      });
+    }
+  });
+  return blocks;
 };
 
-// PDF Styles (Basic fallback)
+// -----------------------------------------------------------------------------
+// PDF TEMPLATE
+// -----------------------------------------------------------------------------
 const pdfStyles = StyleSheet.create({
   page: { padding: 40, fontFamily: "Helvetica" },
   title: {
@@ -114,23 +160,33 @@ const pdfStyles = StyleSheet.create({
     fontWeight: "bold",
     color: "#14b8a6",
   },
-  h1: { fontSize: 18, marginTop: 15, marginBottom: 5, fontWeight: "bold" },
+  block: { marginBottom: 6, lineHeight: 1.5 },
+  h1: { fontSize: 18, marginTop: 12, marginBottom: 4, fontWeight: "bold" },
   h2: {
     fontSize: 16,
-    marginTop: 12,
-    marginBottom: 5,
+    marginTop: 10,
+    marginBottom: 4,
     fontWeight: "bold",
-    color: "#555",
+    color: "#444",
   },
-  body: { fontSize: 11, lineHeight: 1.6, marginBottom: 8, color: "#333" },
-  quote: {
+  h3: {
+    fontSize: 14,
+    marginTop: 8,
+    marginBottom: 4,
+    fontWeight: "bold",
+    color: "#666",
+  },
+  h4: { fontSize: 12, marginTop: 6, marginBottom: 4, fontWeight: "bold" },
+  body: { fontSize: 11, color: "#222" },
+  blockquote: {
     fontSize: 11,
     fontStyle: "italic",
-    color: "#666",
+    color: "#555",
     borderLeft: "2px solid #ccc",
     paddingLeft: 10,
-    marginVertical: 10,
+    marginVertical: 5,
   },
+  li: { fontSize: 11, marginBottom: 2, flexDirection: "row" },
   footer: {
     position: "absolute",
     bottom: 30,
@@ -142,26 +198,88 @@ const pdfStyles = StyleSheet.create({
   },
 });
 
-const PdfTemplate = ({ segments, title }) => (
+const PdfTemplate = ({ blocks, title }) => (
   <Document>
     <Page size="A4" style={pdfStyles.page}>
       <PdfText style={pdfStyles.title}>{title || "Untitled Draft"}</PdfText>
-      {segments.map((seg, i) => {
-        if (seg.type.startsWith("h"))
+      {blocks.map((block, i) => {
+        const renderRuns = (runs) =>
+          runs.map((run, rI) => (
+            <PdfText
+              key={rI}
+              style={{
+                fontFamily: run.bold
+                  ? "Helvetica-Bold"
+                  : run.italic
+                    ? "Helvetica-Oblique"
+                    : "Helvetica",
+                textDecoration: run.underline
+                  ? "underline"
+                  : run.strike
+                    ? "line-through"
+                    : "none",
+                fontSize: run.subScript || run.superScript ? 8 : undefined,
+                verticalAlign: run.superScript
+                  ? "super"
+                  : run.subScript
+                    ? "sub"
+                    : "baseline",
+                backgroundColor: run.code ? "#eee" : undefined,
+              }}
+            >
+              {run.text}
+            </PdfText>
+          ));
+        const alignStyle = { textAlign: block.align };
+
+        if (block.type === "h1")
           return (
-            <PdfText key={i} style={pdfStyles.h1}>
-              {seg.text}
+            <PdfText key={i} style={[pdfStyles.h1, alignStyle]}>
+              {renderRuns(block.children)}
             </PdfText>
           );
-        if (seg.type === "blockquote")
+        if (block.type === "h2")
           return (
-            <PdfText key={i} style={pdfStyles.quote}>
-              {seg.text}
+            <PdfText key={i} style={[pdfStyles.h2, alignStyle]}>
+              {renderRuns(block.children)}
             </PdfText>
           );
+        if (block.type === "h3")
+          return (
+            <PdfText key={i} style={[pdfStyles.h3, alignStyle]}>
+              {renderRuns(block.children)}
+            </PdfText>
+          );
+        if (block.type === "h4")
+          return (
+            <PdfText key={i} style={[pdfStyles.h4, alignStyle]}>
+              {renderRuns(block.children)}
+            </PdfText>
+          );
+        if (block.type === "blockquote")
+          return (
+            <PdfView key={i} style={[pdfStyles.blockquote, alignStyle]}>
+              <PdfText>{renderRuns(block.children)}</PdfText>
+            </PdfView>
+          );
+        if (block.type === "li") {
+          return (
+            <PdfView key={i} style={[pdfStyles.li, alignStyle]}>
+              <PdfText style={{ width: 15 }}>
+                {block.listType === "ol" ? `${i + 1}.` : "•"}
+              </PdfText>
+              <PdfText style={{ flex: 1 }}>
+                {renderRuns(block.children)}
+              </PdfText>
+            </PdfView>
+          );
+        }
         return (
-          <PdfText key={i} style={pdfStyles.body}>
-            {seg.text}
+          <PdfText
+            key={i}
+            style={[pdfStyles.block, pdfStyles.body, alignStyle]}
+          >
+            {renderRuns(block.children)}
           </PdfText>
         );
       })}
@@ -170,25 +288,28 @@ const PdfTemplate = ({ segments, title }) => (
   </Document>
 );
 
+// -----------------------------------------------------------------------------
+// EXPORT MENU
+// -----------------------------------------------------------------------------
 const VibeExportMenu = ({ onSqlExport, title }) => {
   const [editor] = useLexicalComposerContext();
   const [isOpen, setIsOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
-  const getCleanContent = () => {
+  const getRichContent = () => {
     let htmlString = "";
     editor.update(() => {
       htmlString = $generateHtmlFromNodes(editor, null);
     });
-    return extractTextSegments(htmlString);
+    return parseHtmlToRichSegments(htmlString);
   };
 
   const handleExportPDF = async () => {
     setIsExporting(true);
     try {
-      const segments = getCleanContent();
+      const blocks = getRichContent();
       const blob = await pdf(
-        <PdfTemplate segments={segments} title={title} />
+        <PdfTemplate blocks={blocks} title={title} />
       ).toBlob();
       saveAs(blob, `${title || "vibe-draft"}.pdf`);
     } catch (e) {
@@ -198,58 +319,72 @@ const VibeExportMenu = ({ onSqlExport, title }) => {
     setIsOpen(false);
   };
 
-  // --- FIXED DOCX MAPPING LOGIC ---
   const handleExportDOCX = async () => {
     setIsExporting(true);
     try {
-      const segments = getCleanContent();
-      const docChildren = segments.map((seg) => {
-        switch (seg.type) {
+      const blocks = getRichContent();
+      const docChildren = blocks.map((block) => {
+        const runs = block.children.map(
+          (child) =>
+            new TextRun({
+              text: child.text,
+              bold: child.bold,
+              italics: child.italic,
+              underline: child.underline ? {} : undefined,
+              strike: child.strike,
+              superScript: child.superScript,
+              subScript: child.subScript,
+              font: child.code ? "Courier New" : undefined,
+              size: 24,
+            })
+        );
+        let alignment = AlignmentType.LEFT;
+        if (block.align === "center") alignment = AlignmentType.CENTER;
+        if (block.align === "right") alignment = AlignmentType.RIGHT;
+        if (block.align === "justify") alignment = AlignmentType.JUSTIFIED;
+        const paragraphConfig = {
+          children: runs,
+          alignment: alignment,
+          spacing: { after: 120 },
+        };
+        switch (block.type) {
           case "h1":
             return new Paragraph({
-              text: seg.text,
+              ...paragraphConfig,
               heading: HeadingLevel.HEADING_1,
             });
           case "h2":
             return new Paragraph({
-              text: seg.text,
+              ...paragraphConfig,
               heading: HeadingLevel.HEADING_2,
             });
           case "h3":
             return new Paragraph({
-              text: seg.text,
+              ...paragraphConfig,
               heading: HeadingLevel.HEADING_3,
             });
           case "h4":
             return new Paragraph({
-              text: seg.text,
+              ...paragraphConfig,
               heading: HeadingLevel.HEADING_4,
             });
           case "li":
-            return new Paragraph({
-              text: seg.text,
-              bullet: { level: 0 }, // List Item
-            });
+            return new Paragraph({ ...paragraphConfig, bullet: { level: 0 } });
           case "blockquote":
             return new Paragraph({
-              children: [new TextRun({ text: seg.text, italics: true })],
-              indent: { left: 720 }, // Indent for quotes
+              ...paragraphConfig,
+              indent: { left: 720 },
+              style: "Quote",
             });
           default:
-            // Normal Text
-            return new Paragraph({
-              children: [new TextRun({ text: seg.text, size: 24 })], // 12pt = 24 half-points
-              spacing: { after: 200 },
-            });
+            return new Paragraph(paragraphConfig);
         }
       });
-
       const doc = new DocxDocument({
         sections: [
           {
             properties: {},
             children: [
-              // THIS IS THE MAIN TITLE
               new Paragraph({
                 text: title || "Untitled Transmission",
                 heading: HeadingLevel.TITLE,
@@ -259,7 +394,6 @@ const VibeExportMenu = ({ onSqlExport, title }) => {
           },
         ],
       });
-
       const blob = await Packer.toBlob(doc);
       saveAs(blob, `${title || "vibe-draft"}.docx`);
     } catch (e) {
@@ -292,13 +426,11 @@ const VibeExportMenu = ({ onSqlExport, title }) => {
           className={`transition-transform ${isOpen ? "rotate-180" : ""}`}
         />
       </button>
-
       {isOpen && (
         <div className="absolute top-full right-0 mt-2 w-48 bg-[#0f172a] border border-white/10 rounded-xl shadow-2xl z-[60] overflow-hidden animate-in fade-in zoom-in-95">
           <div className="px-3 py-2 text-[10px] font-bold uppercase text-slate-500 tracking-widest border-b border-white/5">
             Download As...
           </div>
-
           <button
             onClick={handleExportPDF}
             className="w-full text-left px-4 py-3 hover:bg-white/5 flex items-center gap-3 transition-colors border-b border-white/5 group"
@@ -308,10 +440,9 @@ const VibeExportMenu = ({ onSqlExport, title }) => {
             </div>
             <div>
               <div className="text-xs font-bold text-slate-200">PDF</div>
-              <div className="text-[10px] text-slate-500">Read-only format</div>
+              <div className="text-[10px] text-slate-500">Rich Formatting</div>
             </div>
           </button>
-
           <button
             onClick={handleExportDOCX}
             className="w-full text-left px-4 py-3 hover:bg-white/5 flex items-center gap-3 transition-colors border-b border-white/5 group"
@@ -321,10 +452,9 @@ const VibeExportMenu = ({ onSqlExport, title }) => {
             </div>
             <div>
               <div className="text-xs font-bold text-slate-200">Word Doc</div>
-              <div className="text-[10px] text-slate-500">Editable format</div>
+              <div className="text-[10px] text-slate-500">Full Edit Mode</div>
             </div>
           </button>
-
           <button
             onClick={handleSqlClick}
             className="w-full text-left px-4 py-3 hover:bg-white/5 flex items-center gap-3 transition-colors group"
@@ -374,7 +504,7 @@ const vibeTheme = {
 };
 
 // -----------------------------------------------------------------------------
-// 2. VIBE MODAL (Links Only)
+// 2. VIBE MODAL
 // -----------------------------------------------------------------------------
 const VibeModal = ({ isOpen, onClose, onConfirm }) => {
   const [value, setValue] = useState("");
@@ -435,12 +565,11 @@ const VibeModal = ({ isOpen, onClose, onConfirm }) => {
 };
 
 // -----------------------------------------------------------------------------
-// 3. TOOLBAR COMPONENT
+// 3. TOOLBAR COMPONENT (Sticky + Rounded Fix)
 // -----------------------------------------------------------------------------
 function VibeToolbar({ onSqlExport, title }) {
   const [editor] = useLexicalComposerContext();
   const [activeBlock, setActiveBlock] = useState("paragraph");
-
   const [isBold, setIsBold] = useState(false);
   const [isItalic, setIsItalic] = useState(false);
   const [isUnderline, setIsUnderline] = useState(false);
@@ -448,7 +577,7 @@ function VibeToolbar({ onSqlExport, title }) {
   const [isSubscript, setIsSubscript] = useState(false);
   const [isSuperscript, setIsSuperscript] = useState(false);
   const [isCode, setIsCode] = useState(false);
-
+  const [isSticky, setIsSticky] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
 
   const updateToolbar = useCallback(() => {
@@ -461,14 +590,12 @@ function VibeToolbar({ onSqlExport, title }) {
       setIsSubscript(selection.hasFormat("subscript"));
       setIsSuperscript(selection.hasFormat("superscript"));
       setIsCode(selection.hasFormat("code"));
-
       const anchorNode = selection.anchor.getNode();
       const element =
         anchorNode.getKey() === "root"
           ? anchorNode
           : anchorNode.getTopLevelElementOrThrow();
       const elementDOM = editor.getElementByKey(element.getKey());
-
       if (elementDOM !== null) {
         if ($isListNode(element)) {
           const parentList = element.getParent();
@@ -535,7 +662,9 @@ function VibeToolbar({ onSqlExport, title }) {
 
   return (
     <>
-      <div className="flex items-center flex-wrap gap-1 p-4 border-b theme-border-dim bg-[var(--bg-toolbar)] backdrop-blur-md sticky top-0 z-50">
+      <div
+        className={`flex items-center flex-wrap gap-1 p-4 border-b theme-border-dim bg-[var(--bg-toolbar)] backdrop-blur-md transition-all duration-300 z-50 rounded-t-[1.9rem] ${isSticky ? "sticky top-0" : "relative"}`}
+      >
         <button
           onMouseDown={(e) => {
             e.preventDefault();
@@ -722,7 +851,19 @@ function VibeToolbar({ onSqlExport, title }) {
           <AlignRight size={18} />
         </button>
 
-        {/* --- ADDED VIBE EXPORT MENU HERE --- */}
+        <div className="ml-2 pl-2 border-l border-white/10">
+          <button
+            onMouseDown={(e) => {
+              e.preventDefault();
+              setIsSticky(!isSticky);
+            }}
+            className={btnClass(isSticky)}
+            title={isSticky ? "Unpin Toolbar" : "Pin Toolbar"}
+          >
+            {isSticky ? <Pin size={18} /> : <PinOff size={18} />}
+          </button>
+        </div>
+
         <VibeExportMenu onSqlExport={onSqlExport} title={title} />
       </div>
       <VibeModal
@@ -735,34 +876,28 @@ function VibeToolbar({ onSqlExport, title }) {
 }
 
 // -----------------------------------------------------------------------------
-// 4. LOAD HTML PLUGIN (Fix for Crash)
+// 4. LOAD HTML PLUGIN
 // -----------------------------------------------------------------------------
 const LoadHtmlPlugin = ({ initialContent }) => {
   const [editor] = useLexicalComposerContext();
   const [isLoaded, setIsLoaded] = useState(false);
-
   useEffect(() => {
-    // Only load if we have content and haven't loaded it yet
     if (!initialContent || isLoaded) return;
-
     editor.update(() => {
       const parser = new DOMParser();
       const dom = parser.parseFromString(initialContent, "text/html");
       const nodes = $generateNodesFromDOM(editor, dom);
-
       const root = $getRoot();
       root.clear();
       $insertNodes(nodes);
     });
-
     setIsLoaded(true);
   }, [editor, initialContent, isLoaded]);
-
   return null;
 };
 
 // -----------------------------------------------------------------------------
-// 5. MAIN EXPORTED COMPONENT
+// 5. MAIN COMPONENT
 // -----------------------------------------------------------------------------
 const VibeEditor = forwardRef(
   (
@@ -772,7 +907,7 @@ const VibeEditor = forwardRef(
       theme = "teal",
       bgOpacity = 80,
       onSqlExport,
-      title, // ADDED PROP
+      title,
     },
     ref
   ) => {
@@ -788,15 +923,11 @@ const VibeEditor = forwardRef(
         CodeNode,
         LinkNode,
       ],
-      // CRITICAL FIX: Do NOT pass editorState: initialContent here.
-      // It expects JSON, we have HTML. We use LoadHtmlPlugin instead.
       editorState: null,
     };
 
     const EditorRefPlugin = () => {
-      useImperativeHandle(ref, () => ({
-        // No-op for now
-      }));
+      useImperativeHandle(ref, () => ({}));
       return null;
     };
 
@@ -816,7 +947,6 @@ const VibeEditor = forwardRef(
     const getThemeVars = () => {
       const isLight = theme === "light";
       const isYellow = theme === "yellow";
-
       return {
         "--theme-color": isLight ? "#2563eb" : isYellow ? "#facc15" : "#2dd4bf",
         "--theme-border": isLight
@@ -851,28 +981,25 @@ const VibeEditor = forwardRef(
 
     return (
       <div
-        className="flex-grow relative rounded-[2rem] overflow-hidden border border-teal-500/20 shadow-[0_0_50px_-20px_rgba(20,184,166,0.2)] transition-all duration-500 vibe-editor-wrapper"
+        className="flex-grow relative rounded-[2rem] border border-teal-500/20 shadow-[0_0_50px_-20px_rgba(20,184,166,0.2)] transition-all duration-500 vibe-editor-wrapper"
         style={{
           backgroundColor: `rgba(5, 10, 16, ${bgOpacity / 100})`,
           backdropFilter: `blur(${bgOpacity * 0.2}px)`,
           borderColor: "var(--theme-border)",
           boxShadow: "var(--theme-shadow)",
+          overflow: "visible",
           ...getThemeVars(),
         }}
       >
         <LexicalComposer initialConfig={initialConfig}>
           <VibeToolbar onSqlExport={onSqlExport} title={title} />
-
           <LoadHtmlPlugin initialContent={initialContent} />
-
           <EditorRefPlugin />
           <HtmlOutputPlugin onChange={onChange} />
-
           <ListPlugin />
           <LinkPlugin />
           <HistoryPlugin />
           <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
-
           <div className="relative p-8 md:p-12 min-h-[600px]">
             <RichTextPlugin
               contentEditable={
@@ -898,7 +1025,6 @@ const VibeEditor = forwardRef(
             />
           </div>
         </LexicalComposer>
-
         <style jsx global>{`
           .vibe-editor-wrapper .theme-text-body {
             color: var(--text-body) !important;
@@ -930,6 +1056,14 @@ const VibeEditor = forwardRef(
           }
           .vibe-editor-wrapper input[type="range"] {
             accent-color: var(--theme-color);
+          }
+          .vibe-editor-wrapper ul {
+            list-style-type: disc;
+            padding-left: 1.5em;
+          }
+          .vibe-editor-wrapper ol {
+            list-style-type: decimal;
+            padding-left: 1.5em;
           }
         `}</style>
       </div>
