@@ -4,13 +4,10 @@ import { useState, useEffect, useMemo } from "react";
 import nextDynamic from "next/dynamic";
 import { createClient } from "@/src/utils/supabase/client";
 import {
-  FileText,
   Save,
   Loader2,
   Calculator,
   TrendingUp,
-  CheckCircle,
-  RotateCcw,
   Percent,
   PlusCircle,
   Receipt,
@@ -26,9 +23,14 @@ import {
   Search,
   Trophy,
   AlertTriangle,
+  CheckCircle,
   CheckCircle2,
   XCircle,
+  FileText,
+  RotateCcw,
 } from "lucide-react";
+
+// Assumes you created the separate file as discussed
 import InvoicePDF from "./InvoicePDF";
 
 const PDFDownloadLink = nextDynamic(
@@ -66,14 +68,18 @@ const Toast = ({ message, type, onClose }) => {
   }, [onClose]);
   return (
     <div
-      className={`fixed bottom-6 right-6 z-[250] flex items-center gap-3 px-6 py-4 rounded-xl shadow-2xl animate-in slide-in-from-bottom-5 border ${type === "error" ? "bg-red-50 border-red-100 text-red-600" : "bg-slate-900 border-slate-800 text-white"}`}
+      className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[150] transition-all duration-300 transform animate-in slide-in-from-bottom-5`}
     >
-      {type === "error" ? (
-        <XCircle size={20} />
-      ) : (
-        <CheckCircle2 size={20} className="text-emerald-400" />
-      )}
-      <span className="font-bold text-sm">{message}</span>
+      <div
+        className={`flex items-center gap-3 px-6 py-3 rounded-full shadow-2xl border backdrop-blur-md ${
+          type === "error"
+            ? "bg-red-50/95 border-red-200 text-red-600"
+            : "bg-slate-900/95 border-slate-800 text-white"
+        }`}
+      >
+        {type === "error" ? <XCircle size={18} /> : <CheckCircle2 size={18} />}
+        <span className="text-sm font-bold">{message}</span>
+      </div>
     </div>
   );
 };
@@ -135,6 +141,8 @@ const ActionModal = ({ isOpen, type, title, message, onConfirm, onCancel }) => {
 export default function InvoicesAndPayments({ initialProject }) {
   const [projects, setProjects] = useState([]);
   const [invoices, setInvoices] = useState([]);
+  const [productionData, setProductionData] = useState([]); // Store Production Table data
+
   const [activeTab, setActiveTab] = useState("open");
   const [selectedProject, setSelectedProject] = useState(
     initialProject || null
@@ -163,28 +171,35 @@ export default function InvoicesAndPayments({ initialProject }) {
 
   const showToast = (msg, type = "success") => setToast({ message: msg, type });
 
-  // --- FETCHING SOURCE OF TRUTH ---
+  // --- FETCHING THE GLUE ---
   const fetchData = async () => {
-    // Only fetch valid, active projects
+    // 1. Fetch Projects (Table 2)
     const { data: bData } = await supabase
       .from("2_booking_requests")
       .select("*")
       .neq("status", "deleted")
       .neq("status", "archived")
-      .neq("status", "completed") // Don't show completed items in active view
+      .neq("status", "completed")
       .order("created_at", { ascending: false });
 
+    // 2. Fetch Existing Invoices (Table 9)
     const { data: iData } = await supabase.from("9_invoices").select("*");
+
+    // 3. FETCH PRODUCTION DATA (Table 4) - This contains the Rate glue
+    const { data: pData } = await supabase
+      .from("4_production")
+      .select("request_id, pfh_rate, pozotron_rate");
 
     setProjects(bData || []);
     setInvoices(iData || []);
+    setProductionData(pData || []);
   };
 
   useEffect(() => {
     fetchData();
   }, []);
 
-  // --- SYNC STATE ---
+  // --- SYNC SELECTION ---
   useEffect(() => {
     if (projects.length > 0) {
       if (
@@ -200,28 +215,37 @@ export default function InvoicesAndPayments({ initialProject }) {
     }
   }, [projects]);
 
-  // --- LOAD INVOICE DATA ---
+  // --- DATA MAPPING (THE LOGIC LINK) ---
   useEffect(() => {
-    const fetchInvoice = async () => {
+    const loadData = async () => {
       if (!selectedProject?.id) return;
       setLoading(true);
       setShowPDF(false);
 
-      const { data } = await supabase
-        .from("9_invoices")
-        .select("*")
-        .eq("project_id", selectedProject.id)
-        .single();
+      // Check if invoice exists
+      const existingInvoice = invoices.find(
+        (i) => i.project_id === selectedProject.id
+      );
 
-      if (data) {
-        setFormData({ ...data });
+      if (existingInvoice) {
+        // If invoice exists, it is the SOURCE OF TRUTH.
+        setFormData({ ...existingInvoice });
         setIsEditing(false);
       } else {
+        // If NEW invoice, grab defaults from Production Board (Table 4)
+        const prodInfo = productionData.find(
+          (p) => p.request_id === selectedProject.id
+        );
+
+        // Calculate Word Count -> PFH
+        const calculatedPFH = selectedProject.word_count
+          ? (selectedProject.word_count / 9300).toFixed(2)
+          : 0;
+
         setFormData({
-          pfh_count: selectedProject.word_count
-            ? (selectedProject.word_count / 9300).toFixed(2)
-            : 0,
-          pfh_rate: 0,
+          pfh_count: calculatedPFH,
+          // Use Rate from Production Board if available, otherwise default
+          pfh_rate: prodInfo?.pfh_rate || 250,
           sag_ph_percent: 0,
           convenience_fee: 0,
           payment_link: "",
@@ -236,9 +260,10 @@ export default function InvoicesAndPayments({ initialProject }) {
       }
       setLoading(false);
     };
-    fetchInvoice();
-  }, [selectedProject]);
+    loadData();
+  }, [selectedProject, invoices, productionData]);
 
+  // --- CALCULATIONS ---
   const calcs = useMemo(() => {
     const base = Number(formData.pfh_count) * Number(formData.pfh_rate);
     const sag = base * (Number(formData.sag_ph_percent) / 100);
@@ -251,6 +276,7 @@ export default function InvoicesAndPayments({ initialProject }) {
     formData.convenience_fee,
   ]);
 
+  // --- DATE MATH ---
   useEffect(() => {
     if (formData.invoiced_date && isEditing) {
       let date = new Date(formData.invoiced_date);
@@ -270,6 +296,7 @@ export default function InvoicesAndPayments({ initialProject }) {
     return due ? Math.ceil((today - due) / (1000 * 60 * 60 * 24)) : 0;
   }, [formData.due_date, formData.ledger_tab]);
 
+  // --- SAVE ---
   const handleSave = async (silent = false) => {
     if (!selectedProject) return;
     if (!silent) setLoading(true);
@@ -298,7 +325,12 @@ export default function InvoicesAndPayments({ initialProject }) {
     }
 
     if (!result.error) {
-      fetchData();
+      // Re-fetch to keep local state in sync
+      const { data: updatedInv } = await supabase
+        .from("9_invoices")
+        .select("*");
+      setInvoices(updatedInv);
+
       setIsEditing(false);
       if (!silent) showToast("Invoice Saved");
     }
@@ -306,13 +338,13 @@ export default function InvoicesAndPayments({ initialProject }) {
     return result;
   };
 
-  // --- COMPLETE PROJECT LOGIC (FIXED) ---
+  // --- COMPLETE PROJECT LOGIC ---
   const triggerComplete = () => {
     setModal({
       isOpen: true,
       type: "complete",
       title: "Complete Project",
-      message: `Mark "${selectedProject.book_title}" as 100% complete? This will move it to the Completed Archive.`,
+      message: `Mark "${selectedProject.book_title}" as 100% complete? This moves it to the Completed Archive.`,
       action: executeComplete,
     });
   };
@@ -320,13 +352,15 @@ export default function InvoicesAndPayments({ initialProject }) {
   const executeComplete = async () => {
     setLoading(true);
 
-    // 1. Save final invoice data to ensure consistency
+    // 1. Snapshot the final financial state into Table 9 (Invoices)
+    // This effectively "Archives" the money data
     await handleSave(true);
 
-    // 2. UPDATE Booking Request to 'completed' (This makes it show up in Archives.js > Completed Tab)
+    // 2. Update Master Record (Table 2) status to 'completed'
+    // This moves it visually to the Archive Board -> Completed Tab
     const { error: updateError } = await supabase
       .from("2_booking_requests")
-      .update({ status: "completed", end_date: new Date().toISOString() }) // Also set end_date
+      .update({ status: "completed", end_date: new Date().toISOString() })
       .eq("id", selectedProject.id);
 
     if (updateError) {
@@ -336,20 +370,21 @@ export default function InvoicesAndPayments({ initialProject }) {
       return;
     }
 
-    // 3. DELETE from Production Board (Clean up 4_production)
-    // We assume active projects have a row here. We kill it so it leaves the board.
+    // 3. Remove from Active Production (Table 4)
+    // This cleans up the Production Board
     await supabase
       .from("4_production")
       .delete()
       .eq("request_id", selectedProject.id);
 
-    // 4. Cleanup & UI Update
+    // 4. Update Local UI
     setProjects((prev) => prev.filter((p) => p.id !== selectedProject.id));
     setModal({ isOpen: false });
     setLoading(false);
     showToast("Project Completed!");
   };
 
+  // --- UI HELPERS ---
   const copyEmailDraft = () => {
     const total = formatCurrency(calcs.total);
     let subject = `Invoice ${selectedProject.ref_number}: ${selectedProject.book_title}`;
@@ -390,7 +425,6 @@ export default function InvoicesAndPayments({ initialProject }) {
 
   return (
     <div className="flex flex-col lg:flex-row gap-8 items-start pb-20">
-      {/* TOAST & MODAL */}
       {toast && (
         <Toast
           message={toast.message}
@@ -426,17 +460,12 @@ export default function InvoicesAndPayments({ initialProject }) {
               <button
                 key={t}
                 onClick={() => setActiveTab(t)}
-                className={`flex-1 py-3 text-[10px] font-black uppercase transition-all ${
-                  activeTab === t
-                    ? "bg-white text-slate-900 shadow-sm"
-                    : "text-slate-400"
-                }`}
+                className={`flex-1 py-3 text-[10px] font-black uppercase transition-all ${activeTab === t ? "bg-white text-slate-900 shadow-sm" : "text-slate-400"}`}
               >
                 {t}
               </button>
             ))}
           </div>
-
           <div className="p-2 space-y-1 max-h-[30vh] lg:max-h-[50vh] overflow-y-auto custom-scrollbar">
             {projects
               .filter(
@@ -451,11 +480,7 @@ export default function InvoicesAndPayments({ initialProject }) {
                 <button
                   key={p.id}
                   onClick={() => setSelectedProject(p)}
-                  className={`w-full text-left p-3 rounded-xl transition-all border border-transparent ${
-                    selectedProject?.id === p.id
-                      ? "bg-slate-900 text-white shadow-md"
-                      : "hover:bg-slate-50 hover:border-slate-100 text-slate-600"
-                  }`}
+                  className={`w-full text-left p-3 rounded-xl transition-all border border-transparent ${selectedProject?.id === p.id ? "bg-slate-900 text-white shadow-md" : "hover:bg-slate-50 hover:border-slate-100 text-slate-600"}`}
                 >
                   <div className="flex justify-between items-center mb-1">
                     <span className="text-[9px] font-black uppercase opacity-60">
@@ -551,8 +576,6 @@ export default function InvoicesAndPayments({ initialProject }) {
                   )}{" "}
                   {isEditing ? "Lock In" : "Edit"}
                 </button>
-
-                {/* COMPLETE PROJECT BUTTON */}
                 {!isEditing && (
                   <button
                     onClick={triggerComplete}

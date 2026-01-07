@@ -33,6 +33,9 @@ import {
   CalendarDays,
   Skull,
   ArrowLeft,
+  ArrowUpDown,
+  CreditCard,
+  Trophy,
 } from "lucide-react";
 
 const supabase = createClient(
@@ -43,9 +46,19 @@ const supabase = createClient(
 // --- 1. CONFIGURATION ---
 
 const WORDS_PER_FH = 9300;
-const BIZ_DAYS_TO_FIX = 2; // Contractual obligation
-const DEFAULT_POZOTRON_RATE = 14;
+const BIZ_DAYS_TO_FIX = 2;
 const DEFAULT_PFH_RATE = 250;
+const DEFAULT_POZOTRON_RATE = 14;
+
+// Statuses that MUST have a record in Table 4
+const ACTIVE_PRODUCTION_STATUSES = [
+  "pre_production",
+  "recording",
+  "editing",
+  "review",
+  "mastering",
+  "done",
+];
 
 const STATUS_MAP = {
   pre_production: {
@@ -68,6 +81,17 @@ const STATUS_MAP = {
     color: "bg-indigo-50 text-indigo-600 border-indigo-200",
     icon: Clock,
   },
+  mastering: {
+    label: "Mastering",
+    color: "bg-purple-50 text-purple-600 border-purple-200",
+    icon: Activity,
+  },
+  done: {
+    label: "Complete",
+    color: "bg-emerald-50 text-emerald-600 border-emerald-200",
+    icon: CheckCircle2,
+  },
+  // Ejected Statuses
   pending: {
     label: "Pending",
     color: "bg-amber-50 text-amber-600 border-amber-200",
@@ -83,10 +107,10 @@ const STATUS_MAP = {
     color: "bg-slate-100 text-slate-500 border-slate-300",
     icon: PauseCircle,
   },
-  done: {
-    label: "Complete",
-    color: "bg-emerald-50 text-emerald-600 border-emerald-200",
-    icon: CheckCircle2,
+  completed: {
+    label: "Archived",
+    color: "bg-emerald-600 text-white border-emerald-700",
+    icon: Trophy,
   },
 };
 
@@ -108,6 +132,7 @@ const addBusinessDays = (startDate, daysToAdd) => {
     currentDate.valueOf() + currentDate.getTimezoneOffset() * 60000
   );
   let added = 0;
+  if (daysToAdd === 0) return currentDate.toISOString().split("T")[0];
   while (added < daysToAdd) {
     currentDate.setDate(currentDate.getDate() + 1);
     const day = currentDate.getDay();
@@ -139,17 +164,17 @@ const Toast = ({ message, type, onClose }) => {
     return () => clearTimeout(t);
   }, [onClose]);
   return (
-    <div
-      className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] transition-all duration-300 transform animate-in slide-in-from-bottom-5`}
-    >
+    <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[150] transition-all duration-300 transform animate-in slide-in-from-bottom-5">
       <div
-        className={`flex items-center gap-3 px-6 py-3 rounded-full shadow-2xl border backdrop-blur-md ${
-          type === "error"
-            ? "bg-red-50/95 border-red-200 text-red-600"
-            : "bg-slate-900/95 border-slate-800 text-white"
-        }`}
+        className={`flex items-center gap-3 px-6 py-3 rounded-full shadow-2xl border backdrop-blur-md ${type === "error" ? "bg-red-50/95 border-red-200 text-red-600" : type === "celebrate" ? "bg-emerald-900/95 border-emerald-700 text-white" : "bg-slate-900/95 border-slate-800 text-white"}`}
       >
-        {type === "error" ? <XCircle size={18} /> : <CheckCircle2 size={18} />}
+        {type === "error" ? (
+          <XCircle size={18} />
+        ) : type === "celebrate" ? (
+          <Trophy size={18} className="text-yellow-400" />
+        ) : (
+          <CheckCircle2 size={18} />
+        )}
         <span className="text-sm font-bold">{message}</span>
       </div>
     </div>
@@ -169,10 +194,19 @@ const Modal = ({
   return (
     <div className="fixed inset-0 z-[300] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 animate-in zoom-in-95 duration-200">
-        <h3 className="text-lg font-black uppercase text-slate-900 mb-2">
+        <div
+          className={`w-12 h-12 rounded-full flex items-center justify-center mb-4 mx-auto ${type === "success" ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-900"}`}
+        >
+          {type === "success" ? (
+            <CheckCircle2 size={24} />
+          ) : (
+            <AlertTriangle size={24} />
+          )}
+        </div>
+        <h3 className="text-lg font-black uppercase text-slate-900 mb-2 text-center">
           {title}
         </h3>
-        <p className="text-sm text-slate-600 mb-6 font-medium leading-relaxed">
+        <p className="text-sm text-slate-600 mb-6 font-medium leading-relaxed text-center">
           {message}
         </p>
         <div className="flex gap-3">
@@ -184,7 +218,7 @@ const Modal = ({
           </button>
           <button
             onClick={onConfirm}
-            className={`flex-1 py-3 rounded-xl font-bold text-xs uppercase text-white shadow-lg ${type === "danger" ? "bg-red-600 hover:bg-red-700" : "bg-slate-900 hover:bg-slate-800"}`}
+            className={`flex-1 py-3 rounded-xl font-bold text-xs uppercase text-white shadow-lg ${type === "danger" ? "bg-red-600 hover:bg-red-700" : type === "success" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-slate-900 hover:bg-slate-800"}`}
           >
             {confirmText}
           </button>
@@ -204,11 +238,12 @@ export default function ProductionBoard() {
   const [activeTab, setActiveTab] = useState("overview");
   const [editForm, setEditForm] = useState({});
   const [toast, setToast] = useState(null);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
-  const [modal, setModal] = useState({ isOpen: false });
+  const [sortBy, setSortBy] = useState("due_asc");
 
-  // Local state for adding a new log entry
+  const [modal, setModal] = useState({ isOpen: false });
   const [newLog, setNewLog] = useState({
     date: new Date().toISOString().split("T")[0],
     duration_hrs: "",
@@ -217,11 +252,38 @@ export default function ProductionBoard() {
 
   const globalTaxRate = 25;
 
-  // --- ACTIONS ---
   const showToast = (msg, type = "success") => setToast({ message: msg, type });
 
+  // --- DATA FETCHING ---
   const fetchItems = async () => {
     setLoading(true);
+
+    // Auto-Heal
+    try {
+      const { data: claims } = await supabase
+        .from("2_booking_requests")
+        .select("id, status")
+        .in("status", ACTIVE_PRODUCTION_STATUSES);
+      if (claims && claims.length > 0) {
+        const { data: actuals } = await supabase
+          .from("4_production")
+          .select("request_id");
+        const existingIds = new Set(actuals?.map((a) => a.request_id) || []);
+        const orphans = claims.filter((c) => !existingIds.has(c.id));
+        if (orphans.length > 0) {
+          const newRecords = orphans.map((o) => ({
+            request_id: o.id,
+            status: o.status,
+            pfh_rate: DEFAULT_PFH_RATE,
+            pozotron_rate: DEFAULT_POZOTRON_RATE,
+            other_expenses: [],
+          }));
+          await supabase.from("4_production").insert(newRecords);
+        }
+      }
+    } catch (err) {
+      console.error("Auto-heal failed", err);
+    }
 
     const { data: prodData, error } = await supabase
       .from("4_production")
@@ -230,10 +292,12 @@ export default function ProductionBoard() {
       )
       .neq("request.status", "deleted")
       .neq("request.status", "archived")
-      .order("recording_due_date", { ascending: true });
+      .neq("request.status", "pending")
+      .neq("request.status", "on_hold")
+      .neq("request.status", "postponed")
+      .neq("request.status", "completed");
 
     if (error) {
-      console.error(error);
       showToast("Sync Error", "error");
     } else {
       const { data: logData } = await supabase
@@ -256,8 +320,6 @@ export default function ProductionBoard() {
         strikes: i.strikes || 0,
       }));
       setItems(unique);
-
-      // Restore selection logic is handled in render for mobile now
     }
     setLoading(false);
   };
@@ -266,7 +328,39 @@ export default function ProductionBoard() {
     fetchItems();
   }, []);
 
-  // --- SYNC FORM ON SELECTION CHANGE ---
+  // --- PROCESSING ---
+  const processedItems = useMemo(() => {
+    let result = items;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (i) =>
+          i.request.book_title.toLowerCase().includes(q) ||
+          i.request.client_name.toLowerCase().includes(q)
+      );
+    }
+    if (statusFilter !== "All") {
+      result = result.filter(
+        (i) => STATUS_MAP[i.status]?.label === statusFilter
+      );
+    }
+    result.sort((a, b) => {
+      if (sortBy === "title")
+        return a.request.book_title.localeCompare(b.request.book_title);
+      if (sortBy === "recent")
+        return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+      const dateA = a.recording_due_date
+        ? new Date(a.recording_due_date)
+        : new Date(9999, 0, 1);
+      const dateB = b.recording_due_date
+        ? new Date(b.recording_due_date)
+        : new Date(9999, 0, 1);
+      if (sortBy === "due_desc") return dateB - dateA;
+      return dateA - dateB;
+    });
+    return result;
+  }, [items, searchQuery, statusFilter, sortBy]);
+
   useEffect(() => {
     if (selectedId) {
       const item = items.find((i) => i.id === selectedId);
@@ -284,15 +378,12 @@ export default function ProductionBoard() {
     }
   }, [selectedId, items]);
 
-  // --- LIVE MATH ENGINE ---
   const financials = useMemo(() => {
     if (!editForm.id) return null;
-
     const wc = editForm.request?.word_count || 0;
     const estFH = wc / WORDS_PER_FH;
     const pfhRate = parseFloat(editForm.pfh_rate) || 0;
     const pozRate = parseFloat(editForm.pozotron_rate) || 0;
-
     const gross = estFH * pfhRate;
     const pozotronCost = estFH * pozRate;
     const otherExpensesTotal = (editForm.other_expenses || []).reduce(
@@ -300,12 +391,10 @@ export default function ProductionBoard() {
       0
     );
     const totalExpenses = pozotronCost + otherExpensesTotal;
-
     const net = gross - totalExpenses;
     const taxableIncome = net * 0.8;
     const taxBill = taxableIncome * (globalTaxRate / 100);
     const takeHome = net - taxBill;
-
     const projectLogs = logs.filter(
       (l) => l.project_id === editForm.request?.id
     );
@@ -313,10 +402,8 @@ export default function ProductionBoard() {
       (acc, l) => acc + (parseFloat(l.duration_hrs) || 0),
       0
     );
-
     const actualEPH = totalHoursWorked > 0 ? takeHome / totalHoursWorked : 0;
     const effectiveTaxRate = net > 0 ? (taxBill / net) * 100 : 0;
-
     return {
       wc,
       estFH,
@@ -332,7 +419,7 @@ export default function ProductionBoard() {
     };
   }, [editForm, logs, globalTaxRate]);
 
-  // --- HANDLERS ---
+  // --- ACTIONS ---
   const handleSave = async () => {
     const payload = {
       status: editForm.status,
@@ -346,21 +433,23 @@ export default function ProductionBoard() {
       internal_notes: editForm.internal_notes,
       strikes: editForm.strikes,
     };
-
     const { error } = await supabase
       .from("4_production")
       .update(payload)
       .eq("id", editForm.id);
-
-    if (error) {
-      console.error(error);
-      showToast("Save Failed: Check Console", "error");
-    } else {
+    if (!error) {
       setItems((prev) =>
         prev.map((i) => (i.id === editForm.id ? { ...i, ...payload } : i))
       );
       showToast("Project Saved");
+    } else {
+      showToast("Save Failed", "error");
     }
+  };
+
+  const updateEditStatus = (newStatus, label) => {
+    setEditForm((prev) => ({ ...prev, status: newStatus }));
+    showToast(`Status set to ${label}. Click Save to Apply.`);
   };
 
   const handleAddLog = async () => {
@@ -376,13 +465,10 @@ export default function ProductionBoard() {
         },
       ])
       .select();
-
     if (!error && data) {
       setLogs((prev) => [...prev, data[0]]);
       setNewLog({ ...newLog, duration_hrs: "" });
       showToast("Time Logged");
-    } else {
-      showToast("Log Failed", "error");
     }
   };
 
@@ -391,73 +477,111 @@ export default function ProductionBoard() {
       .from("10_session_logs")
       .delete()
       .eq("id", logId);
-    if (!error) {
-      setLogs((prev) => prev.filter((l) => l.id !== logId));
-    }
+    if (!error) setLogs((prev) => prev.filter((l) => l.id !== logId));
   };
 
-  // --- ACTIONS (KICK, ARCHIVE) ---
-  const executeProjectAction = async (actionType) => {
+  const executeEjection = async (targetRequestStatus) => {
     const item = items.find((i) => i.id === selectedId);
     if (!item) return;
 
-    if (actionType === "kick_back") {
-      const targetStatus =
-        item.request.client_type === "Roster" ? "first_15" : "onboarding";
+    if (targetRequestStatus === "archived") {
       await supabase
-        .from("2_booking_requests")
-        .update({ status: targetStatus })
-        .eq("id", item.request.id);
-      await supabase.from("4_production").delete().eq("id", item.id);
+        .from("6_archive")
+        .insert([
+          {
+            original_data: item,
+            archived_at: new Date(),
+            reason: "Booted from Production",
+          },
+        ]);
+    }
 
-      showToast(`Sent back to ${targetStatus}`);
-      setItems((prev) => prev.filter((i) => i.id !== item.id));
-      setSelectedId(null);
-    } else if (actionType === "archive") {
-      await supabase.from("6_archive").insert([
-        {
-          original_data: item,
-          archived_at: new Date(),
-          reason: "Booted from Prod",
-        },
-      ]);
-      await supabase
-        .from("2_booking_requests")
-        .update({ status: "archived" })
-        .eq("id", item.request.id);
-      await supabase.from("4_production").delete().eq("id", item.id);
+    const updatePayload = { status: targetRequestStatus };
+    if (targetRequestStatus === "completed")
+      updatePayload.end_date = new Date().toISOString();
 
-      showToast("Project Archived", "error");
+    const { error: reqError } = await supabase
+      .from("2_booking_requests")
+      .update(updatePayload)
+      .eq("id", item.request.id);
+    if (reqError) {
+      showToast("Move Failed", "error");
+      return;
+    }
+
+    const { error: prodError } = await supabase
+      .from("4_production")
+      .delete()
+      .eq("id", item.id);
+    if (prodError) {
+      showToast("Cleanup Failed", "error");
+    } else {
+      if (targetRequestStatus === "completed")
+        showToast("Payment Verified & Project Archived 🏆", "celebrate");
+      else showToast(`Moved to ${targetRequestStatus}`);
       setItems((prev) => prev.filter((i) => i.id !== item.id));
       setSelectedId(null);
     }
-
     setModal({ isOpen: false });
   };
 
-  const confirmAction = (type) => {
+  const confirmAction = (actionType) => {
     const config = {
+      complete: {
+        title: "Verify Payment & Complete?",
+        msg: "Has the invoice been paid? This will close the project and move it to the Completed Archive.",
+        confirmText: "Yes, Mark Paid",
+        status: "completed",
+        type: "success",
+      },
       kick_back: {
         title: "Kick Back Project?",
-        msg: "This removes it from Production and sends it back to Onboarding/First 15.",
-        btn: "Kick Back",
+        msg: "Removes from Production and returns to Onboarding/First 15.",
+        confirmText: "Kick Back",
+        status:
+          items.find((i) => i.id === selectedId)?.request.client_type ===
+          "Roster"
+            ? "first_15"
+            : "onboarding",
         type: "neutral",
       },
       archive: {
         title: "Boot to Archive?",
-        msg: "This removes it from active workspaces. You can't undo this easily.",
-        btn: "Boot Project",
+        msg: "Removes from active workspace entirely.",
+        confirmText: "Boot Project",
+        status: "archived",
         type: "danger",
       },
+      pending: {
+        title: "Move to Pending?",
+        msg: "Sends back to Pending board.",
+        confirmText: "Move",
+        status: "pending",
+        type: "neutral",
+      },
+      postponed: {
+        title: "Postpone Project?",
+        msg: "Sends to Postponed list.",
+        confirmText: "Postpone",
+        status: "postponed",
+        type: "neutral",
+      },
+      on_hold: {
+        title: "Place on Hold?",
+        msg: "Sends to On Hold list.",
+        confirmText: "Hold",
+        status: "on_hold",
+        type: "neutral",
+      },
     };
-    const c = config[type];
+    const c = config[actionType];
     setModal({
       isOpen: true,
       title: c.title,
       message: c.msg,
-      confirmText: c.btn,
+      confirmText: c.confirmText,
       type: c.type,
-      onConfirm: () => executeProjectAction(type),
+      onConfirm: () => executeEjection(c.status),
       onClose: () => setModal({ isOpen: false }),
     });
   };
@@ -476,11 +600,6 @@ export default function ProductionBoard() {
     }));
   };
 
-  const updateEditStatus = (newStatus, label) => {
-    setEditForm((prev) => ({ ...prev, status: newStatus }));
-    showToast(`Status set to ${label}. Click Save.`);
-  };
-
   if (loading)
     return (
       <div className="h-screen flex items-center justify-center bg-slate-50">
@@ -490,14 +609,20 @@ export default function ProductionBoard() {
 
   return (
     <div className="flex h-screen w-full bg-slate-50 overflow-hidden font-sans text-slate-900">
-      {toast && <Toast {...toast} onClose={() => setToast(null)} />}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
       <Modal {...modal} />
 
-      {/* --- SIDEBAR (List) --- */}
+      {/* --- SIDEBAR --- */}
       <div
         className={`${selectedId ? "hidden md:flex" : "flex"} w-full md:w-80 bg-white border-r border-slate-200 flex-col flex-shrink-0 z-20 shadow-xl h-full`}
       >
-        <div className="p-5 border-b border-slate-100 bg-white/95 backdrop-blur-sm sticky top-0">
+        <div className="p-5 border-b border-slate-100 bg-white/95 backdrop-blur-sm sticky top-0 z-10">
           <div className="flex items-center gap-2 text-[10px] font-bold uppercase text-slate-400 mb-2">
             <span>Workspace</span>
             <ChevronRight size={10} />
@@ -518,9 +643,28 @@ export default function ProductionBoard() {
               className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold outline-none focus:border-indigo-400 focus:bg-white transition-all"
             />
           </div>
+          <div className="mt-3 flex items-center gap-2">
+            <div className="relative flex-1">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="w-full appearance-none pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-md text-[10px] font-bold text-slate-600 outline-none cursor-pointer hover:bg-slate-100"
+              >
+                <option value="due_asc">Due Date (Earliest)</option>
+                <option value="due_desc">Due Date (Latest)</option>
+                <option value="recent">Recently Added</option>
+                <option value="title">Alphabetical</option>
+              </select>
+              <ArrowUpDown
+                size={12}
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+              />
+            </div>
+          </div>
         </div>
-        <div className="flex gap-2 p-3 overflow-x-auto border-b border-slate-50 bg-slate-50/50 hide-scrollbar">
-          {["All", "Recording", "Review", "Pending"].map((st) => (
+
+        <div className="flex gap-2 p-3 overflow-x-auto border-b border-slate-50 bg-slate-50/50 hide-scrollbar shrink-0">
+          {["All", "Recording", "Review"].map((st) => (
             <button
               key={st}
               onClick={() => setStatusFilter(st)}
@@ -530,55 +674,51 @@ export default function ProductionBoard() {
             </button>
           ))}
         </div>
-        <div className="flex-1 overflow-y-auto p-3 space-y-2">
-          {items
-            .filter((i) =>
-              statusFilter === "All"
-                ? true
-                : STATUS_MAP[i.status]?.label === statusFilter
-            )
-            .filter((i) =>
-              i.request.book_title
-                .toLowerCase()
-                .includes(searchQuery.toLowerCase())
-            )
-            .map((item) => {
-              const isActive = selectedId === item.id;
-              const statusConf =
-                STATUS_MAP[item.status] || STATUS_MAP.pre_production;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => setSelectedId(item.id)}
-                  className={`w-full text-left p-3 rounded-xl border transition-all duration-200 group ${isActive ? "bg-slate-900 border-slate-900 shadow-lg scale-[1.02]" : "bg-white border-slate-100 hover:border-indigo-200 hover:shadow-md"}`}
-                >
-                  <div className="flex justify-between items-start mb-1">
-                    <span
-                      className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${isActive ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"}`}
-                    >
-                      {statusConf.label}
-                    </span>
-                    {item.strikes > 0 && (
-                      <span className="bg-red-500 text-white text-[9px] font-bold px-1.5 rounded-full">
-                        {item.strikes}
-                      </span>
-                    )}
-                  </div>
-                  <h3
-                    className={`text-sm font-bold truncate leading-tight mb-1 ${isActive ? "text-white" : "text-slate-800"}`}
-                  >
-                    {item.request.book_title}
-                  </h3>
+
+        <div className="flex-1 overflow-y-auto p-3 space-y-2 min-h-0">
+          {processedItems.map((item) => {
+            const isActive = selectedId === item.id;
+            const statusConf =
+              STATUS_MAP[item.status] || STATUS_MAP.pre_production;
+            const StatusIcon = statusConf.icon;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setSelectedId(item.id)}
+                className={`w-full text-left p-3 rounded-xl border transition-all duration-200 group ${isActive ? "bg-slate-900 border-slate-900 shadow-lg scale-[1.02]" : "bg-white border-slate-100 hover:border-indigo-200 hover:shadow-md"}`}
+              >
+                <div className="flex justify-between items-start mb-2">
                   <div
-                    className={`text-[10px] font-medium truncate ${isActive ? "text-slate-400" : "text-slate-400"}`}
+                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wider border ${isActive ? "bg-slate-800 text-slate-300 border-slate-700" : statusConf.color}`}
                   >
-                    {item.request.client_name}
+                    <StatusIcon size={8} /> {statusConf.label}
                   </div>
-                </button>
-              );
-            })}
+                  {item.strikes > 0 && (
+                    <span className="bg-red-500 text-white text-[9px] font-bold px-1.5 rounded-full">
+                      {item.strikes}
+                    </span>
+                  )}
+                </div>
+                <h3
+                  className={`text-sm font-bold truncate leading-tight mb-1 ${isActive ? "text-white" : "text-slate-800"}`}
+                >
+                  {item.request.book_title}
+                </h3>
+                <div
+                  className={`text-[10px] font-medium truncate ${isActive ? "text-slate-400" : "text-slate-400"}`}
+                >
+                  {item.request.client_name}
+                </div>
+              </button>
+            );
+          })}
+          {processedItems.length === 0 && (
+            <div className="p-8 text-center text-xs text-slate-400 font-bold italic">
+              No projects found
+            </div>
+          )}
         </div>
-        <div className="p-4 border-t border-slate-200 bg-slate-50 text-center">
+        <div className="p-4 border-t border-slate-200 bg-slate-50 text-center shrink-0">
           <button
             onClick={fetchItems}
             className="flex items-center justify-center gap-2 text-[10px] font-bold uppercase text-slate-400 hover:text-indigo-600 transition-colors"
@@ -588,9 +728,9 @@ export default function ProductionBoard() {
         </div>
       </div>
 
-      {/* --- MAIN CONTENT AREA (Detail) --- */}
+      {/* --- MAIN CONTENT --- */}
       <div
-        className={`${selectedId ? "flex" : "hidden md:flex"} flex-1 flex-col h-full overflow-hidden relative bg-slate-50`}
+        className={`${selectedId ? "flex" : "hidden md:flex"} flex-1 flex-col h-full overflow-hidden relative bg-slate-50 min-h-0`}
       >
         {!selectedId ? (
           <div className="flex-1 flex flex-col items-center justify-center text-slate-300">
@@ -603,14 +743,12 @@ export default function ProductionBoard() {
           <>
             <div className="bg-white/80 backdrop-blur-md border-b border-slate-200 px-4 md:px-8 py-5 flex items-center justify-between sticky top-0 z-30 shrink-0">
               <div className="flex items-center gap-4 md:gap-6">
-                {/* Mobile Back Button */}
                 <button
                   onClick={() => setSelectedId(null)}
                   className="md:hidden p-2 -ml-2 text-slate-500"
                 >
                   <ArrowLeft size={20} />
                 </button>
-
                 <div className="w-10 h-14 md:w-12 md:h-16 bg-slate-100 rounded-lg shadow-inner overflow-hidden border border-slate-200 shrink-0">
                   {editForm.request?.cover_image_url ? (
                     <img
@@ -641,7 +779,7 @@ export default function ProductionBoard() {
               </div>
               <button
                 onClick={handleSave}
-                className="px-4 py-2 md:px-6 md:py-2.5 bg-indigo-600 text-white text-[10px] md:text-xs font-bold uppercase rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+                className="px-4 py-2 md:px-6 md:py-2.5 bg-indigo-600 text-white text-[10px] md:text-xs font-bold uppercase rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all flex items-center gap-2"
               >
                 <Save size={16} />{" "}
                 <span className="hidden md:inline">Save Changes</span>{" "}
@@ -650,7 +788,7 @@ export default function ProductionBoard() {
             </div>
 
             <div className="flex-1 overflow-y-auto min-h-0 p-4 md:p-8">
-              <div className="flex gap-1 mb-8 border-b border-slate-200 overflow-x-auto pb-1">
+              <div className="flex gap-1 mb-8 border-b border-slate-200 overflow-x-auto pb-1 shrink-0">
                 {TABS.map((tab) => (
                   <button
                     key={tab.id}
@@ -663,11 +801,10 @@ export default function ProductionBoard() {
               </div>
 
               <div className="max-w-6xl mx-auto pb-24 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                {/* === 1. OVERVIEW & FINANCIALS === */}
+                {/* --- OVERVIEW --- */}
                 {activeTab === "overview" && financials && (
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                     <div className="lg:col-span-5 space-y-6">
-                      {/* Config Card */}
                       <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
                         <h4 className="text-xs font-black uppercase text-slate-400 mb-6 flex items-center gap-2">
                           <Activity size={14} /> Project Config
@@ -688,11 +825,14 @@ export default function ProductionBoard() {
                                 }
                                 className="w-full appearance-none p-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-indigo-400"
                               >
-                                {Object.entries(STATUS_MAP).map(([k, v]) => (
-                                  <option key={k} value={k}>
-                                    {v.label}
-                                  </option>
-                                ))}
+                                {ACTIVE_PRODUCTION_STATUSES.map((key) => {
+                                  const val = STATUS_MAP[key];
+                                  return (
+                                    <option key={key} value={key}>
+                                      {val.label}
+                                    </option>
+                                  );
+                                })}
                               </select>
                               <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
                                 <ChevronRight size={14} className="rotate-90" />
@@ -741,7 +881,6 @@ export default function ProductionBoard() {
                           </div>
                         </div>
                       </div>
-                      {/* Rates Card */}
                       <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
                         <h4 className="text-xs font-black uppercase text-slate-400 mb-6 flex items-center gap-2">
                           <DollarSign size={14} /> Rates & Fees
@@ -780,7 +919,6 @@ export default function ProductionBoard() {
                             />
                           </div>
                         </div>
-                        {/* Other Expenses Ledger */}
                         <div className="mt-6 pt-6 border-t border-slate-100">
                           <div className="flex justify-between items-center mb-4">
                             <h4 className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-2">
@@ -851,30 +989,31 @@ export default function ProductionBoard() {
                           </div>
                         </div>
                       </div>
-                      {/* Danger Zone */}
                       <div className="bg-white p-6 rounded-3xl border border-red-100 shadow-sm">
                         <h4 className="text-xs font-black uppercase text-red-400 mb-6 flex items-center gap-2">
-                          <AlertTriangle size={14} /> Actions
+                          <AlertTriangle size={14} /> Danger Zone
                         </h4>
                         <div className="grid grid-cols-2 gap-3">
                           <button
-                            onClick={() =>
-                              updateEditStatus("pending", "Pending")
-                            }
+                            onClick={() => confirmAction("complete")}
+                            className="col-span-2 py-4 bg-emerald-500 text-white rounded-xl text-xs font-bold uppercase hover:bg-emerald-600 shadow-md shadow-emerald-200 flex items-center justify-center gap-2"
+                          >
+                            <CreditCard size={16} /> Mark Paid & Complete
+                          </button>
+                          <button
+                            onClick={() => confirmAction("pending")}
                             className="py-3 bg-amber-50 text-amber-600 rounded-xl text-xs font-bold uppercase hover:bg-amber-100"
                           >
                             Set Pending
                           </button>
                           <button
-                            onClick={() => updateEditStatus("on_hold", "Hold")}
+                            onClick={() => confirmAction("on_hold")}
                             className="py-3 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold uppercase hover:bg-slate-200"
                           >
                             Hold Project
                           </button>
                           <button
-                            onClick={() =>
-                              updateEditStatus("postponed", "Postponed")
-                            }
+                            onClick={() => confirmAction("postponed")}
                             className="py-3 bg-pink-50 text-pink-600 rounded-xl text-xs font-bold uppercase hover:bg-pink-100"
                           >
                             Postpone
@@ -895,7 +1034,8 @@ export default function ProductionBoard() {
                       </div>
                     </div>
                     <div className="lg:col-span-7">
-                      <div className="bg-slate-900 rounded-[2.5rem] p-8 md:p-10 text-white shadow-2xl relative overflow-hidden sticky top-24">
+                      {/* Responsive Project Economics */}
+                      <div className="bg-slate-900 rounded-[2.5rem] p-8 md:p-10 text-white shadow-2xl relative overflow-hidden sticky top-0">
                         <div className="absolute top-0 right-0 p-10 opacity-10">
                           <DollarSign size={200} />
                         </div>
@@ -905,12 +1045,14 @@ export default function ProductionBoard() {
                           </span>{" "}
                           Project Economics
                         </h3>
-                        <div className="grid grid-cols-2 gap-x-8 gap-y-10 relative z-10">
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-x-8 md:gap-y-10 relative z-10">
+                          {/* Gross */}
                           <div className="space-y-2">
                             <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">
                               Gross Revenue
                             </p>
-                            <div className="text-4xl font-black tracking-tight">
+                            <div className="text-3xl md:text-4xl font-black tracking-tight">
                               {formatCurrency(financials.gross)}
                             </div>
                             <div className="text-xs text-slate-500 font-medium">
@@ -918,32 +1060,40 @@ export default function ProductionBoard() {
                               {formatCurrency(editForm.pfh_rate)}
                             </div>
                           </div>
+
+                          {/* Net */}
                           <div className="space-y-2">
                             <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">
                               Net Profit (Pre-Tax)
                             </p>
-                            <div className="text-4xl font-black tracking-tight text-white">
+                            <div className="text-3xl md:text-4xl font-black tracking-tight text-white">
                               {formatCurrency(financials.net)}
                             </div>
-                            <div className="text-[10px] text-orange-400 font-medium">
-                              - {formatCurrency(financials.pozotronCost)}{" "}
-                              Pozotron
-                            </div>
-                            <div className="text-[10px] text-red-400 font-medium">
-                              - {formatCurrency(financials.otherExpensesTotal)}{" "}
-                              Expenses
+                            <div className="flex flex-col gap-1">
+                              <div className="text-[10px] text-orange-400 font-medium">
+                                - {formatCurrency(financials.pozotronCost)}{" "}
+                                Pozotron
+                              </div>
+                              <div className="text-[10px] text-red-400 font-medium">
+                                -{" "}
+                                {formatCurrency(financials.otherExpensesTotal)}{" "}
+                                Expenses
+                              </div>
                             </div>
                           </div>
-                          <div className="col-span-2 bg-white/5 rounded-3xl p-6 border border-white/10 flex flex-col md:flex-row justify-between items-center gap-6">
+
+                          {/* Take Home Card */}
+                          <div className="col-span-1 md:col-span-2 bg-white/5 rounded-3xl p-6 border border-white/10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                             <div className="space-y-2">
                               <p className="text-[10px] font-black uppercase text-emerald-400 tracking-widest flex items-center gap-2">
                                 <ShieldCheck size={14} /> QBI Adjusted Take Home
                               </p>
-                              <div className="text-5xl font-black tracking-tight text-emerald-400">
+                              <div className="text-4xl md:text-5xl font-black tracking-tight text-emerald-400">
                                 {formatCurrency(financials.takeHome)}
                               </div>
                             </div>
-                            <div className="text-right">
+
+                            <div className="text-left md:text-right w-full md:w-auto">
                               <p className="text-[10px] font-black uppercase text-blue-400 tracking-widest mb-1">
                                 Real Hourly Rate
                               </p>
@@ -965,7 +1115,8 @@ export default function ProductionBoard() {
                   </div>
                 )}
 
-                {/* === 2. WORK LOG (REAL HOURS) === */}
+                {/* ... (Other Tabs Remain Unchanged) ... */}
+                {/* --- WORK LOG --- */}
                 {activeTab === "work_log" && (
                   <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden animate-in fade-in">
                     <div className="p-6 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
@@ -1092,7 +1243,7 @@ export default function ProductionBoard() {
                   </div>
                 )}
 
-                {/* === 3. FILE FLOW (CRX MATRIX) === */}
+                {/* --- CRX MATRIX --- */}
                 {activeTab === "crx" && (
                   <div className="space-y-8 animate-in fade-in">
                     <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm">
@@ -1115,7 +1266,7 @@ export default function ProductionBoard() {
                         </button>
                       </div>
 
-                      {/* Timeline Visual */}
+                      {/* Timeline Card */}
                       <div className="mb-8 p-6 bg-slate-50/50 rounded-2xl border border-slate-100 flex gap-4 overflow-x-auto">
                         {(editForm.crx_batches || []).length === 0 ? (
                           <span className="text-xs font-bold text-slate-300 uppercase">
@@ -1171,6 +1322,13 @@ export default function ProductionBoard() {
                                 BIZ_DAYS_TO_FIX
                               )
                             : null;
+                          const estDays = batch.fh
+                            ? Math.ceil(parseFloat(batch.fh) / 2)
+                            : 2;
+                          const clientDeadline = batch.sent_date
+                            ? addBusinessDays(batch.sent_date, estDays)
+                            : null;
+
                           return (
                             <div
                               key={idx}
@@ -1178,7 +1336,7 @@ export default function ProductionBoard() {
                             >
                               <div className="flex-1 w-full space-y-1">
                                 <label className="text-[9px] font-black uppercase text-slate-400 ml-1">
-                                  File/Batch Name
+                                  Batch Name
                                 </label>
                                 <input
                                   value={batch.name}
@@ -1193,7 +1351,26 @@ export default function ProductionBoard() {
                                   className="w-full p-2.5 rounded-xl border border-slate-200 text-xs font-bold"
                                 />
                               </div>
-                              <div className="w-full lg:w-40 space-y-1">
+                              <div className="w-24 space-y-1">
+                                <label className="text-[9px] font-black uppercase text-slate-400 ml-1">
+                                  FH (Size)
+                                </label>
+                                <input
+                                  type="number"
+                                  placeholder="0"
+                                  value={batch.fh}
+                                  onChange={(e) =>
+                                    modifyArray(
+                                      "crx_batches",
+                                      idx,
+                                      "fh",
+                                      e.target.value
+                                    )
+                                  }
+                                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs font-bold"
+                                />
+                              </div>
+                              <div className="w-full lg:w-36 space-y-1">
                                 <label className="text-[9px] font-black uppercase text-slate-400 ml-1">
                                   Date Sent
                                 </label>
@@ -1211,7 +1388,17 @@ export default function ProductionBoard() {
                                   className="w-full p-2.5 rounded-xl border border-slate-200 text-xs font-bold"
                                 />
                               </div>
-                              <div className="w-full lg:w-40 space-y-1">
+
+                              <div className="hidden lg:block w-32 pb-3 text-center">
+                                <div className="text-[8px] font-black uppercase text-slate-400">
+                                  Client Due
+                                </div>
+                                <div className="text-[10px] font-bold text-slate-600">
+                                  {formatDate(clientDeadline)}
+                                </div>
+                              </div>
+
+                              <div className="w-full lg:w-36 space-y-1">
                                 <label className="text-[9px] font-black uppercase text-indigo-400 ml-1">
                                   Notes Rec'd
                                 </label>
@@ -1229,14 +1416,14 @@ export default function ProductionBoard() {
                                   className="w-full p-2.5 rounded-xl border border-indigo-200 bg-indigo-50/50 text-indigo-900 text-xs font-bold focus:border-indigo-400"
                                 />
                               </div>
-                              <div className="bg-white px-4 py-2.5 rounded-xl border border-slate-200 h-[38px] flex items-center justify-center min-w-[140px]">
+                              <div className="bg-white px-4 py-2.5 rounded-xl border border-slate-200 h-[38px] flex items-center justify-center min-w-[130px]">
                                 {myDeadline ? (
                                   <span className="text-[10px] font-black text-red-500">
                                     My Due: {formatDate(myDeadline)}
                                   </span>
                                 ) : (
                                   <span className="text-[10px] font-bold text-slate-300 uppercase">
-                                    Waiting on client
+                                    Waiting
                                   </span>
                                 )}
                               </div>
@@ -1256,7 +1443,7 @@ export default function ProductionBoard() {
                   </div>
                 )}
 
-                {/* === 4. BIBLE === */}
+                {/* --- BIBLE --- */}
                 {activeTab === "bible" && (
                   <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden animate-in fade-in">
                     <div className="p-6 bg-slate-50 flex justify-between items-center border-b border-slate-100">
@@ -1359,7 +1546,7 @@ export default function ProductionBoard() {
                   </div>
                 )}
 
-                {/* === 5. TASKS === */}
+                {/* --- TASKS --- */}
                 {activeTab === "tasks" && (
                   <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm animate-in fade-in">
                     <div className="flex justify-between items-center mb-8">
@@ -1425,7 +1612,7 @@ export default function ProductionBoard() {
                   </div>
                 )}
 
-                {/* === 6. NOTES === */}
+                {/* --- NOTES --- */}
                 {activeTab === "notes" && (
                   <div className="bg-yellow-50/50 p-8 rounded-[2rem] border border-yellow-100 shadow-sm h-[600px] flex flex-col relative animate-in fade-in">
                     <div className="absolute top-0 right-0 p-6 opacity-5">
