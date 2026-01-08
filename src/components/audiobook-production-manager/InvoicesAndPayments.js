@@ -30,8 +30,8 @@ import {
   XCircle,
   Image as ImageIcon,
   UploadCloud,
-  Plus, // Added for line items
-  Trash2, // Added for line items
+  Plus,
+  Trash2,
 } from "lucide-react";
 
 import InvoicePDF from "./InvoicePDF";
@@ -144,7 +144,8 @@ const ActionModal = ({ isOpen, type, title, message, onConfirm, onCancel }) => {
 export default function InvoicesAndPayments({ initialProject }) {
   const [projects, setProjects] = useState([]);
   const [invoices, setInvoices] = useState([]);
-  const [productionData, setProductionData] = useState([]);
+  // We keep this to look up default rates from production if invoice doesn't exist
+  const [productionDataMap, setProductionDataMap] = useState({});
 
   const [activeTab, setActiveTab] = useState("open");
   const [selectedProject, setSelectedProject] = useState(
@@ -165,7 +166,7 @@ export default function InvoicesAndPayments({ initialProject }) {
     pfh_rate: 0,
     sag_ph_percent: 0,
     convenience_fee: 0,
-    line_items: [], // ADDED FOR CUSTOM ITEMS
+    line_items: [],
     payment_link: "",
     contract_link: "",
     custom_note: "",
@@ -178,37 +179,71 @@ export default function InvoicesAndPayments({ initialProject }) {
 
   const showToast = (msg, type = "success") => setToast({ message: msg, type });
 
-  // --- FETCHING ---
+  // --- STRICT DATA FETCHING ---
   const fetchData = async () => {
-    const { data: bData } = await supabase
-      .from("2_booking_requests")
-      .select("*")
-      .neq("status", "deleted")
-      .neq("status", "archived")
-      .neq("status", "completed")
-      .order("created_at", { ascending: false });
+    setLoading(true);
 
-    const { data: pData } = await supabase
+    // 1. Fetch Invoices (We need these to populate the forms)
+    const { data: iData } = await supabase.from("9_invoices").select("*");
+    setInvoices(iData || []);
+
+    // 2. Fetch Projects ONLY if they are active in Production
+    // This is the strict filter. If it's not in this table, it's not "In Production".
+    const { data: prodData } = await supabase
       .from("4_production")
       .select("request_id, pfh_rate, pozotron_rate");
-    const activeProductionIds = new Set(pData?.map((p) => p.request_id));
 
-    const { data: iData } = await supabase.from("9_invoices").select("*");
-    const existingInvoiceIds = new Set(iData?.map((i) => i.project_id));
+    const activeProductionIds = prodData?.map((p) => p.request_id) || [];
 
-    const validProjects = (bData || []).filter((p) => {
-      return activeProductionIds.has(p.id) || existingInvoiceIds.has(p.id);
-    });
+    // 3. Fetch Projects marked as "Completed"
+    // We want to see history even if they aren't in active production anymore.
+    const { data: completedData } = await supabase
+      .from("2_booking_requests")
+      .select("id")
+      .eq("status", "completed");
 
-    setProjects(validProjects);
-    setInvoices(iData || []);
-    setProductionData(pData || []);
+    const completedIds = completedData?.map((c) => c.id) || [];
+
+    // 4. Combine Valid IDs
+    const validIds = new Set([...activeProductionIds, ...completedIds]);
+
+    // 5. Fetch the Project Details for Allowed IDs
+    if (validIds.size > 0) {
+      const { data: bData, error: bError } = await supabase
+        .from("2_booking_requests")
+        .select("*")
+        .in("id", Array.from(validIds))
+        .neq("status", "deleted")
+        .neq("status", "archived")
+        .order("created_at", { ascending: false });
+
+      if (bError) console.error("Booking Fetch Error:", bError);
+      setProjects(bData || []);
+    } else {
+      setProjects([]);
+    }
+
+    // 6. Map Production Defaults (Rates)
+    // Used to initialize new invoices with current production settings
+    const prodMap = {};
+    if (prodData) {
+      prodData.forEach((item) => {
+        prodMap[item.request_id] = {
+          pfh_rate: item.pfh_rate,
+          pozotron_rate: item.pozotron_rate,
+        };
+      });
+    }
+    setProductionDataMap(prodMap);
+
+    setLoading(false);
   };
 
   useEffect(() => {
     fetchData();
   }, []);
 
+  // --- SYNC SELECTION ---
   useEffect(() => {
     if (projects.length > 0) {
       if (
@@ -224,6 +259,7 @@ export default function InvoicesAndPayments({ initialProject }) {
     }
   }, [projects]);
 
+  // --- LOAD FORM DATA ---
   useEffect(() => {
     const loadData = async () => {
       if (!selectedProject?.id) return;
@@ -248,16 +284,15 @@ export default function InvoicesAndPayments({ initialProject }) {
         });
         setIsEditing(false);
       } else {
-        const prodInfo = productionData.find(
-          (p) => p.request_id === selectedProject.id
-        );
+        // Init with defaults from Production Table (if available)
+        const prodDefaults = productionDataMap[selectedProject.id];
         const calculatedPFH = selectedProject.word_count
           ? (selectedProject.word_count / 9300).toFixed(2)
           : 0;
 
         setFormData({
           pfh_count: calculatedPFH,
-          pfh_rate: prodInfo?.pfh_rate || 250,
+          pfh_rate: prodDefaults?.pfh_rate || 250,
           sag_ph_percent: 0,
           convenience_fee: 0,
           line_items: [],
@@ -270,12 +305,12 @@ export default function InvoicesAndPayments({ initialProject }) {
           ledger_tab: "open",
           logo_url: savedLogo,
         });
-        setIsEditing(true);
+        setIsEditing(true); // Auto-open edit for new ones
       }
       setLoading(false);
     };
     loadData();
-  }, [selectedProject, invoices, productionData]);
+  }, [selectedProject, invoices, productionDataMap]);
 
   // --- LINE ITEMS LOGIC ---
   const addLineItem = () => {
@@ -297,12 +332,11 @@ export default function InvoicesAndPayments({ initialProject }) {
     setFormData((prev) => ({ ...prev, line_items: newItems }));
   };
 
-  // --- CALCS ---
+  // --- CALCULATIONS ---
   const calcs = useMemo(() => {
     const base = Number(formData.pfh_count) * Number(formData.pfh_rate);
     const sag = base * (Number(formData.sag_ph_percent) / 100);
 
-    // Sum custom line items
     const customItemsTotal = (formData.line_items || []).reduce(
       (acc, item) => acc + Number(item.amount),
       0
@@ -319,6 +353,7 @@ export default function InvoicesAndPayments({ initialProject }) {
     formData.line_items,
   ]);
 
+  // Auto-set Due Date
   useEffect(() => {
     if (formData.invoiced_date && isEditing) {
       let date = new Date(formData.invoiced_date);
@@ -373,19 +408,15 @@ export default function InvoicesAndPayments({ initialProject }) {
     if (!selectedProject) return;
     if (!silent) setLoading(true);
 
-    // 1. Prepare Payload with Strict Types
     const payload = {
       project_id: selectedProject.id,
-      // Force Numeric
       pfh_count: Number(formData.pfh_count) || 0,
       pfh_rate: Number(formData.pfh_rate) || 0,
       sag_ph_percent: Number(formData.sag_ph_percent) || 0,
       convenience_fee: Number(formData.convenience_fee) || 0,
-      est_tax_rate: 25, // Default or from state
+      est_tax_rate: 25,
       total_amount: Number(calcs.total) || 0,
       reminders_sent: Number(formData.reminders_sent) || 0,
-
-      // Strings/Dates
       invoiced_date: formData.invoiced_date || null,
       due_date: formData.due_date || null,
       payment_link: formData.payment_link || "",
@@ -393,25 +424,24 @@ export default function InvoicesAndPayments({ initialProject }) {
       custom_note: formData.custom_note || "",
       ledger_tab: formData.ledger_tab || "open",
       logo_url: formData.logo_url || "",
-      reference_number: selectedProject.ref_number, // Ensure ref is synced
-
-      // JSONB (Supabase JS client handles array -> jsonb auto, but ensure it's an array)
+      reference_number: selectedProject.ref_number,
       line_items: Array.isArray(formData.line_items) ? formData.line_items : [],
-
-      // Zero out the old flat expense column to avoid confusion
       other_expenses: 0,
     };
 
     let result;
-
-    // 2. Determine Insert vs Update
-    // We look for an existing invoice ID attached to this project
     const existingInvoice = invoices.find(
       (i) => i.project_id === selectedProject.id
     );
 
+    // Sync financial data back to Production if it exists there
+    // This keeps the two views consistent
+    await supabase
+      .from("4_production")
+      .update({ pfh_rate: payload.pfh_rate })
+      .eq("request_id", selectedProject.id);
+
     if (existingInvoice?.id) {
-      // UPDATE
       result = await supabase
         .from("9_invoices")
         .update(payload)
@@ -419,7 +449,6 @@ export default function InvoicesAndPayments({ initialProject }) {
         .select()
         .single();
     } else {
-      // INSERT (Don't include 'id' in payload)
       result = await supabase
         .from("9_invoices")
         .insert([payload])
@@ -434,7 +463,7 @@ export default function InvoicesAndPayments({ initialProject }) {
           return prev.map((i) => (i.id === result.data.id ? result.data : i));
         return [...prev, result.data];
       });
-      setFormData(result.data); // Update local state with DB response (including generated ID)
+      setFormData(result.data);
       setIsEditing(false);
       setLastSaved(Date.now());
       if (!silent) showToast("Invoice Saved");
@@ -458,8 +487,9 @@ export default function InvoicesAndPayments({ initialProject }) {
 
   const executeComplete = async () => {
     setLoading(true);
-    await handleSave(true);
+    await handleSave(true); // Save final invoice state
 
+    // Update Main Request
     const { error: updateError } = await supabase
       .from("2_booking_requests")
       .update({ status: "completed", end_date: new Date().toISOString() })
@@ -472,11 +502,13 @@ export default function InvoicesAndPayments({ initialProject }) {
       return;
     }
 
+    // Remove from active production
     await supabase
       .from("4_production")
       .delete()
       .eq("request_id", selectedProject.id);
 
+    // Update local state to remove project from list (unless viewing archived)
     setProjects((prev) => prev.filter((p) => p.id !== selectedProject.id));
     setModal({ isOpen: false });
     setLoading(false);
@@ -838,7 +870,7 @@ export default function InvoicesAndPayments({ initialProject }) {
               </div>
             </div>
 
-            {/* LINKS & STATUS & DATES (Kept same) */}
+            {/* LINKS & STATUS & DATES */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
               <div className="p-6 md:p-10 rounded-[2.5rem] bg-slate-50 border shadow-sm space-y-4">
                 <h3 className="font-black uppercase text-xs tracking-widest flex items-center gap-2">

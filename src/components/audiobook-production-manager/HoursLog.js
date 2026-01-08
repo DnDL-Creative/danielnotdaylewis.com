@@ -13,14 +13,14 @@ import {
   ShieldCheck,
   Zap,
   LineChart,
-  Coins,
-  Receipt,
-  Landmark,
+  Search,
+  BookOpen,
   Mic2,
   Scissors,
   Coffee,
-  Search,
-  BookOpen,
+  Receipt,
+  AlertTriangle,
+  RefreshCw,
 } from "lucide-react";
 
 const supabase = createClient(
@@ -46,16 +46,10 @@ export default function HoursLog({ initialProject }) {
     notes: "",
   });
 
-  const [forecast, setForecast] = useState({
-    pfh_rate: 250,
-    pozotron_rate: 14,
-    other_expenses: 0,
-    tax_rate: 25,
-  });
-
   // --- FETCH DATA (Source of Truth) ---
   const fetchData = async () => {
-    // 1. Fetch Projects (Filter out deleted/archived)
+    setLoading(true);
+    // 1. Fetch Projects
     const { data: bData } = await supabase
       .from("2_booking_requests")
       .select("*")
@@ -73,6 +67,7 @@ export default function HoursLog({ initialProject }) {
     setProjects(bData || []);
     setInvoices(iData || []);
     setSessionLogs(sData || []);
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -80,18 +75,14 @@ export default function HoursLog({ initialProject }) {
   }, []);
 
   // --- SYNC SELECTED PROJECT ---
-  // If the selected project is deleted elsewhere, switch selection
   useEffect(() => {
     if (projects.length > 0) {
-      // If currently selected project no longer exists in the fetched list
       if (
         selectedProject &&
         !projects.find((p) => p.id === selectedProject.id)
       ) {
         setSelectedProject(projects[0]);
-      }
-      // If nothing selected, select first
-      else if (!selectedProject) {
+      } else if (!selectedProject) {
         setSelectedProject(projects[0]);
       }
     } else {
@@ -104,91 +95,79 @@ export default function HoursLog({ initialProject }) {
     [sessionLogs, selectedProject]
   );
 
-  // --- FINANCIAL CALCS ---
+  // --- FINANCIAL CALCS (Strictly from Invoice) ---
   const money = useMemo(() => {
     if (!selectedProject) return null;
 
-    const getProjectFinances = (proj, inv, config) => {
-      const wc = Number(proj.word_count || 0);
-      const estPFH = wc / 9300;
-      const pfhCount = inv?.pfh_count || estPFH;
-      const rate = inv?.pfh_rate || config.pfh_rate;
-      const grossTotal = pfhCount * rate;
-      const pozotronEst = pfhCount * Number(config.pozotron_rate);
-      const netBeforeTax =
-        grossTotal - pozotronEst - Number(config.other_expenses);
-      const taxWithQbi = netBeforeTax * 0.8 * (config.tax_rate / 100);
-      const takeHomeWithQbi = netBeforeTax - taxWithQbi;
-      const taxNoQbi = netBeforeTax * (config.tax_rate / 100);
-      const takeHomeNoQbi = netBeforeTax - taxNoQbi;
+    // Find the invoice for this project
+    const inv = invoices.find((i) => i.project_id === selectedProject.id);
 
-      return {
-        grossTotal,
-        netBeforeTax,
-        takeHomeWithQbi,
-        takeHomeNoQbi,
-        taxNoQbi,
-        taxWithQbi,
-        pfhCount,
-        pozotronEst,
-      };
-    };
+    if (!inv) {
+      return { hasInvoice: false };
+    }
 
-    const currentInv = invoices.find(
-      (inv) => inv.project_id === selectedProject.id
-    );
-    const current = getProjectFinances(selectedProject, currentInv, forecast);
+    // --- 1. INCOME ---
+    // If invoiced, use the invoiced total. If not, estimate based on rates in the invoice draft.
+    const pfhRate = Number(inv.pfh_rate) || 0;
+    const pfhCount =
+      Number(inv.pfh_count) || Number(selectedProject.word_count) / 9300;
+    const baseGross = pfhCount * pfhRate;
 
-    // Cumulative stats
-    let cumGross = 0;
-    let cumNet = 0;
-    let cumTakeHome = 0;
-    let cumHours = 0;
-    projects.forEach((p) => {
-      const inv = invoices.find((i) => i.project_id === p.id);
-      const pLogs = sessionLogs.filter((l) => l.project_id === p.id);
-      const pHours = pLogs.reduce(
-        (acc, l) => acc + Number(l.duration_hrs || 0),
-        0
-      );
-      if (pHours > 0) {
-        const pFin = getProjectFinances(p, inv, forecast);
-        cumGross += pFin.grossTotal;
-        cumNet += pFin.netBeforeTax;
-        cumTakeHome += pFin.takeHomeWithQbi;
-        cumHours += pHours;
-      }
-    });
-
-    const currentProjectHours = activeLogs.reduce(
-      (acc, l) => acc + Number(l.duration_hrs || 0),
+    // Add Fees/Line Items from Invoice
+    const fees = Number(inv.convenience_fee) || 0;
+    const lineItemsTotal = (inv.line_items || []).reduce(
+      (sum, item) => sum + Number(item.amount || 0),
       0
     );
 
+    const grossTotal = baseGross + fees + lineItemsTotal;
+
+    // --- 2. EXPENSES ---
+    const pozotronRate = Number(inv.pozotron_rate) || 14; // Default to 14 if not set
+    const pozotronCost = pfhCount * pozotronRate;
+
+    // Check for "Expense" type line items (negative amounts)
+    // In your system, line_items usually add to the invoice total,
+    // so strictly speaking, expenses might not be tracked in line_items unless they are billable expenses.
+    // For P&L, we usually subtract external costs.
+    // Assuming 'other_expenses' col is still relevant for P&L even if 0 in invoice.
+    const otherExpenses = Number(inv.other_expenses) || 0;
+
+    const totalExpenses = pozotronCost + otherExpenses;
+
+    // --- 3. PROFIT ---
+    const netBeforeTax = grossTotal - totalExpenses;
+
+    // --- 4. TAX ---
+    const taxRate = Number(inv.est_tax_rate) || 25;
+    // QBI Deduction: Taxable income is 80% of Net
+    const taxableIncome = netBeforeTax * 0.8;
+    const taxBill = taxableIncome * (taxRate / 100);
+
+    const takeHome = netBeforeTax - taxBill;
+    const effectiveTaxRate =
+      netBeforeTax > 0 ? (taxBill / netBeforeTax) * 100 : 0;
+
+    // --- 5. HOURLY ---
+    const hours = activeLogs.reduce(
+      (acc, l) => acc + Number(l.duration_hrs || 0),
+      0
+    );
+    const eph = hours > 0 ? takeHome / hours : 0;
+
     return {
-      ...current,
-      currentProjectHours,
-      cumGrossEPH: cumHours > 0 ? cumGross / cumHours : 0,
-      cumNetEPH: cumHours > 0 ? cumNet / cumHours : 0,
-      cumTakeHomeEPH: cumHours > 0 ? cumTakeHome / cumHours : 0,
-      projGrossEPH:
-        currentProjectHours > 0 ? current.grossTotal / currentProjectHours : 0,
-      projNetEPH:
-        currentProjectHours > 0
-          ? current.netBeforeTax / currentProjectHours
-          : 0,
-      projTakeHomeEPH:
-        currentProjectHours > 0
-          ? current.takeHomeWithQbi / currentProjectHours
-          : 0,
-      effectiveTaxRate:
-        current.netBeforeTax > 0
-          ? ((current.netBeforeTax - current.takeHomeWithQbi) /
-              current.netBeforeTax) *
-            100
-          : forecast.tax_rate,
+      hasInvoice: true,
+      grossTotal,
+      pozotronCost,
+      totalExpenses,
+      netBeforeTax,
+      taxBill,
+      takeHome,
+      effectiveTaxRate,
+      currentProjectHours: hours,
+      projTakeHomeEPH: eph,
     };
-  }, [selectedProject, invoices, sessionLogs, forecast, projects, activeLogs]);
+  }, [selectedProject, invoices, sessionLogs, activeLogs]);
 
   const handleAddLog = async () => {
     if (!newLog.duration_hrs || !selectedProject) return;
@@ -202,7 +181,7 @@ export default function HoursLog({ initialProject }) {
     ]);
     if (!error) {
       setNewLog({ ...newLog, duration_hrs: "", notes: "" });
-      fetchData();
+      fetchData(); // Refresh to update EPH
     }
     setLoading(false);
   };
@@ -213,15 +192,14 @@ export default function HoursLog({ initialProject }) {
   };
 
   const exportToTSV = () => {
-    if (!selectedProject || !money) return;
-    const headers = ["Date", "Activity", "Duration", "Project", "Gross", "Net"];
+    if (!selectedProject) return;
+    const headers = ["Date", "Activity", "Duration", "Project", "Notes"];
     const rows = activeLogs.map((log) => [
       log.date,
       log.activity,
       log.duration_hrs,
       selectedProject.book_title,
-      "",
-      "",
+      log.notes,
     ]);
     const content = [headers, ...rows].map((e) => e.join("\t")).join("\n");
     const blob = new Blob([content], { type: "text/tab-separated-values" });
@@ -241,8 +219,8 @@ export default function HoursLog({ initialProject }) {
     <div className="flex flex-col lg:flex-row gap-8 items-start pb-20 animate-in fade-in duration-500">
       {/* SIDEBAR */}
       <div className="w-full lg:w-80 bg-white rounded-[2rem] border border-slate-200 flex flex-col overflow-hidden lg:sticky lg:top-8 self-start shadow-sm shrink-0">
-        <div className="p-4 border-b border-slate-100">
-          <div className="relative">
+        <div className="p-4 border-b border-slate-100 flex gap-2">
+          <div className="relative flex-1">
             <Search
               className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
               size={14}
@@ -254,6 +232,13 @@ export default function HoursLog({ initialProject }) {
               className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:border-emerald-500"
             />
           </div>
+          <button
+            onClick={fetchData}
+            className="p-2 bg-slate-50 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-500"
+            title="Refresh Data"
+          >
+            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+          </button>
         </div>
         <div className="flex border-b bg-slate-50">
           {["open", "waiting", "paid"].map((t) => (
@@ -336,153 +321,76 @@ export default function HoursLog({ initialProject }) {
               </button>
             </div>
 
-            {/* EPH STATS */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-white rounded-[2rem] border border-slate-200 p-6 shadow-sm">
-                <h3 className="font-black uppercase text-[10px] tracking-widest text-slate-400 flex items-center gap-2 mb-4">
-                  <TrendingUp size={14} /> Current Project EPH
-                </h3>
-                <div className="grid grid-cols-3 gap-2">
-                  <div>
-                    <p className="text-[8px] font-black text-slate-400 uppercase">
-                      Gross
-                    </p>
-                    <p className="text-lg font-black">
-                      {formatCurrency(money?.projGrossEPH)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[8px] font-black text-slate-400 uppercase">
-                      Net
-                    </p>
-                    <p className="text-lg font-black">
-                      {formatCurrency(money?.projNetEPH)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[8px] font-black text-emerald-500 uppercase">
-                      Take Home
-                    </p>
-                    <p className="text-lg font-black text-emerald-600">
-                      {formatCurrency(money?.projTakeHomeEPH)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-slate-900 rounded-[2rem] p-6 shadow-xl text-white">
-                <h3 className="font-black uppercase text-[10px] tracking-widest text-slate-500 flex items-center gap-2 mb-4">
-                  <LineChart size={14} /> Global Averages
-                </h3>
-                <div className="grid grid-cols-3 gap-2">
-                  <div>
-                    <p className="text-[8px] font-black text-slate-500 uppercase">
-                      Gross
-                    </p>
-                    <p className="text-lg font-black">
-                      {formatCurrency(money?.cumGrossEPH)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[8px] font-black text-slate-500 uppercase">
-                      Net
-                    </p>
-                    <p className="text-lg font-black">
-                      {formatCurrency(money?.cumNetEPH)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[8px] font-black text-emerald-400 uppercase">
-                      Take Home
-                    </p>
-                    <p className="text-lg font-black text-emerald-400">
-                      {formatCurrency(money?.cumTakeHomeEPH)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
             {/* FINANCIAL CALCULATOR */}
-            <div className="bg-slate-950 rounded-[2.5rem] p-8 text-white shadow-2xl relative overflow-hidden">
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="space-y-2">
-                  <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">
-                    Gross Total
-                  </p>
-                  <div className="p-4 bg-white/5 rounded-xl border border-white/10">
-                    <p className="text-2xl font-black">
-                      {formatCurrency(money?.grossTotal)}
-                    </p>
-                    <p className="text-[9px] text-slate-500 mt-1">
-                      Pre-Expense
-                    </p>
-                  </div>
+            {!money?.hasInvoice ? (
+              <div className="bg-amber-50 rounded-[2.5rem] p-8 border border-amber-100 flex items-center justify-center gap-4">
+                <AlertTriangle className="text-amber-500" size={24} />
+                <div className="text-amber-700 font-bold text-sm">
+                  Financial data unavailable. Please initialize the invoice in
+                  the <span className="font-black">Invoices</span> tab.
                 </div>
-                <div className="space-y-2">
-                  <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">
-                    Pozotron Est.
-                  </p>
-                  <div className="p-4 bg-white/5 rounded-xl border border-white/10">
-                    <p className="text-2xl font-black text-red-400">
-                      {formatCurrency(money?.pozotronEst)}
+              </div>
+            ) : (
+              <div className="bg-slate-950 rounded-[2.5rem] p-8 text-white shadow-2xl relative overflow-hidden">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">
+                      Real Hourly Rate
                     </p>
-                    <p className="text-[9px] text-slate-500 mt-1">
-                      Net: {formatCurrency(money?.netBeforeTax)}
-                    </p>
+                    <div className="p-4 bg-emerald-500/10 rounded-xl border border-emerald-500/30">
+                      <p className="text-3xl font-black text-emerald-400">
+                        {formatCurrency(money?.projTakeHomeEPH)}
+                        <span className="text-sm text-emerald-500/50">/hr</span>
+                      </p>
+                      <p className="text-[9px] text-emerald-500 mt-1">
+                        Post-Tax Take Home
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div className="space-y-2 opacity-60">
-                  <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">
-                    Standard Home
-                  </p>
-                  <div className="p-4 bg-white/5 rounded-xl border border-white/10">
-                    <p className="text-xl font-black">
-                      {formatCurrency(money?.takeHomeNoQbi)}
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">
+                      Gross Total
                     </p>
-                    <p className="text-[9px] text-red-500 mt-1">
-                      {forecast.tax_rate}% Tax
-                    </p>
+                    <div className="p-4 bg-white/5 rounded-xl border border-white/10">
+                      <p className="text-2xl font-black">
+                        {formatCurrency(money?.grossTotal)}
+                      </p>
+                      <p className="text-[9px] text-slate-500 mt-1">
+                        Pre-Expense
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <p className="text-[10px] font-black uppercase text-emerald-500 tracking-widest flex items-center gap-2">
-                    <ShieldCheck size={12} /> QBI Shield
-                  </p>
-                  <div className="p-4 bg-emerald-500/10 rounded-xl border border-emerald-500/30">
-                    <p className="text-2xl font-black text-emerald-400">
-                      {formatCurrency(money?.takeHomeWithQbi)}
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">
+                      Expenses (Est.)
                     </p>
-                    <p className="text-[9px] text-emerald-500 mt-1">
-                      Eff. Tax: {money?.effectiveTaxRate.toFixed(1)}%
+                    <div className="p-4 bg-white/5 rounded-xl border border-white/10">
+                      <p className="text-2xl font-black text-red-400">
+                        {formatCurrency(money?.totalExpenses)}
+                      </p>
+                      <div className="flex flex-col gap-0.5 mt-1">
+                        <p className="text-[9px] text-slate-500">
+                          Pozotron: {formatCurrency(money?.pozotronCost)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-2">
+                      <ShieldCheck size={12} /> Tax Bill (Est.)
                     </p>
+                    <div className="p-4 bg-white/5 rounded-xl border border-white/10">
+                      <p className="text-xl font-black text-white">
+                        {formatCurrency(money?.taxBill)}
+                      </p>
+                      <p className="text-[9px] text-slate-500 mt-1">
+                        Eff. Tax: {money?.effectiveTaxRate.toFixed(1)}%
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
-
-              {/* Settings Toggle */}
-              <div className="mt-8 pt-6 border-t border-white/10 grid grid-cols-2 md:grid-cols-4 gap-4">
-                {[
-                  { l: "PFH Rate", v: "pfh_rate", i: Coins },
-                  { l: "Pozotron $/PFH", v: "pozotron_rate", i: Zap },
-                  { l: "Other Expenses", v: "other_expenses", i: Receipt },
-                  { l: "Tax Bracket %", v: "tax_rate", i: Landmark },
-                ].map((field) => (
-                  <div key={field.l} className="space-y-1">
-                    <label className="text-[9px] font-black uppercase text-slate-500 flex items-center gap-1">
-                      {field.i && <field.i size={10} />} {field.l}
-                    </label>
-                    <input
-                      type="number"
-                      className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-xs font-bold outline-none focus:border-emerald-500 transition-colors"
-                      value={forecast[field.v]}
-                      onChange={(e) =>
-                        setForecast({ ...forecast, [field.v]: e.target.value })
-                      }
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
+            )}
 
             {/* LOG TABLE */}
             <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
@@ -495,7 +403,7 @@ export default function HoursLog({ initialProject }) {
                     Total:
                   </span>
                   <span className="font-black text-slate-900">
-                    {money?.currentProjectHours.toFixed(2)}h
+                    {money?.currentProjectHours?.toFixed(2) || "0.00"}h
                   </span>
                 </div>
               </div>
