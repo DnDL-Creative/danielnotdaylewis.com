@@ -42,11 +42,17 @@ function useVignetteTexture() {
 
 // --- BACKGROUND PLANE ---
 function HallOfHumanWriting({ theme }) {
-  const { viewport } = useThree();
+  // 1. Get viewport AND size
+  const { viewport, size } = useThree();
+
   const url = BACKDROPS[theme] || BACKDROPS.teal;
   const texture = useTexture(url);
   const alphaMap = useVignetteTexture();
 
+  // 2. Define Mobile State
+  const isMobile = size.width < 768;
+
+  // 3. Calculate Scaling (This was missing!)
   const imageAspect = 16 / 9;
   const viewportAspect = viewport.width / viewport.height;
   let scaleWidth, scaleHeight;
@@ -68,7 +74,8 @@ function HallOfHumanWriting({ theme }) {
     >
       <meshBasicMaterial
         map={texture}
-        alphaMap={alphaMap}
+        // 4. Conditional Vignette: Null on mobile (full opacity), AlphaMap on desktop
+        alphaMap={isMobile ? null : alphaMap}
         transparent={true}
         opacity={1}
         depthWrite={false}
@@ -78,7 +85,6 @@ function HallOfHumanWriting({ theme }) {
     </Plane>
   );
 }
-
 // --- HELPER: SOFT SNOW TEXTURE ---
 function useSnowTexture() {
   return useMemo(() => {

@@ -26,7 +26,7 @@ import {
   Rocket,
   LogOut,
   Radar,
-  Menu, // Added Menu icon
+  Menu,
 } from "lucide-react";
 import { FaHotdog } from "react-icons/fa6";
 import { Canvas } from "@react-three/fiber";
@@ -37,7 +37,7 @@ import VibeImageStudio from "@/src/components/vibe-writer/VibeImageStudio";
 import AssetSidebar from "@/src/components/vibe-writer/AssetSidebar";
 import PopulateMeta from "@/src/components/vibe-writer/PopulateMeta";
 import MeteorologicalEffect from "@/src/components/vibe-writer/MeteorologicalEffect";
-import VibeTunes from "@/src/components/vibe-writer/VibeTunes"; // Import the new widget
+import VibeTunes from "@/src/components/vibe-writer/VibeTunes";
 
 const DystopianSnow = dynamic(
   () => import("@/src/components/vibe-writer/DystopianTheme"),
@@ -124,6 +124,8 @@ export default function MasterEditorPage() {
   const [date, setDate] = useState("");
   const [author, setAuthor] = useState("");
   const [imageCaption, setImageCaption] = useState("");
+  const [musicEmbed, setMusicEmbed] = useState("");
+  const [blogcastUrl, setBlogcastUrl] = useState(""); // <--- NEW: BLOGCAST STATE
   const [audioUrl, setAudioUrl] = useState(null);
   const [images, setImages] = useState({
     main: "",
@@ -144,7 +146,7 @@ export default function MasterEditorPage() {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [availableDrafts, setAvailableDrafts] = useState([]);
   const [uploadingSlot, setUploadingSlot] = useState(null);
-  const [showMobileActions, setShowMobileActions] = useState(false); // New state for mobile menu
+  const [showMobileActions, setShowMobileActions] = useState(false);
 
   // --- THEME STATE ---
   const [theme, setTheme] = useState("teal");
@@ -153,7 +155,7 @@ export default function MasterEditorPage() {
   const [bgOpacity, setBgOpacity] = useState(80);
 
   // --- METEOROLOGICAL STATE ---
-  const [showWeatherControl, setShowWeatherControl] = useState(false); // Controls the modal
+  const [showWeatherControl, setShowWeatherControl] = useState(false);
   const [weatherMode, setWeatherMode] = useState("snow");
   const [weatherIntensity, setWeatherIntensity] = useState(0.5);
   const [windVector, setWindVector] = useState(0);
@@ -220,7 +222,6 @@ export default function MasterEditorPage() {
   const themeStyle = getThemeStyles();
   const showToast = (message, type = "success") => setToast({ message, type });
 
-  // ... (Database handlers kept same) ...
   useEffect(() => {
     if (!date) setDate(new Date().toISOString().split("T")[0]);
   }, []);
@@ -235,6 +236,7 @@ export default function MasterEditorPage() {
   }, [title, postId]);
 
   const isReady = title.length > 2;
+
   const handleClear = () => {
     setPostId(null);
     setTitle("");
@@ -243,17 +245,21 @@ export default function MasterEditorPage() {
     setTag("Life");
     setAuthor("");
     setImageCaption("");
+    setMusicEmbed("");
+    setBlogcastUrl(""); // <--- CLEAR BLOGCAST
     setImages({ main: "", img2: "", img3: "", img4: "", img5: "", img6: "" });
     setIsPublished(false);
     setDate(new Date().toISOString().split("T")[0]);
     setShowClearConfirm(false);
     showToast("Editor Cleared");
   };
+
   const copyToClipboard = (text) => {
     if (!text) return;
     navigator.clipboard.writeText(text);
     showToast("Copied to clipboard!");
   };
+
   const openStudio = (url, initialMode = "layout") => {
     if (!url && (initialMode === "layout" || initialMode === "gallery"))
       return showToast("Upload an image first!", "error");
@@ -261,16 +267,19 @@ export default function MasterEditorPage() {
     setStudioInitialTab(initialMode);
     setShowStudio(true);
   };
+
   const handleStudioGenerate = (code) => {
     navigator.clipboard.writeText(code);
     setShowStudio(false);
     showToast("Shortcode copied!");
   };
+
   const handleManualAsset = (url, slotKey) => {
     if (!slotKey) return showToast("No slots available!", "error");
     setImages((prev) => ({ ...prev, [slotKey]: url }));
     showToast("Media Link Added");
   };
+
   const handleAssetReorder = (dragIndex, dropIndex) => {
     const slots = ["img2", "img3", "img4", "img5", "img6"];
     if (
@@ -290,13 +299,15 @@ export default function MasterEditorPage() {
       return newImages;
     });
   };
+
   const generateAndShowSql = () => {
     const escape = (str) => (str ? str.replace(/'/g, "''") : "");
     const sql =
-      `INSERT INTO posts (title, slug, date, author, tag, image, image_2, image_3, image_4, image_5, image_6, image_caption, content, published) VALUES ('${escape(title)}', '${escape(urlPath)}', '${date}', '${escape(author)}', '${escape(tag)}', '${images.main}', '${images.img2}', '${images.img3}', '${images.img4}', '${images.img5}', '${images.img6}', '${escape(imageCaption)}', '${escape(content)}', ${isPublished}) ON CONFLICT (slug) DO UPDATE SET title = EXCLUDED.title, content = EXCLUDED.content, image = EXCLUDED.image, image_2 = EXCLUDED.image_2, image_3 = EXCLUDED.image_3, image_4 = EXCLUDED.image_4, image_5 = EXCLUDED.image_5, image_6 = EXCLUDED.image_6, image_caption = EXCLUDED.image_caption, author = EXCLUDED.author, tag = EXCLUDED.tag, published = EXCLUDED.published;`.trim();
+      `INSERT INTO posts (title, slug, date, author, tag, image, image_2, image_3, image_4, image_5, image_6, image_caption, music_embed, blogcast_url, content, published) VALUES ('${escape(title)}', '${escape(urlPath)}', '${date}', '${escape(author)}', '${escape(tag)}', '${images.main}', '${images.img2}', '${images.img3}', '${images.img4}', '${images.img5}', '${images.img6}', '${escape(imageCaption)}', '${escape(musicEmbed)}', '${escape(blogcastUrl)}', '${escape(content)}', ${isPublished}) ON CONFLICT (slug) DO UPDATE SET title = EXCLUDED.title, content = EXCLUDED.content, image = EXCLUDED.image, image_2 = EXCLUDED.image_2, image_3 = EXCLUDED.image_3, image_4 = EXCLUDED.image_4, image_5 = EXCLUDED.image_5, image_6 = EXCLUDED.image_6, image_caption = EXCLUDED.image_caption, music_embed = EXCLUDED.music_embed, blogcast_url = EXCLUDED.blogcast_url, author = EXCLUDED.author, tag = EXCLUDED.tag, published = EXCLUDED.published;`.trim();
     setGeneratedSql(sql);
     setShowSqlModal(true);
   };
+
   const handleDatabaseAction = async (actionType) => {
     if (!isReady) return showToast("Title is required", "error");
     setIsSaving(true);
@@ -317,6 +328,8 @@ export default function MasterEditorPage() {
       image_5: images.img5,
       image_6: images.img6,
       image_caption: imageCaption,
+      music_embed: musicEmbed,
+      blogcast_url: blogcastUrl, // <--- SAVE BLOGCAST URL
       published: finalPublishedStatus,
     };
     try {
@@ -337,6 +350,7 @@ export default function MasterEditorPage() {
       setIsSaving(false);
     }
   };
+
   const fetchDrafts = async () => {
     setShowLoadModal(true);
     const { data } = await supabase
@@ -345,6 +359,7 @@ export default function MasterEditorPage() {
       .order("date", { ascending: false });
     if (data) setAvailableDrafts(data);
   };
+
   const loadDraft = async (id) => {
     const { data } = await supabase
       .from("posts")
@@ -360,6 +375,8 @@ export default function MasterEditorPage() {
       setAuthor(data.author || "");
       setIsPublished(data.published || false);
       setImageCaption(data.image_caption || "");
+      setMusicEmbed(data.music_embed || "");
+      setBlogcastUrl(data.blogcast_url || ""); // <--- LOAD BLOGCAST URL
       setImages({
         main: data.image || "",
         img2: data.image_2 || "",
@@ -373,6 +390,7 @@ export default function MasterEditorPage() {
       showToast("Transmission Loaded");
     }
   };
+
   const toggleVisibility = async (e, draftId, currentStatus) => {
     e.stopPropagation();
     const newStatus = !currentStatus;
@@ -392,6 +410,7 @@ export default function MasterEditorPage() {
       );
     }
   };
+
   const handleFileUpload = async (e, slotKey) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -419,6 +438,7 @@ export default function MasterEditorPage() {
       setUploadingSlot(null);
     }
   };
+
   const toggleTheme = () =>
     setTheme((prev) =>
       prev === "light" ? "teal" : prev === "teal" ? "yellow" : "light"
@@ -454,7 +474,7 @@ export default function MasterEditorPage() {
 
       {/* --- BACKGROUND CANVAS --- */}
       {isDark && mountCanvas && (
-        <div className="absolute inset-0 z-0 opacity-100 pointer-events-none hidden md:block">
+        <div className="absolute inset-0 z-0 opacity-100 pointer-events-none">
           <Suspense fallback={null}>
             <Canvas camera={{ position: [0, 0, 10], fov: 60 }}>
               <DystopianSnow
@@ -488,11 +508,11 @@ export default function MasterEditorPage() {
       <div className="h-full w-full overflow-y-auto overscroll-none md:h-auto md:overflow-visible md:overscroll-auto pb-24 md:pb-0">
         <div className="relative z-10 pt-16 pb-10 px-4 md:px-16 max-w-[1600px] mx-auto">
           {/* HEADER */}
-          <header className="flex flex-col xl:flex-row items-center justify-between mb-12 gap-6 relative">
+          <header className="pt-2 flex flex-col xl:flex-row items-center justify-between mb-12 gap-6 relative">
             <h1
               className={`text-3xl font-black uppercase tracking-[0.4em] cursor-default transition-all duration-300 ${themeStyle.logo} ${isDark && vibeMode === "sexy" ? "sexy-text" : isDark ? "glitch-text" : ""}`}
             >
-              VibeWriter™
+              VibeWriter
             </h1>
 
             <div className="flex flex-wrap justify-center items-center gap-3 mt-4 xl:mt-0">
@@ -505,7 +525,6 @@ export default function MasterEditorPage() {
                   >
                     <FilePlus size={14} /> Reset
                   </button>
-                  {/* SQL BUTTON REMOVED FROM HERE */}
                 </div>
                 <div
                   className={`w-px h-8 mx-2 ${isDark ? "bg-white/10" : "bg-slate-300"}`}
@@ -636,6 +655,7 @@ export default function MasterEditorPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
             <div className="lg:col-span-4 space-y-8 order-1 lg:order-1">
+              {/* YOU MUST UPDATE PopulateMeta TO ACCEPT THESE NEW PROPS */}
               <PopulateMeta
                 date={date}
                 setDate={setDate}
@@ -647,6 +667,10 @@ export default function MasterEditorPage() {
                 setTag={setTag}
                 imageCaption={imageCaption}
                 setImageCaption={setImageCaption}
+                musicEmbed={musicEmbed}
+                setMusicEmbed={setMusicEmbed}
+                blogcastUrl={blogcastUrl} // <--- PASSING DOWN
+                setBlogcastUrl={setBlogcastUrl} // <--- PASSING DOWN
                 heroImage={images.main}
                 onUpload={handleFileUpload}
                 onOpenStudio={openStudio}
@@ -669,7 +693,7 @@ export default function MasterEditorPage() {
                 uploadingSlot={uploadingSlot}
                 isDark={isDark}
                 bgOpacity={bgOpacity}
-                onPlayAudio={(url) => setAudioUrl(url)} // Callback
+                onPlayAudio={(url) => setAudioUrl(url)}
               />
             </div>
             <div className="lg:col-span-8 space-y-8 order-2 lg:order-2">
@@ -685,7 +709,7 @@ export default function MasterEditorPage() {
                 theme={theme}
                 bgOpacity={bgOpacity}
                 onSqlExport={generateAndShowSql}
-                title={title} // PASSED DOWN HERE
+                title={title}
               />
               <div
                 className={`flex justify-between text-[10px] font-mono opacity-50 uppercase tracking-widest ${isDark ? "text-white" : "text-slate-500"}`}

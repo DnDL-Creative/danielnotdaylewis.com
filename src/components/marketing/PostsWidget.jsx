@@ -1,18 +1,40 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
-import { createClient } from "@/src/utils/supabase/server"; // Ensure path is correct for your structure
+import { ArrowRight, Loader2 } from "lucide-react";
+import { createClient } from "@/src/utils/supabase/client"; // 1. CHANGE TO CLIENT
 import BlogCard from "./BlogCard";
 
-export default async function PostsWidget({ currentSlug }) {
-  const supabase = await createClient();
+// 2. REMOVE 'async'
+export default function PostsWidget({ currentSlug }) {
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const { data: posts } = await supabase
-    .from("posts")
-    .select("*")
-    .eq("published", true)
-    .order("views", { ascending: false })
-    .limit(5);
+  // 3. FETCH DATA IN USEEFFECT
+  useEffect(() => {
+    const fetchPosts = async () => {
+      const supabase = createClient();
 
+      const { data } = await supabase
+        .from("posts")
+        .select("*")
+        .eq("published", true)
+        .order("views", { ascending: false })
+        .limit(5);
+
+      if (data) {
+        setPosts(data);
+      }
+      setLoading(false);
+    };
+
+    fetchPosts();
+  }, []);
+
+  if (loading) return null;
+
+  // Filter out the current post
   const relatedPosts = posts
     ? posts.filter((post) => post.slug !== currentSlug).slice(0, 4)
     : [];

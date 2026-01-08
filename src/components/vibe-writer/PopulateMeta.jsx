@@ -10,6 +10,8 @@ import {
   Upload,
   Loader2,
   Settings2,
+  Music,
+  Mic, // Imported Mic Icon
 } from "lucide-react";
 
 const CATEGORIES = [
@@ -38,7 +40,11 @@ export default function PopulateMeta({
   uploadingSlot,
   isDark,
   themeBorderClass,
-  bgOpacity = 20, // Default to 20 if not passed
+  bgOpacity = 20,
+  musicEmbed,
+  setMusicEmbed,
+  blogcastUrl, // New Prop
+  setBlogcastUrl, // New Prop
 }) {
   const heroInputRef = useRef(null);
 
@@ -46,7 +52,7 @@ export default function PopulateMeta({
     <div
       className={`p-5 md:p-8 rounded-[2.5rem] border-2 mb-8 ${
         isDark
-          ? `${themeBorderClass} border-opacity-60` // Removed static bg classes
+          ? `${themeBorderClass} border-opacity-60`
           : "bg-white border-slate-200"
       }`}
       style={
@@ -110,6 +116,42 @@ export default function PopulateMeta({
             className={`w-full p-3 pl-10 rounded-xl text-xs font-bold bg-transparent border-2 outline-none ${
               isDark
                 ? "border-white/10 focus:border-teal-500 text-white placeholder-slate-600"
+                : "border-slate-200 text-slate-800 placeholder-slate-400"
+            }`}
+          />
+        </div>
+
+        {/* --- MUSIC EMBED --- */}
+        <div className="relative w-full">
+          <Music
+            size={14}
+            className={`absolute left-4 top-4 ${isDark ? "text-slate-500" : "text-slate-400"}`}
+          />
+          <input
+            value={musicEmbed || ""}
+            onChange={(e) => setMusicEmbed(e.target.value)}
+            placeholder="Paste Spotify/SoundCloud iFrame"
+            className={`w-full p-3 pl-10 rounded-xl text-xs font-bold bg-transparent border-2 outline-none ${
+              isDark
+                ? "border-white/10 focus:border-teal-500 text-teal-300 placeholder-slate-600"
+                : "border-slate-200 text-slate-800 placeholder-slate-400"
+            }`}
+          />
+        </div>
+
+        {/* --- NEW: BLOGCAST URL --- */}
+        <div className="relative w-full">
+          <Mic
+            size={14}
+            className={`absolute left-4 top-4 ${isDark ? "text-slate-500" : "text-slate-400"}`}
+          />
+          <input
+            value={blogcastUrl || ""}
+            onChange={(e) => setBlogcastUrl(e.target.value)}
+            placeholder="Paste Blogcast URL (Supabase or Soundcloud)"
+            className={`w-full p-3 pl-10 rounded-xl text-xs font-bold bg-transparent border-2 outline-none ${
+              isDark
+                ? "border-white/10 focus:border-rose-500 text-rose-300 placeholder-slate-600"
                 : "border-slate-200 text-slate-800 placeholder-slate-400"
             }`}
           />
