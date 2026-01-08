@@ -148,6 +148,9 @@ export default function MasterEditorPage() {
   const [uploadingSlot, setUploadingSlot] = useState(null);
   const [showMobileActions, setShowMobileActions] = useState(false);
 
+  // --- KEY FOR FORCING EDITOR RESET ---
+  const [editorKey, setEditorKey] = useState(0);
+
   // --- THEME STATE ---
   const [theme, setTheme] = useState("teal");
   const isDark = theme !== "light";
@@ -265,6 +268,10 @@ export default function MasterEditorPage() {
     setIsPublished(false);
     setDate(new Date().toISOString().split("T")[0]);
     setShowClearConfirm(false);
+
+    // Force editor to re-render clean
+    setEditorKey((prev) => prev + 1);
+
     showToast("Editor Cleared");
   };
 
@@ -400,6 +407,10 @@ export default function MasterEditorPage() {
         img6: data.image_6 || "",
       });
       if (data.content) setContent(data.content);
+
+      // Force editor to re-render with new content
+      setEditorKey((prev) => prev + 1);
+
       setShowLoadModal(false);
       showToast("Transmission Loaded");
     }
@@ -736,6 +747,7 @@ export default function MasterEditorPage() {
               }}
             />
             <VibeEditor
+              key={editorKey} // FIX: Forces a new editor instance when key changes
               initialContent={content}
               onChange={handleLexicalChange}
               theme={theme}
