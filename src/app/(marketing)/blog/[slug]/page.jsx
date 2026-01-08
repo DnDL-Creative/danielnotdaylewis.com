@@ -446,8 +446,8 @@ export default async function BlogPost({ params }) {
                   </div>
 
                   <p className="text-sm text-slate-600 font-medium leading-relaxed mb-5">
-                    Music fuels my writing. So here's the track that fueled this
-                    one. Hit play (login to Spotify) and read along.
+                    Music fuels my writing. Here's the track that fueled this
+                    one. Hit play, (login to Spotify), and listen-read along.
                   </p>
 
                   {/* UPDATED: Audio Player Wrapper - BORDER REMOVED */}
