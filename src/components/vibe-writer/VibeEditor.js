@@ -37,6 +37,8 @@ import {
   FORMAT_ELEMENT_COMMAND,
   $getRoot,
   $insertNodes,
+  KEY_MODIFIER_COMMAND,
+  COMMAND_PRIORITY_NORMAL,
 } from "lexical";
 import { $createHeadingNode, $createQuoteNode } from "@lexical/rich-text";
 import { $setBlocksType } from "@lexical/selection";
@@ -541,6 +543,71 @@ function VibeToolbar({ onSqlExport, title }) {
   const [isSticky, setIsSticky] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
 
+  // --- KEYBOARD SHORTCUTS LISTENER ---
+  useEffect(() => {
+    return mergeRegister(
+      editor.registerCommand(
+        KEY_MODIFIER_COMMAND,
+        (event) => {
+          const { code, shiftKey, metaKey, ctrlKey } = event;
+          // Check for Command (Mac) or Control (Windows)
+          // We use event.ctrlKey for Windows/Linux and event.metaKey for Mac
+          const isMac =
+            typeof window !== "undefined" &&
+            /Mac|iPod|iPhone|iPad/.test(window.navigator.platform);
+          const isCtrl = isMac ? metaKey : ctrlKey;
+
+          if (isCtrl) {
+            // --- LINK (Cmd + K) ---
+            if (code === "KeyK") {
+              event.preventDefault();
+              setModalOpen(true);
+              return true;
+            }
+
+            // --- LISTS (Google Docs Style) ---
+            if (shiftKey) {
+              // Cmd + Shift + 8 = Bullet List
+              if (code === "Digit8") {
+                event.preventDefault();
+                editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND);
+                return true;
+              }
+              // Cmd + Shift + 7 = Numbered List
+              if (code === "Digit7") {
+                event.preventDefault();
+                editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND);
+                return true;
+              }
+
+              // --- ALIGNMENT ---
+              // Cmd + Shift + L = Left
+              if (code === "KeyL") {
+                event.preventDefault();
+                editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, "left");
+                return true;
+              }
+              // Cmd + Shift + E = Center
+              if (code === "KeyE") {
+                event.preventDefault();
+                editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, "center");
+                return true;
+              }
+              // Cmd + Shift + R = Right
+              if (code === "KeyR") {
+                event.preventDefault();
+                editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, "right");
+                return true;
+              }
+            }
+          }
+          return false;
+        },
+        COMMAND_PRIORITY_NORMAL
+      )
+    );
+  }, [editor]);
+
   const updateToolbar = useCallback(() => {
     const selection = $getSelection();
     if ($isRangeSelection(selection)) {
@@ -674,7 +741,7 @@ function VibeToolbar({ onSqlExport, title }) {
             editor.dispatchCommand(FORMAT_TEXT_COMMAND, "bold");
           }}
           className={btnClass(isBold)}
-          title="Bold"
+          title="Bold (Cmd+B)"
         >
           <Bold size={18} />
         </button>
@@ -684,7 +751,7 @@ function VibeToolbar({ onSqlExport, title }) {
             editor.dispatchCommand(FORMAT_TEXT_COMMAND, "italic");
           }}
           className={btnClass(isItalic)}
-          title="Italic"
+          title="Italic (Cmd+I)"
         >
           <Italic size={18} />
         </button>
@@ -694,7 +761,7 @@ function VibeToolbar({ onSqlExport, title }) {
             editor.dispatchCommand(FORMAT_TEXT_COMMAND, "underline");
           }}
           className={btnClass(isUnderline)}
-          title="Underline"
+          title="Underline (Cmd+U)"
         >
           <Underline size={18} />
         </button>
@@ -745,7 +812,7 @@ function VibeToolbar({ onSqlExport, title }) {
             setModalOpen(true);
           }}
           className={btnClass(false)}
-          title="Link"
+          title="Link (Cmd+K)"
         >
           <LinkIcon size={18} />
         </button>
@@ -756,7 +823,7 @@ function VibeToolbar({ onSqlExport, title }) {
             editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND);
           }}
           className={btnClass(activeBlock === "ul")}
-          title="Bullet List"
+          title="Bullet List (Cmd+Shift+8)"
         >
           <List size={18} />
         </button>
@@ -766,7 +833,7 @@ function VibeToolbar({ onSqlExport, title }) {
             editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND);
           }}
           className={btnClass(activeBlock === "ol")}
-          title="Numbered List"
+          title="Numbered List (Cmd+Shift+7)"
         >
           <ListOrdered size={18} />
         </button>
@@ -787,7 +854,7 @@ function VibeToolbar({ onSqlExport, title }) {
             editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, "left");
           }}
           className={btnClass(false)}
-          title="Align Left"
+          title="Align Left (Cmd+Shift+L)"
         >
           <AlignLeft size={18} />
         </button>
@@ -797,7 +864,7 @@ function VibeToolbar({ onSqlExport, title }) {
             editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, "center");
           }}
           className={btnClass(false)}
-          title="Align Center"
+          title="Align Center (Cmd+Shift+E)"
         >
           <AlignCenter size={18} />
         </button>
@@ -807,16 +874,15 @@ function VibeToolbar({ onSqlExport, title }) {
             editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, "right");
           }}
           className={btnClass(false)}
-          title="Align Right"
+          title="Align Right (Cmd+Shift+R)"
         >
           <AlignRight size={18} />
         </button>
 
         <div className="ml-2 pl-2 border-l border-white/10">
           <button
-            type="button" // Explicitly set type to prevent form submission/default behaviors
+            type="button"
             onClick={(e) => {
-              // Use onClick for UI toggles instead of onMouseDown
               e.preventDefault();
               setIsSticky(!isSticky);
             }}

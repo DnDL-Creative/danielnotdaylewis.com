@@ -391,8 +391,9 @@ export default async function BlogPost({ params }) {
             <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm transition-transform hover:scale-105 cursor-default">
               <Clock size={12} className="text-rose-500" />
               <span className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-slate-600">
-                {/* Updated label to be inclusive */}
-                {wordCount} words | ~{readTime} min read / listen
+                {/* Updated label to be dynamic based on Blogcast presence */}
+                {wordCount} words | ~{readTime}{" "}
+                {hasBlogcast ? "min blogcast" : "min read"}
               </span>
             </div>
           </div>

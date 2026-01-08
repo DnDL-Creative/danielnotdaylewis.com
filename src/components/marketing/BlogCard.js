@@ -22,6 +22,9 @@ export default function BlogCard({ post, delay = 0, priority = false }) {
   // Use the helper to get exact stats match with the main page
   const { wordCount, readTime } = calculateReadingStats(post.content);
 
+  // Check for blogcast existence
+  const hasBlogcast = !!post.blogcast_url;
+
   return (
     <div
       className="group relative h-full animate-fade-in-up"
@@ -73,11 +76,12 @@ export default function BlogCard({ post, delay = 0, priority = false }) {
                 <div className="h-2 w-[1px] bg-slate-200"></div>
 
                 {/* Word Count & Read Time */}
-                <div className="flex items-center gap-1 text-[9px] font-bold uppercase text-slate-500 whitespace-nowrap">
-                  <Clock size={9} className="text-rose-500" />
-                  <span>
-                    {/* Updated label to include "listen" */}
-                    {wordCount} words | ~{readTime} min listen
+                <div className="flex items-center gap-1 text-[9px] font-bold uppercase text-slate-500 whitespace-nowrap max-w-full">
+                  <Clock size={9} className="text-rose-500 shrink-0" />
+                  <span className="truncate">
+                    {/* Dynamic label based on Blogcast presence */}
+                    {wordCount} words | ~{readTime}{" "}
+                    {hasBlogcast ? "min blogcast" : "min read"}
                   </span>
                 </div>
               </div>
