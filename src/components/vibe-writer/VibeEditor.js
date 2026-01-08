@@ -70,6 +70,9 @@ import {
   Database,
   Pin,
   PinOff,
+  MoreHorizontal,
+  Clock,
+  Type as TypeIcon,
 } from "lucide-react";
 
 // --- EXPORT DEPENDENCIES ---
@@ -375,18 +378,18 @@ const VibeExportMenu = ({ onSqlExport, title }) => {
   };
 
   return (
-    <div className="relative inline-block ml-auto pl-2 border-l border-white/10">
+    <div className="relative inline-block border-l border-white/10 pl-2">
       <button
         onClick={() => setIsOpen(!isOpen)}
         disabled={isExporting}
-        className="flex items-center gap-2 px-3 py-1.5 rounded bg-teal-500/10 border border-teal-500/30 text-teal-400 hover:bg-teal-500/20 hover:text-teal-300 transition-all text-xs font-bold uppercase tracking-wider"
+        className="flex items-center gap-2 px-3 py-2 md:py-1.5 rounded bg-teal-500/10 border border-teal-500/30 text-teal-400 hover:bg-teal-500/20 hover:text-teal-300 transition-all text-xs font-bold uppercase tracking-wider"
       >
         {isExporting ? (
           <Loader2 size={14} className="animate-spin" />
         ) : (
           <Download size={14} />
         )}
-        Export{" "}
+        <span className="hidden sm:inline">Export</span>
         <ChevronDown
           size={12}
           className={`transition-transform ${isOpen ? "rotate-180" : ""}`}
@@ -485,7 +488,7 @@ const VibeModal = ({ isOpen, onClose, onConfirm }) => {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div
-        className="w-[400px] bg-[var(--bg-toolbar)] border rounded-2xl p-6 transition-all duration-300 backdrop-blur-xl"
+        className="w-[90%] max-w-[400px] bg-[var(--bg-toolbar)] border rounded-2xl p-6 transition-all duration-300 backdrop-blur-xl"
         style={{
           borderColor: "var(--theme-border)",
           boxShadow: "var(--theme-shadow)",
@@ -528,7 +531,7 @@ const VibeModal = ({ isOpen, onClose, onConfirm }) => {
 };
 
 // -----------------------------------------------------------------------------
-// 3. TOOLBAR COMPONENT
+// 3. TOOLBAR COMPONENT (FIXED LAYOUT)
 // -----------------------------------------------------------------------------
 function VibeToolbar({ onSqlExport, title }) {
   const [editor] = useLexicalComposerContext();
@@ -542,6 +545,8 @@ function VibeToolbar({ onSqlExport, title }) {
   const [isCode, setIsCode] = useState(false);
   const [isSticky, setIsSticky] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const [blockMenuOpen, setBlockMenuOpen] = useState(false);
 
   // --- KEYBOARD SHORTCUTS LISTENER ---
   useEffect(() => {
@@ -550,50 +555,38 @@ function VibeToolbar({ onSqlExport, title }) {
         KEY_MODIFIER_COMMAND,
         (event) => {
           const { code, shiftKey, metaKey, ctrlKey } = event;
-          // Check for Command (Mac) or Control (Windows)
-          // We use event.ctrlKey for Windows/Linux and event.metaKey for Mac
           const isMac =
             typeof window !== "undefined" &&
             /Mac|iPod|iPhone|iPad/.test(window.navigator.platform);
           const isCtrl = isMac ? metaKey : ctrlKey;
 
           if (isCtrl) {
-            // --- LINK (Cmd + K) ---
             if (code === "KeyK") {
               event.preventDefault();
               setModalOpen(true);
               return true;
             }
-
-            // --- LISTS (Google Docs Style) ---
             if (shiftKey) {
-              // Cmd + Shift + 8 = Bullet List
               if (code === "Digit8") {
                 event.preventDefault();
                 editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND);
                 return true;
               }
-              // Cmd + Shift + 7 = Numbered List
               if (code === "Digit7") {
                 event.preventDefault();
                 editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND);
                 return true;
               }
-
-              // --- ALIGNMENT ---
-              // Cmd + Shift + L = Left
               if (code === "KeyL") {
                 event.preventDefault();
                 editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, "left");
                 return true;
               }
-              // Cmd + Shift + E = Center
               if (code === "KeyE") {
                 event.preventDefault();
                 editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, "center");
                 return true;
               }
-              // Cmd + Shift + R = Right
               if (code === "KeyR") {
                 event.preventDefault();
                 editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, "right");
@@ -674,6 +667,7 @@ function VibeToolbar({ onSqlExport, title }) {
         }
       }
     });
+    setBlockMenuOpen(false);
   };
 
   const handleModalConfirm = (val) => {
@@ -686,215 +680,389 @@ function VibeToolbar({ onSqlExport, title }) {
   };
 
   const btnClass = (isActive) =>
-    `p-2 rounded transition-all duration-200 ${isActive ? "bg-[var(--theme-color)] text-black shadow-[0_0_15px_var(--theme-shadow-color)]" : "theme-icon-base hover:bg-[var(--icon-hover-bg)] hover:text-[var(--icon-hover-text)]"}`;
+    `p-2 rounded transition-all duration-200 shrink-0 ${isActive ? "bg-[var(--theme-color)] text-black shadow-[0_0_15px_var(--theme-shadow-color)]" : "theme-icon-base hover:bg-[var(--icon-hover-bg)] hover:text-[var(--icon-hover-text)]"}`;
+
+  const formatAlign = (dir) => {
+    editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, dir);
+    setMoreMenuOpen(false);
+  };
 
   return (
     <>
       <div
-        className={`flex items-center flex-wrap gap-1 p-4 border-b theme-border-dim bg-[var(--bg-toolbar)] backdrop-blur-md transition-all duration-300 z-50 rounded-t-[1.9rem] ${isSticky ? "sticky top-[60px] md:top-[80px]" : "relative"}`}
+        className={`flex items-center justify-between p-3 border-b theme-border-dim bg-[var(--bg-toolbar)] backdrop-blur-md transition-all duration-300 z-50 rounded-t-[1.9rem] ${isSticky ? "sticky top-[60px] md:top-[80px]" : "relative"}`}
       >
-        <button
-          onMouseDown={(e) => {
-            e.preventDefault();
-            toggleBlock("paragraph");
-          }}
-          className={btnClass(activeBlock === "paragraph")}
-          title="Normal Text"
-        >
-          <Type size={18} />
-        </button>
-        <div className="w-px h-6 bg-white/10 mx-1" />
-        <button
-          onMouseDown={(e) => {
-            e.preventDefault();
-            toggleBlock("heading", "h2");
-          }}
-          className={btnClass(activeBlock === "h2")}
-          title="Heading 2"
-        >
-          <Heading2 size={18} />
-        </button>
-        <button
-          onMouseDown={(e) => {
-            e.preventDefault();
-            toggleBlock("heading", "h3");
-          }}
-          className={btnClass(activeBlock === "h3")}
-          title="Heading 3"
-        >
-          <Heading3 size={18} />
-        </button>
-        <button
-          onMouseDown={(e) => {
-            e.preventDefault();
-            toggleBlock("heading", "h4");
-          }}
-          className={btnClass(activeBlock === "h4")}
-          title="Heading 4"
-        >
-          <Heading4 size={18} />
-        </button>
-        <div className="w-px h-6 bg-white/10 mx-1" />
-        <button
-          onMouseDown={(e) => {
-            e.preventDefault();
-            editor.dispatchCommand(FORMAT_TEXT_COMMAND, "bold");
-          }}
-          className={btnClass(isBold)}
-          title="Bold (Cmd+B)"
-        >
-          <Bold size={18} />
-        </button>
-        <button
-          onMouseDown={(e) => {
-            e.preventDefault();
-            editor.dispatchCommand(FORMAT_TEXT_COMMAND, "italic");
-          }}
-          className={btnClass(isItalic)}
-          title="Italic (Cmd+I)"
-        >
-          <Italic size={18} />
-        </button>
-        <button
-          onMouseDown={(e) => {
-            e.preventDefault();
-            editor.dispatchCommand(FORMAT_TEXT_COMMAND, "underline");
-          }}
-          className={btnClass(isUnderline)}
-          title="Underline (Cmd+U)"
-        >
-          <Underline size={18} />
-        </button>
-        <button
-          onMouseDown={(e) => {
-            e.preventDefault();
-            editor.dispatchCommand(FORMAT_TEXT_COMMAND, "strikethrough");
-          }}
-          className={btnClass(isStrikethrough)}
-          title="Strikethrough"
-        >
-          <Strikethrough size={18} />
-        </button>
-        <div className="w-px h-6 bg-white/10 mx-1" />
-        <button
-          onMouseDown={(e) => {
-            e.preventDefault();
-            editor.dispatchCommand(FORMAT_TEXT_COMMAND, "subscript");
-          }}
-          className={btnClass(isSubscript)}
-          title="Subscript"
-        >
-          <Subscript size={18} />
-        </button>
-        <button
-          onMouseDown={(e) => {
-            e.preventDefault();
-            editor.dispatchCommand(FORMAT_TEXT_COMMAND, "superscript");
-          }}
-          className={btnClass(isSuperscript)}
-          title="Superscript"
-        >
-          <Superscript size={18} />
-        </button>
-        <button
-          onMouseDown={(e) => {
-            e.preventDefault();
-            editor.dispatchCommand(FORMAT_TEXT_COMMAND, "code");
-          }}
-          className={btnClass(isCode)}
-          title="Inline Code"
-        >
-          <CodeIcon size={18} />
-        </button>
-        <button
-          onMouseDown={(e) => {
-            e.preventDefault();
-            setModalOpen(true);
-          }}
-          className={btnClass(false)}
-          title="Link (Cmd+K)"
-        >
-          <LinkIcon size={18} />
-        </button>
-        <div className="w-px h-6 bg-white/10 mx-1" />
-        <button
-          onMouseDown={(e) => {
-            e.preventDefault();
-            editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND);
-          }}
-          className={btnClass(activeBlock === "ul")}
-          title="Bullet List (Cmd+Shift+8)"
-        >
-          <List size={18} />
-        </button>
-        <button
-          onMouseDown={(e) => {
-            e.preventDefault();
-            editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND);
-          }}
-          className={btnClass(activeBlock === "ol")}
-          title="Numbered List (Cmd+Shift+7)"
-        >
-          <ListOrdered size={18} />
-        </button>
-        <button
-          onMouseDown={(e) => {
-            e.preventDefault();
-            toggleBlock("quote");
-          }}
-          className={btnClass(activeBlock === "quote")}
-          title="Quote"
-        >
-          <Quote size={18} />
-        </button>
-        <div className="w-px h-6 bg-white/10 mx-1" />
-        <button
-          onMouseDown={(e) => {
-            e.preventDefault();
-            editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, "left");
-          }}
-          className={btnClass(false)}
-          title="Align Left (Cmd+Shift+L)"
-        >
-          <AlignLeft size={18} />
-        </button>
-        <button
-          onMouseDown={(e) => {
-            e.preventDefault();
-            editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, "center");
-          }}
-          className={btnClass(false)}
-          title="Align Center (Cmd+Shift+E)"
-        >
-          <AlignCenter size={18} />
-        </button>
-        <button
-          onMouseDown={(e) => {
-            e.preventDefault();
-            editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, "right");
-          }}
-          className={btnClass(false)}
-          title="Align Right (Cmd+Shift+R)"
-        >
-          <AlignRight size={18} />
-        </button>
+        {/* --- LEFT SIDE: SCROLLABLE TOOLS --- */}
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar max-w-full flex-grow mask-fade-right">
+          {/* --- MOBILE: TEXT STYLE DROPDOWN --- */}
+          <div className="relative md:hidden shrink-0">
+            <button
+              onClick={() => setBlockMenuOpen(!blockMenuOpen)}
+              className={btnClass(false)}
+            >
+              {activeBlock.startsWith("h") ? (
+                <Heading2 size={18} />
+              ) : activeBlock === "quote" ? (
+                <Quote size={18} />
+              ) : (
+                <TypeIcon size={18} />
+              )}
+            </button>
+            {blockMenuOpen && (
+              <div className="fixed top-[120px] left-4 mt-2 bg-[#0f172a] border border-white/10 rounded-xl shadow-2xl p-1 flex flex-col gap-1 z-[9999] min-w-[120px]">
+                <button
+                  onClick={() => toggleBlock("paragraph")}
+                  className="text-left px-3 py-2 text-xs text-slate-300 hover:bg-white/10 rounded"
+                >
+                  Paragraph
+                </button>
+                <button
+                  onClick={() => toggleBlock("heading", "h2")}
+                  className="text-left px-3 py-2 text-xs text-slate-300 hover:bg-white/10 rounded font-bold"
+                >
+                  Heading 2
+                </button>
+                <button
+                  onClick={() => toggleBlock("heading", "h3")}
+                  className="text-left px-3 py-2 text-xs text-slate-300 hover:bg-white/10 rounded font-semibold"
+                >
+                  Heading 3
+                </button>
+                <button
+                  onClick={() => toggleBlock("heading", "h4")}
+                  className="text-left px-3 py-2 text-xs text-slate-300 hover:bg-white/10 rounded font-medium"
+                >
+                  Heading 4
+                </button>
+                <button
+                  onClick={() => toggleBlock("quote")}
+                  className="text-left px-3 py-2 text-xs text-slate-300 hover:bg-white/10 rounded italic"
+                >
+                  Quote
+                </button>
+              </div>
+            )}
+            {/* INVISIBLE OVERLAY TO CLOSE MENU */}
+            {blockMenuOpen && (
+              <div
+                className="fixed inset-0 z-[9998]"
+                onClick={() => setBlockMenuOpen(false)}
+              ></div>
+            )}
+          </div>
 
-        <div className="ml-2 pl-2 border-l border-white/10">
+          {/* --- DESKTOP: FULL BLOCK CONTROLS --- */}
+          <div className="hidden md:flex items-center gap-1 shrink-0">
+            <button
+              onMouseDown={(e) => {
+                e.preventDefault();
+                toggleBlock("paragraph");
+              }}
+              className={btnClass(activeBlock === "paragraph")}
+              title="Normal Text"
+            >
+              <Type size={18} />
+            </button>
+            <div className="w-px h-5 bg-white/10 mx-1" />
+            <button
+              onMouseDown={(e) => {
+                e.preventDefault();
+                toggleBlock("heading", "h2");
+              }}
+              className={btnClass(activeBlock === "h2")}
+              title="Heading 2"
+            >
+              <Heading2 size={18} />
+            </button>
+            <button
+              onMouseDown={(e) => {
+                e.preventDefault();
+                toggleBlock("heading", "h3");
+              }}
+              className={btnClass(activeBlock === "h3")}
+              title="Heading 3"
+            >
+              <Heading3 size={18} />
+            </button>
+            <button
+              onMouseDown={(e) => {
+                e.preventDefault();
+                toggleBlock("heading", "h4");
+              }}
+              className={btnClass(activeBlock === "h4")}
+              title="Heading 4"
+            >
+              <Heading4 size={18} />
+            </button>
+            <div className="w-px h-5 bg-white/10 mx-1" />
+          </div>
+
+          {/* --- COMMON TOOLS (Bold/Italic/Link) --- */}
           <button
-            type="button"
-            onClick={(e) => {
+            onMouseDown={(e) => {
               e.preventDefault();
-              setIsSticky(!isSticky);
+              editor.dispatchCommand(FORMAT_TEXT_COMMAND, "bold");
             }}
-            className={btnClass(isSticky)}
-            title={isSticky ? "Unpin Toolbar" : "Pin Toolbar"}
+            className={btnClass(isBold)}
+            title="Bold"
           >
-            {isSticky ? <Pin size={18} /> : <PinOff size={18} />}
+            <Bold size={18} />
           </button>
+          <button
+            onMouseDown={(e) => {
+              e.preventDefault();
+              editor.dispatchCommand(FORMAT_TEXT_COMMAND, "italic");
+            }}
+            className={btnClass(isItalic)}
+            title="Italic"
+          >
+            <Italic size={18} />
+          </button>
+
+          <button
+            onMouseDown={(e) => {
+              e.preventDefault();
+              setModalOpen(true);
+            }}
+            className={btnClass(false)}
+            title="Link"
+          >
+            <LinkIcon size={18} />
+          </button>
+
+          {/* --- DESKTOP: EXTENDED FORMATTING --- */}
+          <div className="hidden md:flex items-center gap-1 shrink-0">
+            <button
+              onMouseDown={(e) => {
+                e.preventDefault();
+                editor.dispatchCommand(FORMAT_TEXT_COMMAND, "underline");
+              }}
+              className={btnClass(isUnderline)}
+              title="Underline"
+            >
+              <Underline size={18} />
+            </button>
+            <button
+              onMouseDown={(e) => {
+                e.preventDefault();
+                editor.dispatchCommand(FORMAT_TEXT_COMMAND, "strikethrough");
+              }}
+              className={btnClass(isStrikethrough)}
+              title="Strikethrough"
+            >
+              <Strikethrough size={18} />
+            </button>
+            <div className="w-px h-5 bg-white/10 mx-1" />
+            <button
+              onMouseDown={(e) => {
+                e.preventDefault();
+                editor.dispatchCommand(FORMAT_TEXT_COMMAND, "subscript");
+              }}
+              className={btnClass(isSubscript)}
+              title="Subscript"
+            >
+              <Subscript size={18} />
+            </button>
+            <button
+              onMouseDown={(e) => {
+                e.preventDefault();
+                editor.dispatchCommand(FORMAT_TEXT_COMMAND, "superscript");
+              }}
+              className={btnClass(isSuperscript)}
+              title="Superscript"
+            >
+              <Superscript size={18} />
+            </button>
+            <button
+              onMouseDown={(e) => {
+                e.preventDefault();
+                editor.dispatchCommand(FORMAT_TEXT_COMMAND, "code");
+              }}
+              className={btnClass(isCode)}
+              title="Inline Code"
+            >
+              <CodeIcon size={18} />
+            </button>
+            <div className="w-px h-5 bg-white/10 mx-1" />
+            <button
+              onMouseDown={(e) => {
+                e.preventDefault();
+                editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND);
+              }}
+              className={btnClass(activeBlock === "ul")}
+              title="Bullet List"
+            >
+              <List size={18} />
+            </button>
+            <button
+              onMouseDown={(e) => {
+                e.preventDefault();
+                editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND);
+              }}
+              className={btnClass(activeBlock === "ol")}
+              title="Numbered List"
+            >
+              <ListOrdered size={18} />
+            </button>
+            <button
+              onMouseDown={(e) => {
+                e.preventDefault();
+                toggleBlock("quote");
+              }}
+              className={btnClass(activeBlock === "quote")}
+              title="Quote"
+            >
+              <Quote size={18} />
+            </button>
+            <div className="w-px h-5 bg-white/10 mx-1" />
+            <button
+              onMouseDown={(e) => {
+                e.preventDefault();
+                editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, "left");
+              }}
+              className={btnClass(false)}
+              title="Align Left"
+            >
+              <AlignLeft size={18} />
+            </button>
+            <button
+              onMouseDown={(e) => {
+                e.preventDefault();
+                editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, "center");
+              }}
+              className={btnClass(false)}
+              title="Align Center"
+            >
+              <AlignCenter size={18} />
+            </button>
+            <button
+              onMouseDown={(e) => {
+                e.preventDefault();
+                editor.dispatchCommand(FORMAT_ELEMENT_COMMAND, "right");
+              }}
+              className={btnClass(false)}
+              title="Align Right"
+            >
+              <AlignRight size={18} />
+            </button>
+
+            <div className="ml-2 pl-2 border-l border-white/10">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setIsSticky(!isSticky);
+                }}
+                className={btnClass(isSticky)}
+                title={isSticky ? "Unpin Toolbar" : "Pin Toolbar"}
+              >
+                {isSticky ? <Pin size={18} /> : <PinOff size={18} />}
+              </button>
+            </div>
+          </div>
         </div>
 
-        <VibeExportMenu onSqlExport={onSqlExport} title={title} />
+        {/* --- RIGHT SIDE: STATIC TOOLS (Mobile Menu + Export) --- */}
+        <div className="flex items-center gap-1 pl-2 ml-1 shrink-0 bg-[var(--bg-toolbar)] z-[60]">
+          {/* --- MOBILE: MORE MENU (FIXED: OUTSIDE SCROLL) --- */}
+          <div className="relative md:hidden">
+            <button
+              onClick={() => setMoreMenuOpen(!moreMenuOpen)}
+              className={btnClass(moreMenuOpen)}
+            >
+              <MoreHorizontal size={18} />
+            </button>
+            {moreMenuOpen && (
+              <div className="fixed top-[120px] right-4 mt-2 bg-[#0f172a] border border-white/10 rounded-xl shadow-2xl p-2 grid grid-cols-4 gap-1 z-[9999] w-[200px]">
+                <button
+                  onClick={() =>
+                    editor.dispatchCommand(FORMAT_TEXT_COMMAND, "underline")
+                  }
+                  className={btnClass(isUnderline)}
+                >
+                  <Underline size={16} />
+                </button>
+                <button
+                  onClick={() =>
+                    editor.dispatchCommand(FORMAT_TEXT_COMMAND, "strikethrough")
+                  }
+                  className={btnClass(isStrikethrough)}
+                >
+                  <Strikethrough size={16} />
+                </button>
+                <button
+                  onClick={() =>
+                    editor.dispatchCommand(FORMAT_TEXT_COMMAND, "code")
+                  }
+                  className={btnClass(isCode)}
+                >
+                  <CodeIcon size={16} />
+                </button>
+                <button
+                  onClick={() => toggleBlock("quote")}
+                  className={btnClass(activeBlock === "quote")}
+                >
+                  <Quote size={16} />
+                </button>
+                <div className="col-span-4 h-px bg-white/10 my-1" />
+                <button
+                  onClick={() =>
+                    editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND)
+                  }
+                  className={btnClass(activeBlock === "ul")}
+                >
+                  <List size={16} />
+                </button>
+                <button
+                  onClick={() =>
+                    editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND)
+                  }
+                  className={btnClass(activeBlock === "ol")}
+                >
+                  <ListOrdered size={16} />
+                </button>
+                <div className="col-span-2"></div>
+                <div className="col-span-4 h-px bg-white/10 my-1" />
+                <button
+                  onClick={() => formatAlign("left")}
+                  className={btnClass(false)}
+                >
+                  <AlignLeft size={16} />
+                </button>
+                <button
+                  onClick={() => formatAlign("center")}
+                  className={btnClass(false)}
+                >
+                  <AlignCenter size={16} />
+                </button>
+                <button
+                  onClick={() => formatAlign("right")}
+                  className={btnClass(false)}
+                >
+                  <AlignRight size={16} />
+                </button>
+                <button
+                  onClick={() => setIsSticky(!isSticky)}
+                  className={btnClass(isSticky)}
+                >
+                  {isSticky ? <Pin size={16} /> : <PinOff size={16} />}
+                </button>
+              </div>
+            )}
+            {/* INVISIBLE OVERLAY TO CLOSE MENU */}
+            {moreMenuOpen && (
+              <div
+                className="fixed inset-0 z-[9998]"
+                onClick={() => setMoreMenuOpen(false)}
+              ></div>
+            )}
+          </div>
+
+          {/* --- EXPORT (ALWAYS VISIBLE) --- */}
+          <VibeExportMenu onSqlExport={onSqlExport} title={title} />
+        </div>
       </div>
+
       <VibeModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -926,12 +1094,41 @@ const LoadHtmlPlugin = ({ initialContent }) => {
 };
 
 // -----------------------------------------------------------------------------
-// 5. MAIN COMPONENT
+// 5. WORD COUNT & STATS PLUGIN
+// -----------------------------------------------------------------------------
+const EditorStatsPlugin = ({ onChange }) => {
+  const [editor] = useLexicalComposerContext();
+
+  useEffect(() => {
+    return editor.registerUpdateListener(({ editorState }) => {
+      editorState.read(() => {
+        const root = $getRoot();
+        const textContent = root.getTextContent();
+        // Simple word count regex
+        const words = textContent
+          .trim()
+          .split(/\s+/)
+          .filter((w) => w !== "").length;
+
+        // Blogcast Rule: 9,500 words per hour
+        // 9500 words / 60 mins = ~158.33 words per minute
+        const wordsPerMinute = 9500 / 60;
+        const minutes = Math.ceil(words / wordsPerMinute);
+
+        onChange({ words, minutes });
+      });
+    });
+  }, [editor, onChange]);
+  return null;
+};
+
+// -----------------------------------------------------------------------------
+// 6. MAIN COMPONENT
 // -----------------------------------------------------------------------------
 const VibeEditor = forwardRef(
   (
     {
-      onChange = () => {}, // Default no-op so it never crashes
+      onChange = () => {},
       initialContent = null,
       theme = "teal",
       bgOpacity = 80,
@@ -940,6 +1137,8 @@ const VibeEditor = forwardRef(
     },
     ref
   ) => {
+    const [stats, setStats] = useState({ words: 0, minutes: 0 });
+
     const initialConfig = {
       namespace: "VibeWriter",
       theme: vibeTheme,
@@ -955,13 +1154,11 @@ const VibeEditor = forwardRef(
       editorState: null,
     };
 
-    // Use a ref to track the latest onChange handler without triggering re-renders
     const onChangeRef = useRef(onChange);
     useEffect(() => {
       onChangeRef.current = onChange;
     }, [onChange]);
 
-    // Internal plugin defined inside the component to ensure access to the Ref
     const HtmlOutputPlugin = () => {
       const [editor] = useLexicalComposerContext();
       useEffect(() => {
@@ -1019,7 +1216,7 @@ const VibeEditor = forwardRef(
 
     return (
       <div
-        className="flex-grow relative rounded-[2rem] border border-teal-500/20 shadow-[0_0_50px_-20px_rgba(20,184,166,0.2)] transition-all duration-500 vibe-editor-wrapper"
+        className="flex flex-col flex-grow relative rounded-[2rem] border border-teal-500/20 shadow-[0_0_50px_-20px_rgba(20,184,166,0.2)] transition-all duration-500 vibe-editor-wrapper"
         style={{
           backgroundColor: `rgba(5, 10, 16, ${bgOpacity / 100})`,
           backdropFilter: `blur(${bgOpacity * 0.2}px)`,
@@ -1034,16 +1231,17 @@ const VibeEditor = forwardRef(
           <LoadHtmlPlugin initialContent={initialContent} />
           <EditorRefPlugin />
           <HtmlOutputPlugin />
+          <EditorStatsPlugin onChange={setStats} />
           <ListPlugin />
           <LinkPlugin />
           <HistoryPlugin />
           <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
 
-          {/* --- FIXED MIN-HEIGHT --- */}
-          <div className="relative p-8 md:p-12 min-h-[80vh]">
+          {/* --- EDITOR CONTENT AREA --- */}
+          <div className="relative p-8 md:p-12 flex-grow min-h-[50vh]">
             <RichTextPlugin
               contentEditable={
-                <ContentEditable className="outline-none min-h-[70vh] theme-text-body relative z-10" />
+                <ContentEditable className="outline-none min-h-[40vh] theme-text-body relative z-10" />
               }
               placeholder={
                 <div
@@ -1058,11 +1256,28 @@ const VibeEditor = forwardRef(
                   <strong>CRASH REPORT:</strong>
                   <br />
                   {error ? error.message : "Unknown Error"}
-                  <br />
-                  Check console for stack trace.
                 </div>
               )}
             />
+          </div>
+
+          {/* --- FOOTER: STATS --- */}
+          <div className="flex items-center justify-between px-6 py-3 border-t theme-border-dim rounded-b-[1.9rem] bg-[var(--bg-toolbar)] text-xs font-bold uppercase tracking-widest theme-text-dim">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1.5" title="Word Count">
+                <TypeIcon size={12} className="opacity-70" />
+                <span>{stats.words.toLocaleString()} words</span>
+              </div>
+              <div className="w-px h-3 bg-white/10" />
+              <div
+                className="flex items-center gap-1.5"
+                title="Blogcast Reading Time (9,500 words/hr)"
+              >
+                <Clock size={12} className="opacity-70" />
+                <span>~{stats.minutes} min cast</span>
+              </div>
+            </div>
+            <div className="opacity-50 hidden sm:block">VibeWriter 2.0</div>
           </div>
         </LexicalComposer>
         <style jsx global>{`
@@ -1104,6 +1319,13 @@ const VibeEditor = forwardRef(
           .vibe-editor-wrapper ol {
             list-style-type: decimal;
             padding-left: 1.5em;
+          }
+          .no-scrollbar::-webkit-scrollbar {
+            display: none;
+          }
+          .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
           }
         `}</style>
       </div>
