@@ -195,185 +195,103 @@
   }
 
   /* ========================================================================
-     🔥 SUPERCHARGED BLOG CONTENT STYLING
-     ======================================================================== */
+   🔥 SUPERCHARGED BLOG CONTENT STYLING (FINAL)
+   ======================================================================== */
   .blog-content {
-    color: #334155;
-    line-height: 1.9; /* Increased for better readability */
-    font-size: 1.15rem; /* Slightly larger text */
+    @apply text-slate-700;
+    /* Define standard size here */
+    font-size: 1.125rem; /* 18px Mobile */
+    line-height: 1.75;
   }
 
-  /* Drop Cap for the first letter of the first paragraph */
+  @media (min-width: 768px) {
+    .blog-content {
+      font-size: 1.25rem; /* 20px Desktop */
+      line-height: 1.8;
+    }
+  }
+
+  /* Force cleaner styles on paragraphs and spans (handling editor output) */
+  .blog-content p,
+  .blog-content span {
+    font-weight: 400 !important; /* Overrides 'font-light' if parser misses it */
+    margin-bottom: 2rem;
+    margin-top: 0;
+    color: #1e293b; /* Slate 800 */
+  }
+
+  /* Drop Cap */
   .blog-content > p:first-of-type::first-letter {
     float: left;
     font-size: 3.5rem;
-    line-height: 0.8;
+    line-height: 0.85;
     font-weight: 900;
     margin-right: 0.75rem;
-    margin-top: 0.25rem;
-    color: #0d9488; /* Primary Teal */
+    margin-top: 0.1rem;
+    color: #0d9488;
     text-transform: uppercase;
   }
 
-  /* HEADINGS */
+  /* Headings */
   .blog-content h2 {
-    font-size: 2rem;
-    font-weight: 900;
-    margin-top: 4rem;
-    margin-bottom: 1.5rem;
-    letter-spacing: -0.03em;
-    line-height: 1.1;
-    color: transparent;
+    @apply text-3xl md:text-4xl font-black mt-16 mb-6 tracking-tight text-slate-900;
+    background: linear-gradient(to right, #0f172a, #334155);
+    -webkit-background-clip: text;
     background-clip: text;
-    background-image: linear-gradient(to right, #0f172a, #334155);
-    clear: both;
-  }
-  .dark .blog-content h2 {
-    background-image: linear-gradient(to right, #fff, #94a3b8);
+    color: transparent;
   }
 
   .blog-content h3 {
-    font-size: 1.5rem;
-    font-weight: 800;
-    color: #0d9488; /* Teal accent for H3 */
-    margin-top: 3rem;
-    margin-bottom: 1rem;
-    letter-spacing: -0.02em;
-    clear: both;
+    @apply text-2xl md:text-3xl font-bold mt-12 mb-4 text-teal-700;
   }
 
-  /* LINKS (Animated Underline) */
+  /* Links */
   .blog-content a {
-    color: #0f766e;
-    font-weight: 700;
-    text-decoration: none;
-    background-image: linear-gradient(#2dd4bf, #2dd4bf);
+    @apply text-teal-700 font-bold no-underline transition-all duration-300;
+    background-image: linear-gradient(#5eead4, #5eead4);
     background-size: 100% 2px;
     background-position: 0 100%;
     background-repeat: no-repeat;
-    transition:
-      background-size 0.3s ease,
-      color 0.3s ease;
   }
   .blog-content a:hover {
-    background-size: 100% 100%; /* Fills up like a highlighter */
-    color: #fff;
+    background-size: 100% 100%;
+    color: #0f172a;
   }
 
-  /* PARAGRAPHS */
-  .blog-content p {
-    margin-bottom: 1.75rem;
-    margin-top: 0;
-  }
-  .blog-content p:empty {
-    display: none;
-  }
-
-  /* LISTS */
+  /* Lists */
   .blog-content ul {
-    list-style: none !important;
-    margin: 2rem 0;
-    padding-left: 0;
+    @apply list-none my-8 pl-0;
   }
   .blog-content li {
-    position: relative;
-    padding-left: 2.5rem;
-    margin-bottom: 1rem;
-    font-weight: 500;
+    @apply relative pl-10 mb-4 text-lg font-medium text-slate-700;
   }
-  /* Custom Bullet Points */
   .blog-content li::before {
     content: "→";
-    position: absolute;
-    left: 0;
-    top: 0px;
-    font-weight: 900;
-    color: #14b8a6;
-    font-family: monospace;
-    font-size: 1.2rem;
+    @apply absolute left-0 text-teal-500 font-black text-xl;
   }
 
-  /* BLOCKQUOTES (Glassmorphism) */
+  /* Blockquotes */
   .blog-content blockquote {
-    position: relative;
-    margin: 3rem 0;
-    padding: 2rem 2.5rem;
-    font-style: italic;
-    font-size: 1.25rem;
-    color: #0f172a;
-    font-weight: 600;
-    background: rgba(255, 255, 255, 0.6);
+    @apply relative my-12 p-8 md:p-10 not-italic font-semibold text-xl md:text-2xl text-slate-800 rounded-3xl border border-white/50 shadow-xl;
+    background: rgba(255, 255, 255, 0.7);
     backdrop-filter: blur(12px);
-    border-radius: 1.5rem;
-    border: 1px solid rgba(255, 255, 255, 0.8);
-    box-shadow:
-      0 10px 40px -10px rgba(13, 148, 136, 0.1),
-      inset 0 0 20px rgba(255, 255, 255, 0.5);
-    overflow: hidden;
   }
-  .dark .blog-content blockquote {
-    background: rgba(15, 23, 42, 0.6);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: #e2e8f0;
-  }
-  /* Decorative Quote Mark */
   .blog-content blockquote::before {
     content: "“";
-    position: absolute;
-    top: -1rem;
-    right: 1.5rem;
-    font-size: 8rem;
-    line-height: 1;
-    color: rgba(13, 148, 136, 0.1); /* Subtle Teal */
-    font-family: serif;
-    pointer-events: none;
+    @apply absolute -top-4 right-6 text-9xl leading-none text-teal-500/10 font-serif pointer-events-none;
   }
-  /* Left Accent Line */
   .blog-content blockquote::after {
     content: "";
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 6px;
-    background: linear-gradient(to bottom, #2dd4bf, #818cf8);
+    @apply absolute left-0 top-0 bottom-0 w-2 bg-gradient-to-b from-teal-400 to-indigo-500 rounded-l-3xl;
   }
 
-  /* FIGURES & IMAGES */
-  .blog-content figure {
-    margin: 3rem 0;
-    display: block;
-    max-width: 100%;
-  }
+  /* Images */
   .blog-content img {
-    border-radius: 1.25rem;
-    box-shadow:
-      0 20px 25px -5px rgba(0, 0, 0, 0.1),
-      0 8px 10px -6px rgba(0, 0, 0, 0.1);
-    transition: transform 0.4s ease;
-    display: block;
-    width: 100%;
-    height: auto;
+    @apply rounded-3xl shadow-2xl w-full h-auto object-cover;
+    transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
   .blog-content img:hover {
-    transform: scale(1.01);
-  }
-  .blog-content figcaption {
-    text-align: center;
-    font-size: 0.7rem;
-    color: #94a3b8;
-    margin-top: 1rem;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.15em;
-  }
-
-  /* DIVIDERS (hr) */
-  .blog-content hr {
-    border: 0;
-    height: 1px;
-    background: linear-gradient(to right, transparent, #cbd5e1, transparent);
-    margin: 4rem 0;
+    transform: scale-[1.02];
   }
 
   /* Desktop-only floats/alignment */

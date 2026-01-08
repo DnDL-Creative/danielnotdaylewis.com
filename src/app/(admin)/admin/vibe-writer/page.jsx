@@ -56,14 +56,14 @@ const Toast = ({ message, type, onClose }) => {
 
   return (
     <div
-      className={`fixed bottom-8 right-8 z-[300] px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 border animate-in slide-in-from-bottom-5 fade-in duration-300 backdrop-blur-md ${type === "error" ? "bg-red-950/80 border-red-500 text-red-200" : "bg-black/80 border-white/10 text-white"}`}
+      className={`fixed bottom-8 left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:right-8 z-[300] px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 border animate-in slide-in-from-bottom-5 fade-in duration-300 backdrop-blur-xl ${type === "error" ? "bg-red-950/90 border-red-500 text-red-200" : "bg-black/80 border-white/20 text-white"}`}
     >
       {type === "error" ? (
         <AlertTriangle size={18} className="text-red-500" />
       ) : (
         <Check size={18} className="text-emerald-400" />
       )}
-      <span className="text-xs font-bold uppercase tracking-widest">
+      <span className="text-xs font-bold uppercase tracking-widest whitespace-nowrap">
         {message}
       </span>
     </div>
@@ -80,9 +80,9 @@ const ConfirmModal = ({
 }) => {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[300] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
       <div
-        className={`w-full max-w-sm p-6 rounded-2xl border shadow-2xl text-center ${isDark ? "bg-[#0f172a] border-white/10" : "bg-white border-slate-200"}`}
+        className={`w-full max-w-sm p-6 rounded-3xl border shadow-2xl text-center ${isDark ? "bg-[#0f172a] border-white/10" : "bg-white border-slate-200"}`}
       >
         <AlertTriangle size={32} className="mx-auto mb-4 text-amber-500" />
         <h3
@@ -125,7 +125,7 @@ export default function MasterEditorPage() {
   const [author, setAuthor] = useState("");
   const [imageCaption, setImageCaption] = useState("");
   const [musicEmbed, setMusicEmbed] = useState("");
-  const [blogcastUrl, setBlogcastUrl] = useState(""); // <--- NEW: BLOGCAST STATE
+  const [blogcastUrl, setBlogcastUrl] = useState("");
   const [audioUrl, setAudioUrl] = useState(null);
   const [images, setImages] = useState({
     main: "",
@@ -168,27 +168,40 @@ export default function MasterEditorPage() {
 
   const getThemeStyles = () => {
     const commonBtn =
-      "px-5 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all duration-300 transform active:scale-95";
+      "px-4 py-2 md:px-5 md:py-3 rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all duration-300 transform active:scale-95";
+
+    // Base styles
+    const styles = {
+      headerBg: "bg-black/80 backdrop-blur-xl border-b border-white/10",
+      menuBg: "bg-[#0a0a0a] border border-white/20",
+    };
+
     switch (theme) {
       case "yellow":
         return {
-          bg: "#1a0500",
+          ...styles,
+          bg: "#1a0500", // Fallback color
+          headerBg:
+            "bg-[#1a0500]/90 backdrop-blur-xl border-b border-yellow-500/30",
+          menuBg: "bg-[#1a0500] border border-yellow-500/30",
           text: "text-yellow-500",
           border: "border-yellow-500/30",
           hex: "#facc15",
           title:
             "text-yellow-400 placeholder-yellow-800/50 border-yellow-600/50",
           btnPrimary: `${commonBtn} bg-yellow-500 text-black hover:bg-yellow-400 shadow-[0_0_20px_rgba(234,179,8,0.4)]`,
-          btnSecondary: `${commonBtn} bg-yellow-900/20 border border-yellow-500/50 text-yellow-400`,
+          btnSecondary: `${commonBtn} bg-yellow-900/40 border border-yellow-500/50 text-yellow-400`,
           btnGhost: `${commonBtn} bg-transparent text-yellow-700 hover:text-yellow-400`,
           btnDanger: `${commonBtn} bg-red-900/20 border border-red-500 text-red-400`,
-          backBtn:
-            "fixed top-6 left-6 px-4 py-2 rounded-full border border-yellow-500/30 bg-black/50 backdrop-blur-md flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-yellow-500 hover:bg-yellow-500 hover:text-black z-50",
           logo: "text-yellow-500 drop-shadow-[0_0_10px_rgba(234,179,8,0.5)]",
         };
       case "light":
         return {
+          ...styles,
           bg: "#f8fafc",
+          headerBg:
+            "bg-white/90 backdrop-blur-xl border-b border-slate-200 shadow-sm",
+          menuBg: "bg-white border border-slate-200 shadow-xl",
           text: "text-slate-800",
           border: "border-slate-200",
           hex: "#2563eb",
@@ -197,23 +210,24 @@ export default function MasterEditorPage() {
           btnSecondary: `${commonBtn} bg-white border border-slate-200 text-slate-600`,
           btnGhost: `${commonBtn} text-slate-400 hover:text-slate-600`,
           btnDanger: `${commonBtn} bg-white border border-red-200 text-red-500`,
-          backBtn:
-            "fixed top-6 left-6 px-4 py-2 rounded-full border border-slate-200 bg-white/80 backdrop-blur-md flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-blue-600 z-50",
           logo: "text-slate-900",
         };
-      default:
+      default: // Teal/Cyber
         return {
-          bg: "#02020a",
+          ...styles,
+          bg: "#02020a", // Fallback
+          headerBg:
+            "bg-[#02020a]/80 backdrop-blur-xl border-b border-teal-500/20",
+          menuBg:
+            "bg-[#050510] border border-teal-500/30 shadow-2xl shadow-teal-900/20",
           text: "text-teal-400",
           border: "border-teal-500/30",
           hex: "#2dd4bf",
           title: "text-teal-400 placeholder-teal-900/50 border-teal-800/50",
           btnPrimary: `${commonBtn} bg-teal-500 text-black hover:bg-teal-400 shadow-[0_0_20px_rgba(20,184,166,0.4)]`,
-          btnSecondary: `${commonBtn} bg-teal-900/20 border border-teal-500/50 text-teal-400`,
+          btnSecondary: `${commonBtn} bg-teal-900/40 border border-teal-500/50 text-teal-400`,
           btnGhost: `${commonBtn} bg-transparent text-slate-500 hover:text-teal-400`,
           btnDanger: `${commonBtn} bg-red-900/20 border border-red-500 text-red-400`,
-          backBtn:
-            "fixed top-6 left-6 px-4 py-2 rounded-full border border-teal-500/30 bg-black/50 backdrop-blur-md flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-teal-400 hover:bg-teal-500 hover:text-black z-50",
           logo: "text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]",
         };
     }
@@ -237,6 +251,7 @@ export default function MasterEditorPage() {
 
   const isReady = title.length > 2;
 
+  // ... (All existing handlers: handleClear, copyToClipboard, openStudio, handleStudioGenerate, handleManualAsset, handleAssetReorder, generateAndShowSql, handleDatabaseAction, fetchDrafts, loadDraft, toggleVisibility, handleFileUpload) ...
   const handleClear = () => {
     setPostId(null);
     setTitle("");
@@ -246,7 +261,7 @@ export default function MasterEditorPage() {
     setAuthor("");
     setImageCaption("");
     setMusicEmbed("");
-    setBlogcastUrl(""); // <--- CLEAR BLOGCAST
+    setBlogcastUrl("");
     setImages({ main: "", img2: "", img3: "", img4: "", img5: "", img6: "" });
     setIsPublished(false);
     setDate(new Date().toISOString().split("T")[0]);
@@ -329,7 +344,7 @@ export default function MasterEditorPage() {
       image_6: images.img6,
       image_caption: imageCaption,
       music_embed: musicEmbed,
-      blogcast_url: blogcastUrl, // <--- SAVE BLOGCAST URL
+      blogcast_url: blogcastUrl,
       published: finalPublishedStatus,
     };
     try {
@@ -376,7 +391,7 @@ export default function MasterEditorPage() {
       setIsPublished(data.published || false);
       setImageCaption(data.image_caption || "");
       setMusicEmbed(data.music_embed || "");
-      setBlogcastUrl(data.blogcast_url || ""); // <--- LOAD BLOGCAST URL
+      setBlogcastUrl(data.blogcast_url || "");
       setImages({
         main: data.image || "",
         img2: data.image_2 || "",
@@ -449,9 +464,9 @@ export default function MasterEditorPage() {
 
   return (
     <div
-      className={`font-sans transition-all duration-1000 fixed inset-0 overflow-hidden md:relative md:inset-auto md:overflow-visible md:min-h-screen`}
+      className={`font-sans min-h-screen relative`}
       style={{
-        backgroundColor: themeStyle.bg,
+        backgroundColor: themeStyle.bg, // Fallback color
         color: isDark ? "white" : "#0f172a",
         "--theme-color": themeStyle.hex,
       }}
@@ -472,9 +487,9 @@ export default function MasterEditorPage() {
         isDark={isDark}
       />
 
-      {/* --- BACKGROUND CANVAS --- */}
+      {/* --- BACKGROUND CANVAS (Full Screen, Fixed) --- */}
       {isDark && mountCanvas && (
-        <div className="absolute inset-0 z-0 opacity-100 pointer-events-none">
+        <div className="fixed inset-0 z-0 opacity-100 pointer-events-none">
           <Suspense fallback={null}>
             <Canvas camera={{ position: [0, 0, 10], fov: 60 }}>
               <DystopianSnow
@@ -505,218 +520,230 @@ export default function MasterEditorPage() {
         />
       )}
 
-      <div className="h-full w-full overflow-y-auto overscroll-none md:h-auto md:overflow-visible md:overscroll-auto pb-24 md:pb-0">
-        <div className="relative z-10 pt-16 pb-10 px-4 md:px-16 max-w-[1600px] mx-auto">
-          {/* HEADER */}
-          <header className="pt-2 flex flex-col xl:flex-row items-center justify-between mb-12 gap-6 relative">
-            <h1
-              className={`text-3xl font-black uppercase tracking-[0.4em] cursor-default transition-all duration-300 ${themeStyle.logo} ${isDark && vibeMode === "sexy" ? "sexy-text" : isDark ? "glitch-text" : ""}`}
-            >
-              VibeWriter
-            </h1>
+      {/* --- STICKY HEADER --- */}
+      <header
+        className={`fixed top-0 left-0 right-0 z-[100] px-4 py-3 md:px-8 md:py-4 transition-all duration-300 ${themeStyle.headerBg}`}
+      >
+        <div className="max-w-[1600px] mx-auto flex items-center justify-between">
+          {/* LOGO */}
+          <h1
+            className={`text-xl md:text-3xl font-black uppercase tracking-[0.2em] md:tracking-[0.4em] cursor-default transition-all duration-300 ${themeStyle.logo} ${isDark && vibeMode === "sexy" ? "sexy-text" : isDark ? "glitch-text" : ""}`}
+          >
+            VibeWriter
+          </h1>
 
-            <div className="flex flex-wrap justify-center items-center gap-3 mt-4 xl:mt-0">
-              {/* DESKTOP ACTIONS (Hidden on small mobile) */}
-              <div className="hidden md:flex flex-wrap justify-center items-center gap-3">
-                <div className="flex gap-2 mr-2">
-                  <button
-                    onClick={() => setShowClearConfirm(true)}
-                    className={themeStyle.btnGhost}
-                  >
-                    <FilePlus size={14} /> Reset
-                  </button>
-                </div>
-                <div
-                  className={`w-px h-8 mx-2 ${isDark ? "bg-white/10" : "bg-slate-300"}`}
-                ></div>
-                <button
-                  onClick={fetchDrafts}
-                  className={themeStyle.btnSecondary}
-                >
-                  <Archive size={16} /> Archive
-                </button>
-                <button
-                  onClick={() => handleDatabaseAction("DRAFT")}
-                  className={themeStyle.btnSecondary}
-                >
-                  {isSaving ? (
-                    <Loader2 className="animate-spin" size={16} />
-                  ) : (
-                    <Save size={16} />
-                  )}{" "}
-                  Save Draft
-                </button>
-                {isPublished ? (
-                  <button
-                    onClick={() => handleDatabaseAction("UNPUBLISH")}
-                    className={themeStyle.btnDanger}
-                  >
-                    <Ban size={16} /> Unpublish
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => handleDatabaseAction("PUBLISH")}
-                    className={themeStyle.btnPrimary}
-                  >
-                    <Rocket size={16} /> Go Live
-                  </button>
-                )}
-              </div>
-
-              {/* MOBILE ACTIONS MENU TOGGLE */}
-              <div className="md:hidden">
-                <button
-                  onClick={() => setShowMobileActions(!showMobileActions)}
-                  className={`p-3 rounded-xl border ${isDark ? "bg-white/5 border-white/10 text-white" : "bg-white border-slate-200 text-slate-800"}`}
-                >
-                  <Menu size={18} />
-                </button>
-              </div>
-
-              {/* TOGGLES (Visible on all devices) */}
-              <div
-                className={`flex gap-2 ml-4 pl-4 border-l ${isDark ? "border-white/10" : "border-slate-300"}`}
+          <div className="flex items-center gap-3">
+            {/* DESKTOP ACTIONS */}
+            <div className="hidden md:flex items-center gap-3">
+              <button
+                onClick={() => setShowClearConfirm(true)}
+                className={themeStyle.btnGhost}
               >
-                {/* 1. ATMOSPHERE CONTROL BTN */}
-                {isDark && (
-                  <button
-                    onClick={() => setShowWeatherControl(true)}
-                    className="p-3 rounded-xl border transition-all bg-white/5 border-white/10 text-slate-400 hover:text-teal-400 hover:border-teal-500/30"
-                    title="Atmosphere Settings"
-                  >
-                    <Radar size={16} />
-                  </button>
-                )}
-
-                {/* 2. VIBE MODE */}
-                {isDark && (
-                  <button
-                    onClick={toggleVibeMode}
-                    className={`p-3 rounded-xl border transition-all ${vibeMode === "sexy" ? "bg-pink-500/20 border-pink-500 text-pink-500 shadow-[0_0_10px_rgba(236,72,153,0.3)]" : "bg-white/5 border-white/10 text-slate-400 hover:text-white"}`}
-                  >
-                    {vibeMode === "sexy" ? (
-                      <Flame size={16} className="animate-pulse" />
-                    ) : (
-                      <Zap size={16} />
-                    )}
-                  </button>
-                )}
-
-                {/* 3. THEME TOGGLE */}
+                <FilePlus size={14} /> Reset
+              </button>
+              <div
+                className={`w-px h-6 mx-2 ${isDark ? "bg-white/10" : "bg-slate-300"}`}
+              ></div>
+              <button onClick={fetchDrafts} className={themeStyle.btnSecondary}>
+                <Archive size={16} /> Archive
+              </button>
+              <button
+                onClick={() => handleDatabaseAction("DRAFT")}
+                className={themeStyle.btnSecondary}
+              >
+                {isSaving ? (
+                  <Loader2 className="animate-spin" size={16} />
+                ) : (
+                  <Save size={16} />
+                )}{" "}
+                Save Draft
+              </button>
+              {isPublished ? (
                 <button
-                  onClick={toggleTheme}
-                  className={`p-3 rounded-xl border transition-all ${theme === "light" ? "bg-white border-slate-200 text-amber-500 shadow-sm" : "bg-white/5 border-white/10 hover:text-white"}`}
+                  onClick={() => handleDatabaseAction("UNPUBLISH")}
+                  className={themeStyle.btnDanger}
                 >
-                  {theme === "light" ? (
-                    <Sun size={16} />
-                  ) : theme === "teal" ? (
-                    <Cpu size={16} className="text-teal-400" />
-                  ) : (
-                    <FaHotdog size={16} className="text-yellow-400" />
-                  )}
+                  <Ban size={16} /> Unpublish
                 </button>
-              </div>
+              ) : (
+                <button
+                  onClick={() => handleDatabaseAction("PUBLISH")}
+                  className={themeStyle.btnPrimary}
+                >
+                  <Rocket size={16} /> Go Live
+                </button>
+              )}
             </div>
 
-            {/* MOBILE ACTIONS DROPDOWN */}
-            {showMobileActions && (
-              <div className="absolute top-full left-0 right-0 z-50 mt-2 p-4 rounded-xl border shadow-2xl animate-in slide-in-from-top-2 md:hidden bg-[var(--bg-toolbar)] backdrop-blur-xl border-[var(--theme-border)]">
-                <div className="flex flex-col gap-2">
-                  <button
-                    onClick={() => handleDatabaseAction("PUBLISH")}
-                    className={themeStyle.btnPrimary}
+            {/* TOGGLES ROW */}
+            <div
+              className={`flex gap-2 ml-2 pl-2 md:ml-4 md:pl-4 border-l ${isDark ? "border-white/10" : "border-slate-300"}`}
+            >
+              {isDark && (
+                <button
+                  onClick={() => setShowWeatherControl(true)}
+                  className="p-2 md:p-3 rounded-xl border transition-all bg-white/5 border-white/10 text-slate-400 hover:text-teal-400"
+                >
+                  <Radar size={16} />
+                </button>
+              )}
+              {isDark && (
+                <button
+                  onClick={toggleVibeMode}
+                  className={`p-2 md:p-3 rounded-xl border transition-all ${vibeMode === "sexy" ? "bg-pink-500/20 border-pink-500 text-pink-500" : "bg-white/5 border-white/10 text-slate-400"}`}
+                >
+                  {vibeMode === "sexy" ? (
+                    <Flame size={16} className="animate-pulse" />
+                  ) : (
+                    <Zap size={16} />
+                  )}
+                </button>
+              )}
+              <button
+                onClick={toggleTheme}
+                className={`p-2 md:p-3 rounded-xl border transition-all ${theme === "light" ? "bg-white border-slate-200 text-amber-500" : "bg-white/5 border-white/10 hover:text-white"}`}
+              >
+                {theme === "light" ? (
+                  <Sun size={16} />
+                ) : theme === "teal" ? (
+                  <Cpu size={16} className="text-teal-400" />
+                ) : (
+                  <FaHotdog size={16} className="text-yellow-400" />
+                )}
+              </button>
+            </div>
+
+            {/* MOBILE MENU TOGGLE */}
+            <div className="md:hidden ml-2 relative">
+              <button
+                onClick={() => setShowMobileActions(!showMobileActions)}
+                className={`p-2 rounded-xl border ${isDark ? "bg-white/10 border-white/20 text-white" : "bg-slate-100 border-slate-300 text-slate-800"}`}
+              >
+                <Menu size={20} />
+              </button>
+
+              {/* MOBILE DROPDOWN (Fixed Visibility) */}
+              {showMobileActions && (
+                <>
+                  <div
+                    className="fixed inset-0 bg-black/50 z-40"
+                    onClick={() => setShowMobileActions(false)}
+                  />
+                  <div
+                    className={`absolute top-full right-0 mt-4 min-w-[200px] p-3 rounded-2xl border shadow-2xl animate-in slide-in-from-top-5 fade-in z-50 flex flex-col gap-2 ${themeStyle.menuBg}`}
                   >
-                    <Rocket size={16} /> Go Live
-                  </button>
-                  <button
-                    onClick={() => handleDatabaseAction("DRAFT")}
-                    className={themeStyle.btnSecondary}
-                  >
-                    <Save size={16} /> Save Draft
-                  </button>
-                  <div className="grid grid-cols-2 gap-2 mt-2">
                     <button
-                      onClick={fetchDrafts}
+                      onClick={() => {
+                        handleDatabaseAction("PUBLISH");
+                        setShowMobileActions(false);
+                      }}
+                      className={themeStyle.btnPrimary}
+                    >
+                      <Rocket size={16} /> Go Live
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleDatabaseAction("DRAFT");
+                        setShowMobileActions(false);
+                      }}
                       className={themeStyle.btnSecondary}
+                    >
+                      <Save size={16} /> Save Draft
+                    </button>
+                    <div className="w-full h-px bg-white/10 my-1"></div>
+                    <button
+                      onClick={() => {
+                        fetchDrafts();
+                        setShowMobileActions(false);
+                      }}
+                      className={themeStyle.btnGhost}
                     >
                       <Archive size={16} /> Archive
                     </button>
                     <button
-                      onClick={() => setShowClearConfirm(true)}
+                      onClick={() => {
+                        setShowClearConfirm(true);
+                        setShowMobileActions(false);
+                      }}
                       className={themeStyle.btnGhost}
                     >
-                      <FilePlus size={14} /> Reset
+                      <FilePlus size={16} /> Reset
                     </button>
                   </div>
-                </div>
-              </div>
-            )}
-          </header>
-
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-            <div className="lg:col-span-4 space-y-8 order-1 lg:order-1">
-              {/* YOU MUST UPDATE PopulateMeta TO ACCEPT THESE NEW PROPS */}
-              <PopulateMeta
-                date={date}
-                setDate={setDate}
-                author={author}
-                setAuthor={setAuthor}
-                urlPath={urlPath}
-                setUrlPath={setUrlPath}
-                tag={tag}
-                setTag={setTag}
-                imageCaption={imageCaption}
-                setImageCaption={setImageCaption}
-                musicEmbed={musicEmbed}
-                setMusicEmbed={setMusicEmbed}
-                blogcastUrl={blogcastUrl} // <--- PASSING DOWN
-                setBlogcastUrl={setBlogcastUrl} // <--- PASSING DOWN
-                heroImage={images.main}
-                onUpload={handleFileUpload}
-                onOpenStudio={openStudio}
-                uploadingSlot={uploadingSlot}
-                isDark={isDark}
-                themeBorderClass={themeStyle.border}
-                bgOpacity={bgOpacity}
-              />
-              <VibeTunes
-                url={audioUrl}
-                onClose={() => setAudioUrl(null)}
-                isDark={isDark}
-              />
-              <AssetSidebar
-                images={images}
-                onUpload={handleFileUpload}
-                onManualInput={handleManualAsset}
-                onOpenStudio={openStudio}
-                onReorder={handleAssetReorder}
-                uploadingSlot={uploadingSlot}
-                isDark={isDark}
-                bgOpacity={bgOpacity}
-                onPlayAudio={(url) => setAudioUrl(url)}
-              />
+                </>
+              )}
             </div>
-            <div className="lg:col-span-8 space-y-8 order-2 lg:order-2">
-              <input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="TRANSMISSION TITLE"
-                className={`w-full p-2 md:p-4 text-2xl md:text-4xl lg:text-5xl font-black outline-none bg-transparent border-b-2 transition-colors duration-300 ${themeStyle.title}`}
-              />
-              <VibeEditor
-                initialContent={content}
-                onChange={handleLexicalChange}
-                theme={theme}
-                bgOpacity={bgOpacity}
-                onSqlExport={generateAndShowSql}
-                title={title}
-              />
-              <div
-                className={`flex justify-between text-[10px] font-mono opacity-50 uppercase tracking-widest ${isDark ? "text-white" : "text-slate-500"}`}
-              >
-                <span>VibeLexical Engine Active</span>
-                <span>ID: {postId || "UNSAVED"}</span>
-              </div>
+          </div>
+        </div>
+      </header>
+
+      {/* --- MAIN SCROLLABLE CONTENT --- */}
+      <div className="relative z-10 w-full pt-24 md:pt-32 pb-20 px-4 md:px-16 max-w-[1600px] mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
+          {/* LEFT COLUMN (META) */}
+          <div className="lg:col-span-4 space-y-6 lg:space-y-8 order-2 lg:order-1">
+            <PopulateMeta
+              date={date}
+              setDate={setDate}
+              author={author}
+              setAuthor={setAuthor}
+              urlPath={urlPath}
+              setUrlPath={setUrlPath}
+              tag={tag}
+              setTag={setTag}
+              imageCaption={imageCaption}
+              setImageCaption={setImageCaption}
+              musicEmbed={musicEmbed}
+              setMusicEmbed={setMusicEmbed}
+              blogcastUrl={blogcastUrl}
+              setBlogcastUrl={setBlogcastUrl}
+              heroImage={images.main}
+              onUpload={handleFileUpload}
+              onOpenStudio={openStudio}
+              uploadingSlot={uploadingSlot}
+              isDark={isDark}
+              themeBorderClass={themeStyle.border}
+              bgOpacity={bgOpacity}
+            />
+            <VibeTunes
+              url={audioUrl}
+              onClose={() => setAudioUrl(null)}
+              isDark={isDark}
+            />
+            <AssetSidebar
+              images={images}
+              onUpload={handleFileUpload}
+              onManualInput={handleManualAsset}
+              onOpenStudio={openStudio}
+              onReorder={handleAssetReorder}
+              uploadingSlot={uploadingSlot}
+              isDark={isDark}
+              bgOpacity={bgOpacity}
+              onPlayAudio={(url) => setAudioUrl(url)}
+            />
+          </div>
+
+          {/* RIGHT COLUMN (EDITOR) */}
+          <div className="lg:col-span-8 space-y-6 lg:space-y-8 order-1 lg:order-2">
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="TRANSMISSION TITLE"
+              className={`w-full p-2 text-3xl md:text-5xl font-black outline-none bg-transparent border-b-2 transition-colors duration-300 placeholder-opacity-50 ${themeStyle.title}`}
+            />
+            <VibeEditor
+              initialContent={content}
+              onChange={handleLexicalChange}
+              theme={theme}
+              bgOpacity={bgOpacity}
+              onSqlExport={generateAndShowSql}
+              title={title}
+            />
+            <div
+              className={`flex justify-between text-[10px] font-mono opacity-50 uppercase tracking-widest ${isDark ? "text-white" : "text-slate-500"}`}
+            >
+              <span>VibeLexical Engine Active</span>
+              <span>ID: {postId || "UNSAVED"}</span>
             </div>
           </div>
         </div>
@@ -738,6 +765,7 @@ export default function MasterEditorPage() {
         initialTab={studioInitialTab}
       />
 
+      {/* SQL MODAL */}
       {showSqlModal && (
         <div className="fixed inset-0 z-[150] bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
           <div
@@ -781,6 +809,7 @@ export default function MasterEditorPage() {
         </div>
       )}
 
+      {/* LOAD DRAFTS MODAL */}
       {showLoadModal && (
         <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div
@@ -904,17 +933,6 @@ export default function MasterEditorPage() {
         input[type="date"]::-webkit-calendar-picker-indicator {
           filter: invert(1);
           cursor: pointer;
-        }
-        .animate-spin-slow {
-          animation: spin 4s linear infinite;
-        }
-        @keyframes spin {
-          from {
-            transform: rotate(0deg);
-          }
-          to {
-            transform: rotate(360deg);
-          }
         }
       `}</style>
     </div>

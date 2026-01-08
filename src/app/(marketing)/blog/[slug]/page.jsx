@@ -11,7 +11,6 @@ import {
   ArrowRight,
   Disc,
   Mic2,
-  PlayCircle,
   Headphones,
   Volume2,
 } from "lucide-react";
@@ -22,6 +21,7 @@ import PopularPosts from "@/src/components/marketing/PostsWidget";
 import ViewCounter from "./ViewCounter";
 import GalleryCarousel from "@/src/components/vibe-writer/GalleryCarousel";
 import MusicEqualizer from "@/src/components/marketing/MusicEqualizer";
+import TechnicolorPlayer from "@/src/components/marketing/TechnicolorPlayer";
 
 // --- HELPERS ---
 
@@ -40,10 +40,12 @@ const formatDate = (dateString) => {
 
 const getBlogcastEmbed = (url) => {
   if (!url) return null;
+  // Soundcloud Logic
   if (url.includes("soundcloud.com") && !url.includes("w.soundcloud.com")) {
     const encodedUrl = encodeURIComponent(url);
     return `https://w.soundcloud.com/player/?url=${encodedUrl}&color=%23ff5500&auto_play=false&hide_related=false&show_comments=true&show_user=true&show_reposts=false&show_teaser=true&visual=true`;
   }
+  // Spotify Logic
   if (url.includes("spotify.com") && !url.includes("/embed")) {
     return url
       .replace("/track/", "/embed/track/")
@@ -55,6 +57,17 @@ const getBlogcastEmbed = (url) => {
 // --- CONTENT PARSER ---
 const contentParserOptions = {
   replace: (domNode) => {
+    // 1. CLEANUP
+    if (domNode.name === "p" || domNode.name === "span") {
+      if (domNode.attribs && domNode.attribs.class) {
+        delete domNode.attribs.class;
+      }
+      if (domNode.attribs && domNode.attribs.style) {
+        delete domNode.attribs.style;
+      }
+    }
+
+    // 2. MEDIA HANDLING
     if (domNode.name === "p") {
       const extractText = (node) => {
         if (node.type === "text") return node.data;
@@ -95,7 +108,7 @@ const contentParserOptions = {
           );
         }
 
-        // AUDIO
+        // AUDIO IN CONTENT
         if (innerContent.startsWith("audio:")) {
           const rawUrl = innerContent.replace("audio:", "").trim();
           if (rawUrl.includes("spotify.com")) {
@@ -117,6 +130,7 @@ const contentParserOptions = {
               </figure>
             );
           }
+          // Fallback for in-body audio
           return (
             <figure className="my-10 w-full md:w-2/3 mx-auto clear-both !block">
               <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full p-3 shadow-lg">
@@ -149,8 +163,9 @@ const contentParserOptions = {
         if (innerContent.startsWith("image:")) {
           const parts = innerContent.replace("image:", "").split("|");
           let url = parts[0].trim();
-          // Fallback for accidental audio file in image tag
+
           if (url.match(/\.(mp3|wav|ogg|m4a)($|\?)/i)) {
+            // Catch edge case where audio is tagged as image
             return (
               <figure className="my-8 w-full md:w-2/3 mx-auto clear-both !block">
                 <audio
@@ -164,6 +179,7 @@ const contentParserOptions = {
               </figure>
             );
           }
+
           let sizeClass = "w-full md:w-3/4";
           let alignClass = "!block mx-auto";
           let caption = null;
@@ -263,10 +279,21 @@ export default async function BlogPost({ params }) {
   const hasMusic = !!post.music_embed;
   const hasBlogcast = !!post.blogcast_url;
   const hasBoth = hasMusic && hasBlogcast;
+
+  // --- FIXED LOGIC START ---
   const safeBlogcastUrl = getBlogcastEmbed(post.blogcast_url);
-  const isIframeBlogcast =
+
+  // Check if it is a direct audio file (Supabase, mp3, etc)
+  const isDirectFile =
     safeBlogcastUrl &&
-    (safeBlogcastUrl.includes("http") || safeBlogcastUrl.includes("player"));
+    (safeBlogcastUrl.includes(".mp3") ||
+      safeBlogcastUrl.includes(".wav") ||
+      safeBlogcastUrl.includes(".m4a") ||
+      safeBlogcastUrl.includes("supabase.co"));
+
+  // Only use iframe if it is NOT a direct file AND has a valid URL
+  const isIframeBlogcast = safeBlogcastUrl && !isDirectFile;
+  // --- FIXED LOGIC END ---
 
   return (
     <div className="min-h-screen w-full relative selection:bg-teal-200 selection:text-teal-900 overflow-x-hidden">
@@ -274,54 +301,59 @@ export default async function BlogPost({ params }) {
 
       {/* BACKGROUND EFFECTS */}
       <div className="fixed inset-0 z-[-1]">
-        <div className="absolute inset-0 bg-white" />
+        <div className="absolute inset-0 bg-gradient-to-br from-teal-50/20 via-white to-indigo-50/20 md:bg-white" />
         <div className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:24px_24px] opacity-30" />
         <div className="hidden md:block absolute top-[-20%] right-[-10%] w-[800px] h-[800px] bg-teal-100/40 rounded-full blur-[100px] mix-blend-multiply opacity-70 animate-pulse-slow" />
         <div className="hidden md:block absolute bottom-[-20%] left-[-10%] w-[800px] h-[800px] bg-indigo-100/40 rounded-full blur-[100px] mix-blend-multiply opacity-70 animate-pulse-slow delay-700" />
       </div>
 
       {/* HERO SECTION */}
-      <div className="relative z-0 pt-8 md:pt-24 pb-8 px-4 md:px-6">
+      {/* 1. Reduced top padding (md:pt-10) */}
+      <div className="relative z-0 pt-6 md:pt-10 pb-6 px-4 md:px-6">
         <div className="relative z-10 max-w-5xl mx-auto text-center animate-fade-in-up">
-          <figure className="relative w-full mb-12 group md:max-w-5xl md:mx-auto">
-            <div className="relative w-full aspect-video rounded-3xl md:rounded-[2.5rem] overflow-hidden shadow-2xl shadow-indigo-900/10 border-[8px] border-white/80 backdrop-blur-md">
+          {/* 2. Constrained width on laptop (md:max-w-3xl) -> 30% smaller than previous 5xl */}
+          <figure className="relative w-full mb-6 group md:max-w-3xl mx-auto">
+            <div className="relative w-full aspect-video rounded-3xl md:rounded-[2rem] overflow-hidden shadow-2xl shadow-indigo-900/10 border-[6px] border-white/80 backdrop-blur-md">
               <Image
                 src={post.image}
                 alt={post.title}
                 fill
                 className="object-cover transition-transform duration-[2s] group-hover:scale-105"
                 priority
-                sizes="100vw"
+                sizes="(max-width: 768px) 100vw, 800px"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
             </div>
             {post.image_caption && (
-              <figcaption className="mt-5 text-center text-xs font-bold text-slate-400 uppercase tracking-[0.2em]">
+              <figcaption className="mt-4 text-center text-xs font-bold text-slate-400 uppercase tracking-[0.2em]">
                 {post.image_caption}
               </figcaption>
             )}
           </figure>
 
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-black leading-[1.05] tracking-tight px-2 max-w-5xl mx-auto mb-8 text-slate-900">
-            {post.title}
+          {/* 3. Smaller H1 (lg:text-4xl) and tighter max-width */}
+          <h1 className="text-2xl md:text-3xl lg:text-4xl font-semibold leading-[1.1] tracking-tight px-2 max-w-3xl mx-auto mb-6">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 via-indigo-600 to-purple-600 animate-gradient-x">
+              {post.title}
+            </span>
           </h1>
 
-          <div className="flex flex-wrap items-center justify-center gap-4 mb-16">
-            <div className="flex items-center gap-2 bg-white px-5 py-2.5 rounded-full border border-slate-200 shadow-sm transition-transform hover:scale-105 cursor-default">
-              <Calendar size={14} className="text-teal-600" />
-              <span className="text-xs font-bold uppercase tracking-widest text-slate-600">
+          <div className="flex flex-wrap items-center justify-center gap-3 md:gap-4 mb-12">
+            <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm transition-transform hover:scale-105 cursor-default">
+              <Calendar size={12} className="text-teal-600" />
+              <span className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-slate-600">
                 {formatDate(post.date)}
               </span>
             </div>
-            <div className="flex items-center gap-2 bg-white px-5 py-2.5 rounded-full border border-slate-200 shadow-sm transition-transform hover:scale-105 cursor-default">
-              <Tag size={14} className="text-indigo-600" />
-              <span className="text-xs font-bold uppercase tracking-widest text-slate-600">
+            <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm transition-transform hover:scale-105 cursor-default">
+              <Tag size={12} className="text-indigo-600" />
+              <span className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-slate-600">
                 {post.tag}
               </span>
             </div>
-            <div className="flex items-center gap-2 bg-white px-5 py-2.5 rounded-full border border-slate-200 shadow-sm transition-transform hover:scale-105 cursor-default">
-              <Clock size={14} className="text-rose-500" />
-              <span className="text-xs font-bold uppercase tracking-widest text-slate-600">
+            <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm transition-transform hover:scale-105 cursor-default">
+              <Clock size={12} className="text-rose-500" />
+              <span className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-slate-600">
                 {wordCount} words | ~{readTime} min read
               </span>
             </div>
@@ -329,55 +361,55 @@ export default async function BlogPost({ params }) {
         </div>
       </div>
 
-      {/* --- REDESIGNED MEDIA DASHBOARD --- */}
+      {/* --- MEDIA DASHBOARD --- */}
       {(hasMusic || hasBlogcast) && (
         <div
-          className={`mx-auto px-4 md:px-6 mb-20 relative z-10 animate-fade-in-up delay-100 ${hasBoth ? "max-w-7xl" : "max-w-3xl"}`}
+          className={`mx-auto px-4 md:px-6 mb-16 relative z-10 animate-fade-in-up delay-100 ${
+            hasBoth ? "max-w-7xl" : "max-w-3xl"
+          }`}
         >
           <div
-            className={`grid gap-8 ${hasBoth ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"}`}
+            className={`grid gap-5 ${
+              hasBoth ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"
+            }`}
           >
-            {/* MUSIC CARD - HIGH IMPACT */}
+            {/* MUSIC CARD */}
             {hasMusic && (
-              <div className="relative group rounded-[2.5rem] p-[3px] bg-gradient-to-br from-teal-400 via-emerald-300 to-transparent shadow-2xl shadow-teal-900/10">
-                <div className="absolute inset-0 bg-white/90 rounded-[2.3rem]" />
-                <div className="relative h-full bg-white/50 backdrop-blur-xl rounded-[2.3rem] overflow-hidden p-6 md:p-8 flex flex-col">
-                  {/* Card Header */}
-                  <div className="flex items-start justify-between mb-6">
-                    <div className="flex items-center gap-4">
-                      <div className="w-14 h-14 bg-gradient-to-br from-teal-500 to-emerald-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-teal-500/30">
+              <div className="relative group rounded-[2rem] p-[3px] bg-gradient-to-br from-teal-400 via-emerald-300 to-transparent shadow-xl shadow-teal-900/5">
+                <div className="absolute inset-0 bg-white/95 rounded-[1.8rem]" />
+                <div className="relative h-full bg-white/50 backdrop-blur-xl rounded-[1.8rem] overflow-hidden p-5 md:p-6 flex flex-col">
+                  <div className="flex items-start justify-between mb-5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-gradient-to-br from-teal-500 to-emerald-500 rounded-xl flex items-center justify-center text-white shadow-md shadow-teal-500/20">
                         <Disc
-                          size={28}
+                          size={22}
                           className="animate-spin-slow"
                           strokeWidth={2}
                         />
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="flex h-2 w-2 rounded-full bg-teal-500 animate-pulse"></span>
-                          <h3 className="text-xs font-black uppercase tracking-[0.2em] text-teal-600">
-                            Blog Background Music
+                      <div className="flex flex-col justify-center">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="mb-2 flex h-2 w-2 rounded-full bg-teal-500 animate-pulse shrink-0"></span>
+                          <h3 className="text-base md:text-lg font-bold text-slate-900 leading-none tracking-tight">
+                            Background Music
                           </h3>
                         </div>
-                        <h4 className="text-lg font-bold text-slate-900 leading-none">
+                        <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-teal-600 pl-4">
                           Inspiration
                         </h4>
                       </div>
                     </div>
-                    {/* Equalizer Visual */}
-                    <div className="hidden sm:block">
+                    <div className="hidden sm:block scale-75 origin-right">
                       <MusicEqualizer color="teal" />
                     </div>
                   </div>
 
-                  {/* Description Text - LARGE AND READABLE */}
-                  <p className="text-sm md:text-base text-slate-600 font-medium leading-relaxed mb-6">
+                  <p className="text-sm text-slate-600 font-medium leading-relaxed mb-5">
                     Music fuels my writing. So here's the track that fueled this
                     one. Hit play and read along.
                   </p>
 
-                  {/* Embed Container */}
-                  <div className="mt-auto w-full rounded-2xl overflow-hidden shadow-lg border border-slate-200 bg-slate-50">
+                  <div className="mt-auto w-full rounded-xl overflow-hidden shadow-sm border border-slate-200 bg-slate-50">
                     <div
                       className="w-full [&>iframe]:w-full [&>iframe]:block"
                       dangerouslySetInnerHTML={{ __html: post.music_embed }}
@@ -387,45 +419,41 @@ export default async function BlogPost({ params }) {
               </div>
             )}
 
-            {/* BLOGCAST CARD - HIGH IMPACT */}
+            {/* BLOGCAST CARD */}
             {hasBlogcast && (
-              <div className="relative group rounded-[2.5rem] p-[3px] bg-gradient-to-br from-rose-400 via-orange-300 to-transparent shadow-2xl shadow-rose-900/10">
-                <div className="absolute inset-0 bg-white/90 rounded-[2.3rem]" />
-                <div className="relative h-full bg-white/50 backdrop-blur-xl rounded-[2.3rem] overflow-hidden p-6 md:p-8 flex flex-col">
-                  {/* Card Header */}
-                  <div className="flex items-start justify-between mb-6">
-                    <div className="flex items-center gap-4">
-                      <div className="w-14 h-14 bg-gradient-to-br from-rose-500 to-orange-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-rose-500/30">
-                        <Mic2 size={28} strokeWidth={2} />
+              <div className="relative group rounded-[2rem] p-[3px] bg-gradient-to-br from-rose-400 via-orange-300 to-transparent shadow-xl shadow-rose-900/5">
+                <div className="absolute inset-0 bg-white/95 rounded-[1.8rem]" />
+                <div className="relative h-full bg-white/50 backdrop-blur-xl rounded-[1.8rem] overflow-hidden p-5 md:p-6 flex flex-col">
+                  <div className="flex items-start justify-between mb-5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-gradient-to-br from-rose-500 to-orange-500 rounded-xl flex items-center justify-center text-white shadow-md shadow-rose-500/20">
+                        <Mic2 size={22} strokeWidth={2} />
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="flex h-2 w-2 rounded-full bg-rose-500 animate-pulse"></span>
-                          <h3 className="text-xs font-black uppercase tracking-[0.2em] text-rose-600">
-                            "Blogcast" Enabled Post
+                      <div className="flex flex-col justify-center">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="mb-2 flex h-2 w-2 rounded-full bg-rose-500 animate-pulse shrink-0"></span>
+                          <h3 className="text-base md:text-lg font-bold text-slate-900 leading-none tracking-tight">
+                            Blogcast Enabled
                           </h3>
                         </div>
-                        <h4 className="text-lg font-bold text-slate-900 leading-none">
-                          Blogcast
+                        <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-rose-600 pl-4">
+                          Audio Version
                         </h4>
                       </div>
                     </div>
-                    {/* Audio Visual */}
-                    <div className="hidden sm:block">
+                    <div className="hidden sm:block scale-75 origin-right">
                       <MusicEqualizer color="rose" />
                     </div>
                   </div>
 
-                  {/* Description Text - LARGE AND READABLE */}
-                  <p className="text-sm md:text-base text-slate-600 font-medium leading-relaxed mb-6">
+                  <p className="text-sm text-slate-600 font-medium leading-relaxed mb-5">
                     Prefer listening? I’ve recorded a narration of this post.
                     Think of it as a solo, personal podcast.
                   </p>
 
-                  {/* Embed Container */}
                   <div className="mt-auto w-full">
                     {isIframeBlogcast ? (
-                      <div className="w-full rounded-2xl overflow-hidden shadow-lg border border-slate-200 bg-black min-h-[152px]">
+                      <div className="w-full rounded-xl overflow-hidden shadow-sm border border-slate-200 bg-black min-h-[152px]">
                         <iframe
                           src={safeBlogcastUrl}
                           width="100%"
@@ -437,26 +465,8 @@ export default async function BlogPost({ params }) {
                         ></iframe>
                       </div>
                     ) : (
-                      <div className="w-full bg-slate-100 rounded-2xl p-4 border border-slate-200 flex flex-col items-center justify-center gap-3 shadow-inner">
-                        <div className="w-full flex items-center justify-between px-2 opacity-40">
-                          <Volume2 size={16} className="text-rose-500" />
-                          <div className="h-1 w-full mx-4 bg-slate-300 rounded-full overflow-hidden">
-                            <div className="h-full w-1/3 bg-slate-400"></div>
-                          </div>
-                          <span className="text-[10px] font-mono">00:00</span>
-                        </div>
-                        <audio
-                          controls
-                          className="w-full h-12"
-                          style={{
-                            filter:
-                              "sepia(20%) saturate(150%) hue-rotate(-10deg)",
-                          }}
-                        >
-                          <source src={safeBlogcastUrl} type="audio/mpeg" />
-                          <source src={safeBlogcastUrl} type="audio/mp3" />
-                        </audio>
-                      </div>
+                      /* --- TECHNICOLOR PLAYER FOR MP3/WAV/SUPABASE --- */
+                      <TechnicolorPlayer url={safeBlogcastUrl} />
                     )}
                   </div>
                 </div>
@@ -468,7 +478,7 @@ export default async function BlogPost({ params }) {
 
       {/* ARTICLE CONTENT */}
       <article className="max-w-4xl mx-auto px-4 md:px-6 py-4 md:py-8 animate-fade-in relative z-10">
-        <div className="blog-content flow-root prose prose-lg md:prose-xl prose-slate max-w-none mx-auto prose-p:text-slate-700 prose-headings:text-slate-900 prose-headings:font-black prose-a:text-indigo-600 prose-a:font-bold prose-a:no-underline hover:prose-a:text-teal-600 prose-img:rounded-3xl prose-blockquote:border-l-4 prose-blockquote:border-teal-500 prose-blockquote:bg-slate-50 prose-blockquote:py-4 prose-blockquote:px-8 prose-blockquote:rounded-r-2xl prose-blockquote:not-italic prose-blockquote:font-medium prose-blockquote:text-slate-800">
+        <div className="blog-content flow-root max-w-none mx-auto">
           {post.content ? (
             parse(post.content, contentParserOptions)
           ) : (
@@ -485,21 +495,8 @@ export default async function BlogPost({ params }) {
       </article>
 
       {/* POPULAR POSTS */}
-      <div className="w-full px-4 md:px-6 py-32 clear-both relative z-10">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center gap-8 mb-20">
-            <div className="h-px bg-slate-200 flex-1" />
-            <div className="flex items-center gap-3 text-slate-300">
-              <div className="w-2 h-2 rounded-full bg-slate-300" />
-              <span className="text-sm font-black uppercase tracking-[0.3em]">
-                Read Next
-              </span>
-              <div className="w-2 h-2 rounded-full bg-slate-300" />
-            </div>
-            <div className="h-px bg-slate-200 flex-1" />
-          </div>
-          <PopularPosts currentSlug={slug} />
-        </div>
+      <div className="w-full px-4 md:px-6 py-24 clear-both relative z-10">
+        <PopularPosts currentSlug={slug} />
       </div>
 
       {/* CTA FOOTER */}
@@ -523,7 +520,7 @@ export default async function BlogPost({ params }) {
           </p>
 
           <Link
-            href="/contact"
+            href="/collab"
             className="relative z-10 inline-flex items-center gap-4 bg-slate-900 text-white pl-10 pr-8 py-5 rounded-full font-bold uppercase tracking-widest text-xs hover:bg-teal-600 transition-all shadow-xl hover:shadow-teal-500/20 group-hover:-translate-y-1"
           >
             Get in Touch <ArrowRight size={18} />
