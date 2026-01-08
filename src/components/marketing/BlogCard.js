@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Calendar, ArrowRight, Tag, Clock } from "lucide-react";
 
-// --- HELPER FUNCTION (Same math as BlogPost) ---
+// --- HELPER FUNCTION ---
 function calculateReadingStats(htmlContent) {
   if (!htmlContent) return { wordCount: 0, readTime: 0 };
   const textWithoutScripts = htmlContent.replace(
@@ -13,16 +13,13 @@ function calculateReadingStats(htmlContent) {
   );
   const text = textWithoutScripts.replace(/<[^>]*>/g, " ");
   const wordCount = text.split(/\s+/).filter((word) => word.length > 0).length;
-  const wordsPerMinute = 9500 / 60; // Updated from 160 to match 9,500 words/hour pace
+  const wordsPerMinute = 9500 / 60;
   const readTime = Math.ceil(wordCount / wordsPerMinute);
   return { wordCount, readTime: readTime < 1 ? 1 : readTime };
 }
 
 export default function BlogCard({ post, delay = 0, priority = false }) {
-  // Use the helper to get exact stats match with the main page
   const { wordCount, readTime } = calculateReadingStats(post.content);
-
-  // Check for blogcast existence
   const hasBlogcast = !!post.blogcast_url;
 
   return (
@@ -65,23 +62,24 @@ export default function BlogCard({ post, delay = 0, priority = false }) {
 
             {/* CONTENT AREA */}
             <div className="p-5 flex flex-col flex-grow bg-white border-t border-slate-100">
-              {/* META ROW */}
-              <div className="flex flex-wrap items-center gap-1.5 mb-3">
-                {/* Date */}
-                <div className="flex items-center gap-1 text-[9px] font-bold uppercase text-slate-500 whitespace-nowrap">
-                  <Calendar size={9} className="text-indigo-500" />
-                  {post.date}
+              {/* --- META ROW (FIXED: ALWAYS ONE LINE) --- */}
+              <div className="flex items-center gap-2 mb-3 w-full overflow-hidden">
+                {/* Date: Shrink-0 ensures date never gets crushed */}
+                <div className="flex items-center gap-1.5 shrink-0 text-[10px] font-bold uppercase text-slate-500">
+                  <Calendar size={10} className="text-indigo-500" />
+                  <span className="whitespace-nowrap">{post.date}</span>
                 </div>
 
-                <div className="h-2 w-[1px] bg-slate-200"></div>
+                {/* Vertical Divider */}
+                <div className="h-3 w-[1px] bg-slate-200 shrink-0"></div>
 
-                {/* Word Count & Read Time */}
-                <div className="flex items-center gap-1 text-[9px] font-bold uppercase text-slate-500 whitespace-nowrap max-w-full">
-                  <Clock size={9} className="text-rose-500 shrink-0" />
-                  <span className="truncate">
-                    {/* Dynamic label based on Blogcast presence */}
-                    {wordCount} words | ~{readTime}{" "}
-                    {hasBlogcast ? "min blogcast" : "min read"}
+                {/* Stats: min-w-0 allows truncate to work inside flex */}
+                <div className="flex items-center gap-1.5 min-w-0 text-[10px] font-bold uppercase text-slate-500">
+                  <Clock size={10} className="text-rose-500 shrink-0" />
+                  <span className="truncate tracking-tight">
+                    {/* Compacted text slightly to ensure fit on small screens */}
+                    {wordCount} words • {readTime}{" "}
+                    {hasBlogcast ? "min listen" : "min read"}
                   </span>
                 </div>
               </div>
