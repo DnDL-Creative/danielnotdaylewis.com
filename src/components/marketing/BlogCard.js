@@ -13,7 +13,7 @@ function calculateReadingStats(htmlContent) {
   );
   const text = textWithoutScripts.replace(/<[^>]*>/g, " ");
   const wordCount = text.split(/\s+/).filter((word) => word.length > 0).length;
-  const wordsPerMinute = 160;
+  const wordsPerMinute = 9500 / 60; // Updated from 160 to match 9,500 words/hour pace
   const readTime = Math.ceil(wordCount / wordsPerMinute);
   return { wordCount, readTime: readTime < 1 ? 1 : readTime };
 }
@@ -76,7 +76,8 @@ export default function BlogCard({ post, delay = 0, priority = false }) {
                 <div className="flex items-center gap-1 text-[9px] font-bold uppercase text-slate-500 whitespace-nowrap">
                   <Clock size={9} className="text-rose-500" />
                   <span>
-                    {wordCount} words | ~{readTime} min
+                    {/* Updated label to include "listen" */}
+                    {wordCount} words | ~{readTime} min listen
                   </span>
                 </div>
               </div>

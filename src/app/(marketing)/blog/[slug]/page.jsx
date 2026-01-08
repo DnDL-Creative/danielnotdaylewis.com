@@ -391,7 +391,8 @@ export default async function BlogPost({ params }) {
             <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm transition-transform hover:scale-105 cursor-default">
               <Clock size={12} className="text-rose-500" />
               <span className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-slate-600">
-                {wordCount} words | ~{readTime} min read
+                {/* Updated label to be inclusive */}
+                {wordCount} words | ~{readTime} min read / listen
               </span>
             </div>
           </div>
@@ -605,7 +606,7 @@ function calculateReadingStats(htmlContent) {
   );
   const text = textWithoutScripts.replace(/<[^>]*>/g, " ");
   const wordCount = text.split(/\s+/).filter((word) => word.length > 0).length;
-  const wordsPerMinute = 160;
+  const wordsPerMinute = 9500 / 60; // Updated from 160 to match 9,500 words/hour pace
   const readTime = Math.ceil(wordCount / wordsPerMinute);
   return { wordCount, readTime: readTime < 1 ? 1 : readTime };
 }
