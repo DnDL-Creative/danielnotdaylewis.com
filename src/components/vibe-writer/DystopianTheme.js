@@ -112,7 +112,7 @@ function useSnowTexture() {
 const SnowSystem = ({ theme, intensity, windVector }) => {
   const ref = useRef();
   const tex = useSnowTexture();
-  const count = 65000;
+  const count = 100000;
 
   const xBound = 55;
   const yBound = 40;
