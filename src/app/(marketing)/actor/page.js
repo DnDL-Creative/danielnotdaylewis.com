@@ -535,17 +535,17 @@ function AudioPlayer() {
 
   const tracks = [
     {
-      title: "Emotional",
-      src: "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/audio/demo_neverfar.mp3",
+      title: "Emotionally-driven",
+      src: "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/audio/demos/demo_neverfar.mp3",
       explicit: true,
     },
     {
       title: "M/F Dialogue",
-      src: "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/audio/demo_filthy_rich_santas_female_dialogue.mp3",
+      src: "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/audio/demos/demo_filthy_rich_santas_female_dialogue.mp3",
     },
     {
-      title: "Character",
-      src: "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/audio/demo-rtibw-amos-intro.mp3",
+      title: "Character-driven",
+      src: "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/audio/demos/demo-rtibw-amos-intro.mp3",
     },
   ];
 

@@ -35,16 +35,16 @@ const WORDS_PER_DAY = 6975;
 
 const DEMO_TRACKS = [
   {
+    title: "Emotionally-driven",
+    url: "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/audio/demos/demo_neverfar.mp3",
+  },
+  {
     title: "M/F Dialogue",
-    url: "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/audio/demo_filthy_rich_santas_female_dialogue.mp3",
+    url: "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/audio/demos/demo_filthy_rich_santas_female_dialogue.mp3",
   },
   {
-    title: "Character",
-    url: "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/audio/demo-rtibw-amos-intro.mp3",
-  },
-  {
-    title: "Intense / Duet",
-    url: "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/audio/demo_neverfar_60s_april2025.mp3",
+    title: "Character-driven",
+    url: "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/audio/demos/demo-rtibw-amos-intro.mp3",
   },
 ];
 

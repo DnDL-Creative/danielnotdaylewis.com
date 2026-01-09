@@ -17,7 +17,7 @@ import parse from "html-react-parser";
 
 // --- CLIENT COMPONENTS ---
 import PopularPosts from "@/src/components/marketing/PostsWidget";
-import ViewCounter from "./ViewCounter";
+
 import GalleryCarousel from "@/src/components/vibe-writer/GalleryCarousel";
 import MusicEqualizer from "@/src/components/marketing/MusicEqualizer";
 import TechnicolorPlayer from "@/src/components/marketing/TechnicolorPlayer";
@@ -354,8 +354,6 @@ export default async function BlogPost({ params }) {
 
   return (
     <div className="min-h-screen w-full relative selection:bg-teal-200 selection:text-teal-900 overflow-x-hidden">
-      <ViewCounter slug={slug} />
-
       {/* BACKGROUND EFFECTS */}
       <div className="fixed inset-0 z-[-1]">
         <div className="absolute inset-0 bg-gradient-to-br from-teal-50/20 via-white to-indigo-50/20 md:bg-white" />
