@@ -25,15 +25,34 @@ import TechnicolorPlayer from "@/src/components/marketing/TechnicolorPlayer";
 // --- HELPERS ---
 const formatDate = (dateString) => {
   if (!dateString) return "";
-  if (dateString.includes(",")) return dateString;
+  if (dateString.includes(",")) return dateString; // Existing safeguard
+
   const date = new Date(dateString);
   if (isNaN(date.getTime())) return dateString;
-  return date.toLocaleDateString("en-US", {
-    year: "numeric",
+
+  // 1. Get the month name (e.g., "January")
+  const month = date.toLocaleDateString("en-US", {
     month: "long",
-    day: "numeric",
     timeZone: "UTC",
   });
+
+  // 2. Get the day number (e.g., 8)
+  const day = date.getUTCDate();
+
+  // 3. Get the year (e.g., 2026)
+  const year = date.getUTCFullYear();
+
+  // 4. Calculate the Ordinal Suffix (st, nd, rd, th)
+  const getOrdinalSuffix = (n) => {
+    const s = ["th", "st", "nd", "rd"];
+    const v = n % 100; // Look at the last two digits
+    return s[(v - 20) % 10] || s[v] || s[0];
+  };
+
+  const suffix = getOrdinalSuffix(day);
+
+  // 5. Return formatted string
+  return `${month} ${day}${suffix}, ${year}`;
 };
 
 const getBlogcastEmbed = (url) => {

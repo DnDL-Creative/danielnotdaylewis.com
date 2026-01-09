@@ -4,6 +4,29 @@ import Link from "next/link";
 import Image from "next/image";
 import { Calendar, ArrowRight, Tag, Clock } from "lucide-react";
 
+// --- DATE FORMATTER (Added this helper) ---
+const formatDate = (dateString) => {
+  if (!dateString) return "";
+  const date = new Date(dateString);
+  // Check if invalid date
+  if (isNaN(date.getTime())) return dateString;
+
+  const month = date.toLocaleDateString("en-US", {
+    month: "long",
+    timeZone: "UTC",
+  });
+  const day = date.getUTCDate();
+  const year = date.getUTCFullYear();
+
+  const getOrdinalSuffix = (n) => {
+    const s = ["th", "st", "nd", "rd"];
+    const v = n % 100;
+    return s[(v - 20) % 10] || s[v] || s[0];
+  };
+
+  return `${month} ${day}${getOrdinalSuffix(day)}, ${year}`;
+};
+
 // --- HELPER FUNCTION ---
 function calculateReadingStats(htmlContent) {
   if (!htmlContent) return { wordCount: 0, readTime: 0 };
@@ -67,7 +90,10 @@ export default function BlogCard({ post, delay = 0, priority = false }) {
                 {/* Date: Shrink-0 ensures date never gets crushed */}
                 <div className="flex items-center gap-1.5 shrink-0 text-[10px] font-bold uppercase text-slate-500">
                   <Calendar size={10} className="text-indigo-500" />
-                  <span className="whitespace-nowrap">{post.date}</span>
+                  {/* APPLIED FIX HERE: Wrapped post.date in formatDate() */}
+                  <span className="whitespace-nowrap">
+                    {formatDate(post.date)}
+                  </span>
                 </div>
 
                 {/* Vertical Divider */}
