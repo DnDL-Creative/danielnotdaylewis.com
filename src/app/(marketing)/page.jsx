@@ -137,8 +137,8 @@ export default function Home() {
                   Insights
                 </h2>
                 <p className="text-slate-500 mt-2 text-xs md:text-lg">
-                  Thoughts on life, haughty esoteric topics, travel & languages,
-                  and creative entrepreneurship.
+                  Thoughts on life, haughty esoteric topics, being an artist,
+                  creative entrepreneurship, and travel & languages.
                 </p>
               </div>
               <Link
