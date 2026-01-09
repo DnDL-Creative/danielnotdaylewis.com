@@ -200,15 +200,16 @@
    ======================================================================== */
   .blog-content {
     @apply text-slate-800 mx-auto;
+    /* Base size: 18px mobile, 20px desktop */
     font-size: 1.125rem;
-    line-height: 1.6;
-    max-width: 680px;
+    line-height: 1.7; /* Relaxed leading for better readability */
+    max-width: 680px; /* Optimal line length (approx 65-75 chars) */
   }
 
   @media (min-width: 768px) {
     .blog-content {
-      font-size: 1.25rem;
-      line-height: 1.6;
+      font-size: 1.25rem; /* 20px */
+      line-height: 1.75;
     }
   }
 
@@ -218,14 +219,23 @@
     font-weight: 400 !important;
     margin-bottom: 2rem;
     margin-top: 0;
-    color: #334155;
+    color: #334155; /* Slate-700 for better eye comfort than pure black */
   }
 
+  /* --- HEADINGS (SEO & ACCESSIBILITY OPTIMIZED) --- */
+  /* Logic: 
+   1. Distinct visual hierarchy (H2 > H3 > H4 > P).
+   2. More margin-top than margin-bottom to group heading with following text.
+   3. Tighter line-heights to prevent headings from floating apart.
+*/
+
   .blog-content h2 {
-    @apply text-2xl md:text-3xl font-black tracking-tight text-slate-900;
-    margin-top: 2rem;
-    margin-bottom: 1rem;
-    line-height: 1.2;
+    @apply font-black tracking-tight text-slate-900;
+    font-size: 2rem; /* ~32px */
+    margin-top: 3.5rem;
+    margin-bottom: 1.25rem;
+    line-height: 1.1;
+    /* Subtle Gradient for H2 */
     background: linear-gradient(to right, #0f172a, #334155);
     -webkit-background-clip: text;
     background-clip: text;
@@ -233,14 +243,42 @@
   }
 
   .blog-content h3 {
-    @apply text-xl md:text-2xl font-bold text-teal-700;
-    margin-top: 2rem;
+    @apply font-bold text-teal-700;
+    font-size: 1.5rem; /* ~24px */
+    margin-top: 2.5rem;
+    margin-bottom: 1rem;
+    line-height: 1.25;
+  }
+
+  /* THE FIX FOR YOUR H4 */
+  .blog-content h4 {
+    /* CHANGED: text-lg (18px) instead of text-md */
+    @apply text-lg md:text-xl font-extrabold text-slate-800 uppercase tracking-widest;
+    margin-top: 2.5rem;
     margin-bottom: 0.75rem;
+    line-height: 1.4;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 0.25rem;
+    display: inline-block;
+  }
+
+  /* Desktop Adjustments for Headings */
+  @media (min-width: 768px) {
+    .blog-content h2 {
+      font-size: 2.5rem; /* 40px */
+    }
+    .blog-content h3 {
+      font-size: 1.75rem; /* 28px */
+    }
+    .blog-content h4 {
+      font-size: 1.35rem; /* ~22px - Distinctly larger than body text (20px) */
+    }
   }
 
   /* --- LINKS --- */
   .blog-content a {
     @apply text-teal-700 font-bold no-underline transition-all duration-300;
+    /* Custom Underline Animation */
     background-image: linear-gradient(#5eead4, #5eead4);
     background-size: 100% 2px;
     background-position: 0 100%;
@@ -265,19 +303,22 @@
     list-style: none !important;
   }
 
+  /* Bullet styling */
   .blog-content li::before {
     content: "" !important;
     @apply absolute left-0 rounded-full bg-teal-500;
-    top: 0.6em;
-    width: 0.5rem;
-    height: 0.5rem;
+    top: 0.7em; /* Adjusted for alignment */
+    width: 0.4rem;
+    height: 0.4rem;
     box-shadow: 0 0 8px #5eead4;
   }
 
   /* --- BLOCKQUOTES --- */
   .blog-content blockquote {
-    @apply relative my-12 p-8 md:p-10 not-italic font-semibold text-xl md:text-xl text-slate-800 rounded-3xl border-l-4 border-teal-500 bg-slate-50 shadow-sm overflow-hidden;
+    /* Ensured text-lg or text-xl is used here, NEVER text-md */
+    @apply relative my-10 p-8 md:p-10 font-medium italic text-lg md:text-xl text-slate-700 rounded-3xl border-l-4 border-teal-500 bg-slate-50 shadow-sm overflow-hidden;
     z-index: 1;
+    line-height: 1.6;
   }
 
   .blog-content blockquote::before {
@@ -292,20 +333,19 @@
 
   /* --- MEDIA --- */
   .blog-content img {
-    /* 80% Primary/Secondary Gradient on Image Borders */
     @apply rounded-2xl w-full h-auto object-cover;
     padding: 2px;
     background: linear-gradient(90deg, #0d9488 0%, #2dd4bf 60%, #6366f1 100%);
     box-shadow:
       0 20px 25px -5px rgba(0, 0, 0, 0.1),
       0 8px 10px -6px rgba(0, 0, 0, 0.1);
-    margin-top: 2rem;
-    margin-bottom: 2rem;
+    margin-top: 2.5rem;
+    margin-bottom: 2.5rem;
   }
 
   .blog-content figure {
-    margin-bottom: 2rem;
-    margin-top: 2rem;
+    margin-bottom: 2.5rem;
+    margin-top: 2.5rem;
   }
 
   /* --- MAIL ANIMATION --- */

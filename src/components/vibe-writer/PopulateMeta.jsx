@@ -47,6 +47,7 @@ export default function PopulateMeta({
   setBlogcastUrl, // New Prop
 }) {
   const heroInputRef = useRef(null);
+  const dateInputRef = useRef(null); // ADDED: Ref for the date picker
 
   return (
     <div
@@ -68,20 +69,30 @@ export default function PopulateMeta({
     >
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-2 w-full">
+          {/* --- UPDATED DATE INPUT --- */}
           <div className="relative w-full">
-            <Calendar
-              size={14}
-              className={`absolute left-4 top-4 ${isDark ? "text-slate-500" : "text-slate-400"}`}
-            />
+            <button
+              type="button"
+              onClick={() => dateInputRef.current?.showPicker()} // Force picker open
+              className={`absolute left-4 top-4 z-10 cursor-pointer transition-colors ${
+                isDark
+                  ? "text-slate-500 hover:text-white"
+                  : "text-slate-400 hover:text-slate-600"
+              }`}
+            >
+              <Calendar size={14} />
+            </button>
             <input
+              ref={dateInputRef}
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className={`w-full appearance-none p-3 pl-10 rounded-xl text-xs font-bold uppercase bg-transparent border-2 outline-none ${
+              className={`w-full appearance-none p-3 pl-10 rounded-xl text-xs font-bold uppercase bg-transparent border-2 outline-none cursor-pointer ${
                 isDark
-                  ? "border-white/10 text-slate-300"
-                  : "border-slate-200 text-slate-700"
+                  ? "border-white/10 text-slate-300 focus:border-teal-500"
+                  : "border-slate-200 text-slate-700 focus:border-slate-400"
               }`}
+              style={{ colorScheme: isDark ? "dark" : "light" }} // Ensures calendar matches theme
             />
           </div>
 
@@ -97,8 +108,8 @@ export default function PopulateMeta({
               placeholder="Author"
               className={`w-full p-3 pl-10 rounded-xl text-xs font-bold uppercase bg-transparent border-2 outline-none ${
                 isDark
-                  ? "border-white/10 text-slate-300 placeholder-slate-600"
-                  : "border-slate-200 text-slate-700 placeholder-slate-400"
+                  ? "border-white/10 text-slate-300 placeholder-slate-600 focus:border-teal-500"
+                  : "border-slate-200 text-slate-700 placeholder-slate-400 focus:border-slate-400"
               }`}
             />
           </div>
@@ -162,7 +173,7 @@ export default function PopulateMeta({
           onChange={(e) => setTag(e.target.value)}
           className={`w-full p-3 rounded-xl bg-transparent border-2 outline-none text-xs font-bold ${
             isDark
-              ? "border-white/10 text-white"
+              ? "border-white/10 text-white focus:border-teal-500"
               : "border-slate-200 text-slate-800"
           }`}
         >
@@ -248,8 +259,8 @@ export default function PopulateMeta({
             placeholder="Hero Image Caption"
             className={`w-full p-3 pl-10 bg-transparent border-2 rounded-xl outline-none text-xs font-bold ${
               isDark
-                ? "border-white/10 text-white placeholder-slate-600"
-                : "border-slate-200 text-slate-800 placeholder-slate-400"
+                ? "border-white/10 text-white placeholder-slate-600 focus:border-teal-500"
+                : "border-slate-200 text-slate-800 placeholder-slate-400 focus:border-slate-400"
             }`}
           />
         </div>

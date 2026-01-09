@@ -83,8 +83,13 @@ const TEXT_GRADIENT =
 // --- CONTENT PARSER ---
 const contentParserOptions = {
   replace: (domNode) => {
-    // 1. CLEANUP
-    if (domNode.name === "p" || domNode.name === "span") {
+    // 1. CLEANUP - UPDATED to include 'a' tags
+    // This strips inline styles from links so your global CSS 'no-underline' can work
+    if (
+      domNode.name === "p" ||
+      domNode.name === "span" ||
+      domNode.name === "a"
+    ) {
       if (domNode.attribs && domNode.attribs.class) {
         delete domNode.attribs.class;
       }
@@ -559,8 +564,8 @@ export default async function BlogPost({ params }) {
         </div>
       </article>
 
-      {/* --- CIRCLE IMAGE SECTION --- */}
-      <div className="w-full max-w-[250px] mx-auto px-4 my-8 md:my-10 relative z-10">
+      {/* --- CIRCLE IMAGE SECTION (FIXED: TIGHT SPACING) --- */}
+      <div className="w-full max-w-[250px] mx-auto px-4 mb-6 relative z-10">
         {/* CIRCLE BORDER */}
         <div
           className={`aspect-square rounded-full overflow-hidden shadow-2xl p-[2px] ${BORDER_GRADIENT} relative mx-auto`}
@@ -577,8 +582,8 @@ export default async function BlogPost({ params }) {
         </div>
       </div>
 
-      {/* POPULAR POSTS */}
-      <div className="w-full px-4 md:px-6 py-24 clear-both relative z-10">
+      {/* POPULAR POSTS (FIXED: TIGHT TOP PADDING) */}
+      <div className="w-full px-4 md:px-6 pt-8 pb-24 clear-both relative z-10">
         <PopularPosts currentSlug={slug} />
       </div>
 

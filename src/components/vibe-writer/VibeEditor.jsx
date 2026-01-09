@@ -1159,15 +1159,37 @@ const VibeEditor = forwardRef(
       onChangeRef.current = onChange;
     }, [onChange]);
 
+    // --- UPDATED HTML OUTPUT PLUGIN WITH SANITIZER ---
     const HtmlOutputPlugin = () => {
       const [editor] = useLexicalComposerContext();
       useEffect(() => {
         return editor.registerUpdateListener(({ editorState }) => {
           editorState.read(() => {
             const htmlString = $generateHtmlFromNodes(editor, null);
-            if (onChangeRef.current) {
-              onChangeRef.current(htmlString);
+
+            // --- SANITIZATION START ---
+            if (typeof window !== "undefined") {
+              const parser = new DOMParser();
+              const doc = parser.parseFromString(htmlString, "text/html");
+              const allElements = doc.body.querySelectorAll("*");
+
+              allElements.forEach((el) => {
+                // STRIP INLINE STYLES: This forces all elements (h1, h2, p, etc.)
+                // to use only the classes defined in your Global CSS.
+                // No more font-size: 15px overrides!
+                el.removeAttribute("style");
+              });
+
+              const cleanHtml = doc.body.innerHTML;
+              if (onChangeRef.current) {
+                onChangeRef.current(cleanHtml);
+              }
+            } else {
+              if (onChangeRef.current) {
+                onChangeRef.current(htmlString);
+              }
             }
+            // --- SANITIZATION END ---
           });
         });
       }, [editor]);

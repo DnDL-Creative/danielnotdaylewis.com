@@ -4,9 +4,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { ArrowRight } from "lucide-react";
-import { createClient } from "../../utils/supabase/client";
+import { createClient } from "@/src/utils/supabase/client";
 // IMPORT THE SHARED CARD
-import BlogCard from "../../components/marketing/BlogCard";
+import BlogCard from "@/src/components/marketing/BlogCard";
 
 // --- HELPER COMPONENT: WAVY LINK ---
 const WavyLink = ({ href, text }) => {
@@ -37,18 +37,45 @@ export default function Home() {
   useEffect(() => {
     const fetchPosts = async () => {
       const supabase = createClient();
+
+      // 1. Fetch candidates (fetch enough to sort properly)
       const { data } = await supabase
         .from("posts")
         .select("*")
-        .order("views", { ascending: false })
-        .limit(4);
+        .eq("published", true)
+        .limit(20);
 
       if (data) {
-        setLatestPosts(data);
+        // 2. Define "New" as 14 days
+        const twoWeeksAgo = new Date();
+        twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+
+        // 3. Sort: Newest (Last 14 days) -> Then by Views (Popularity)
+        const sorted = data.sort((a, b) => {
+          const dateA = new Date(a.date);
+          const dateB = new Date(b.date);
+          const isANew = dateA > twoWeeksAgo;
+          const isBNew = dateB > twoWeeksAgo;
+
+          if (isANew && isBNew) return dateB - dateA; // Both new? Date desc
+          if (isANew) return -1; // A is new? Top
+          if (isBNew) return 1; // B is new? Top
+          return (b.views || 0) - (a.views || 0); // Else Views desc
+        });
+
+        // 4. Take top 4
+        setLatestPosts(sorted.slice(0, 4));
       }
     };
     fetchPosts();
   }, []);
+
+  // Helper for the UI prop
+  const isPostNew = (dateString) => {
+    const twoWeeksAgo = new Date();
+    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+    return new Date(dateString) > twoWeeksAgo;
+  };
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-slate-50 selection:bg-teal-200 selection:text-teal-900">
@@ -129,8 +156,13 @@ export default function Home() {
             {/* BLOG GRID */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {latestPosts.map((post, index) => (
-                // USE THE SHARED CARD
-                <BlogCard key={post.slug} post={post} delay={index * 0.1} />
+                <BlogCard
+                  key={post.slug}
+                  post={post}
+                  delay={index * 0.1}
+                  // 👇 Passes the shiny button logic
+                  isNew={isPostNew(post.date)}
+                />
               ))}
             </div>
 

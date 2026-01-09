@@ -2,13 +2,12 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Calendar, ArrowRight, Tag, Clock } from "lucide-react";
+import { Calendar, ArrowRight, Tag, Clock, Sparkles } from "lucide-react";
 
-// --- DATE FORMATTER (Added this helper) ---
+// --- DATE FORMATTER ---
 const formatDate = (dateString) => {
   if (!dateString) return "";
   const date = new Date(dateString);
-  // Check if invalid date
   if (isNaN(date.getTime())) return dateString;
 
   const month = date.toLocaleDateString("en-US", {
@@ -41,7 +40,12 @@ function calculateReadingStats(htmlContent) {
   return { wordCount, readTime: readTime < 1 ? 1 : readTime };
 }
 
-export default function BlogCard({ post, delay = 0, priority = false }) {
+export default function BlogCard({
+  post,
+  delay = 0,
+  priority = false,
+  isNew = false, // <--- NEW PROP
+}) {
   const { wordCount, readTime } = calculateReadingStats(post.content);
   const hasBlogcast = !!post.blogcast_url;
 
@@ -53,7 +57,7 @@ export default function BlogCard({ post, delay = 0, priority = false }) {
       <Link href={`/blog/${post.slug}`} className="block h-full">
         {/* OUTER CONTAINER */}
         <div className="relative h-full w-full rounded-[1.5rem] overflow-hidden p-[2px] shadow-[0_10px_40px_-15px_rgba(0,0,0,0.1)] bg-white transition-all duration-300 hover:shadow-[0_20px_50px_-12px_rgba(13,148,136,0.25)] hover:-translate-y-2">
-          {/* SNAKE BORDER (Hidden on Mobile) */}
+          {/* SNAKE BORDER */}
           <div
             className="hidden md:block absolute inset-[-100%] animate-border-spin opacity-0 group-hover:opacity-100 transition-opacity duration-300"
             style={{
@@ -75,35 +79,40 @@ export default function BlogCard({ post, delay = 0, priority = false }) {
               />
 
               {/* TAG BADGE */}
-              <div className="absolute top-3 left-3">
+              <div className="absolute top-3 left-3 z-10">
                 <span className="bg-white/95 backdrop-blur-sm text-teal-800 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full shadow-sm flex items-center gap-1 border border-teal-100">
                   <Tag size={9} className="text-teal-600" />
                   {post.tag}
                 </span>
               </div>
+
+              {/* --- NEW POST SHINY BADGE --- */}
+              {isNew && (
+                <div className="absolute top-3 right-3 z-20">
+                  <div className="relative bg-gradient-to-r from-amber-200 to-yellow-400 text-yellow-900 text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full shadow-lg border border-yellow-200 flex items-center gap-1 overflow-hidden">
+                    {/* Shiny sheen effect */}
+                    <div className="absolute inset-0 bg-white/40 skew-x-[-20deg] w-[50%] -translate-x-[150%] animate-[shine_2s_infinite]" />
+                    <Sparkles size={10} className="text-yellow-700" />
+                    <span>New Post</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* CONTENT AREA */}
             <div className="p-5 flex flex-col flex-grow bg-white border-t border-slate-100">
-              {/* --- META ROW (FIXED: ALWAYS ONE LINE) --- */}
+              {/* META ROW */}
               <div className="flex items-center gap-2 mb-3 w-full overflow-hidden">
-                {/* Date: Shrink-0 ensures date never gets crushed */}
                 <div className="flex items-center gap-1.5 shrink-0 text-[10px] font-bold uppercase text-slate-500">
                   <Calendar size={10} className="text-indigo-500" />
-                  {/* APPLIED FIX HERE: Wrapped post.date in formatDate() */}
                   <span className="whitespace-nowrap">
                     {formatDate(post.date)}
                   </span>
                 </div>
-
-                {/* Vertical Divider */}
                 <div className="h-3 w-[1px] bg-slate-200 shrink-0"></div>
-
-                {/* Stats: min-w-0 allows truncate to work inside flex */}
                 <div className="flex items-center gap-1.5 min-w-0 text-[10px] font-bold uppercase text-slate-500">
                   <Clock size={10} className="text-rose-500 shrink-0" />
                   <span className="truncate tracking-tight">
-                    {/* Compacted text slightly to ensure fit on small screens */}
                     {wordCount} words • {readTime}{" "}
                     {hasBlogcast ? "min listen" : "min read"}
                   </span>
@@ -138,6 +147,15 @@ export default function BlogCard({ post, delay = 0, priority = false }) {
         @keyframes border-spin {
           100% {
             transform: rotate(-360deg);
+          }
+        }
+        @keyframes shine {
+          0% {
+            transform: translateX(-150%) skewX(-20deg);
+          }
+          50%,
+          100% {
+            transform: translateX(300%) skewX(-20deg);
           }
         }
         .animate-border-spin {

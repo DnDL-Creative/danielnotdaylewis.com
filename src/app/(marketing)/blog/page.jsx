@@ -17,15 +17,36 @@ export const metadata = {
 export default async function BlogIndexPage() {
   const supabase = await createClient();
 
+  // 1. Fetch ALL published posts
   const { data: posts } = await supabase
     .from("posts")
     .select("*")
-    .eq("published", true)
-    .order("views", { ascending: false });
+    .eq("published", true);
+
+  // 2. Logic: Newest (2 weeks) first, then Popular
+  const twoWeeksAgo = new Date();
+  twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+
+  const sortedPosts = posts?.sort((a, b) => {
+    const dateA = new Date(a.date);
+    const dateB = new Date(b.date);
+    const isANew = dateA > twoWeeksAgo;
+    const isBNew = dateB > twoWeeksAgo;
+
+    // If both are new, sort by date (newest first)
+    if (isANew && isBNew) return dateB - dateA;
+    // If A is new but B isn't, A comes first
+    if (isANew) return -1;
+    // If B is new but A isn't, B comes first
+    if (isBNew) return 1;
+
+    // If neither are new, sort by Views (popularity)
+    return (b.views || 0) - (a.views || 0);
+  });
 
   return (
     <div className="pt-24 md:pt-40 relative min-h-screen w-full bg-slate-50 pb-24 px-4 overflow-hidden">
-      {/* ATMOSPHERE - 🚨 FIX: Reduced blur radius for Mobile Performance */}
+      {/* ATMOSPHERE */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
         <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-teal-100/40 blur-[80px] md:blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-blue-100/40 blur-[80px] md:blur-[120px]" />
@@ -51,20 +72,22 @@ export default async function BlogIndexPage() {
 
         {/* Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 px-2 md:px-0">
-          {posts?.map((post, index) => (
-            <BlogCard
-              key={post.slug}
-              post={post}
-              delay={index * 0.1}
-              priority={index < 6}
-              // 👇 ADD THIS:
-              // Mobile (1 col): 100% width
-              // Tablet (2 cols): 50% width
-              // Desktop (4 cols): 25% width
-              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-            />
-          ))}
-          {!posts?.length && (
+          {sortedPosts?.map((post, index) => {
+            // Check if this specific post is "New"
+            const isNew = new Date(post.date) > twoWeeksAgo;
+
+            return (
+              <BlogCard
+                key={post.slug}
+                post={post}
+                delay={index * 0.1}
+                priority={index < 6}
+                isNew={isNew} // <--- Passing the shiny tag prop
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+              />
+            );
+          })}
+          {!sortedPosts?.length && (
             <p className="col-span-full text-center text-slate-400">
               No posts found.
             </p>

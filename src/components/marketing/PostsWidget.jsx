@@ -14,15 +14,29 @@ export default function PostsWidget({ currentSlug }) {
     const fetchPosts = async () => {
       const supabase = createClient();
 
+      // Fetch more than needed so we can sort and filter correctly
       const { data } = await supabase
         .from("posts")
         .select("*")
-        .eq("published", true)
-        .order("views", { ascending: false })
-        .limit(5); // Fetch enough to filter current out
+        .eq("published", true);
 
       if (data) {
-        setPosts(data);
+        const twoWeeksAgo = new Date();
+        twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+
+        const sorted = data.sort((a, b) => {
+          const dateA = new Date(a.date);
+          const dateB = new Date(b.date);
+          const isANew = dateA > twoWeeksAgo;
+          const isBNew = dateB > twoWeeksAgo;
+
+          if (isANew && isBNew) return dateB - dateA; // Both new? Date desc
+          if (isANew) return -1; // A is new? Top
+          if (isBNew) return 1; // B is new? Top
+          return (b.views || 0) - (a.views || 0); // Else Views desc
+        });
+
+        setPosts(sorted);
       }
       setLoading(false);
     };
@@ -30,7 +44,6 @@ export default function PostsWidget({ currentSlug }) {
     fetchPosts();
   }, []);
 
-  // --- SKELETON LOADER (Updated for 3 columns) ---
   if (loading) {
     return (
       <div className="w-full animate-pulse">
@@ -38,7 +51,6 @@ export default function PostsWidget({ currentSlug }) {
           <div className="h-8 w-64 bg-slate-200 rounded-lg"></div>
           <div className="hidden md:block h-10 w-32 bg-slate-100 rounded-full"></div>
         </div>
-        {/* Changed to 3 columns */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
           {[...Array(3)].map((_, i) => (
             <div
@@ -51,18 +63,21 @@ export default function PostsWidget({ currentSlug }) {
     );
   }
 
-  // Filter out the current post and slice to just 3 items
+  // Filter out current post
   const relatedPosts = posts
     ? posts.filter((post) => post.slug !== currentSlug).slice(0, 3)
     : [];
 
   if (relatedPosts.length === 0) return null;
 
+  // Helper for "isNew" check in the loop
+  const twoWeeksAgo = new Date();
+  twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+
   return (
     <div className="relative z-10 w-full">
       {/* HEADER SECTION */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-14">
-        {/* Combined into one meta line using flex-wrap and items-baseline */}
         <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
           <div className="flex items-center gap-2 translate-y-[-2px]">
             <Sparkles size={16} className="text-amber-400" />
@@ -71,7 +86,6 @@ export default function PostsWidget({ currentSlug }) {
             </span>
           </div>
 
-          {/* Divider dot for visual separation (optional, but clean) */}
           <span className="hidden sm:inline-block w-1.5 h-1.5 rounded-full bg-slate-200"></span>
 
           <h3 className="text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">
@@ -82,7 +96,6 @@ export default function PostsWidget({ currentSlug }) {
           </h3>
         </div>
 
-        {/* DESKTOP BUTTON */}
         <Link
           href="/blog"
           className="group hidden md:inline-flex items-center gap-3 px-6 py-3 rounded-full bg-white border border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-300"
@@ -96,11 +109,19 @@ export default function PostsWidget({ currentSlug }) {
         </Link>
       </div>
 
-      {/* GRID - Changed to 3 columns max with larger gaps */}
+      {/* GRID */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-10 lg:gap-12">
-        {relatedPosts.map((post, index) => (
-          <BlogCard key={post.slug} post={post} delay={index * 0.1} />
-        ))}
+        {relatedPosts.map((post, index) => {
+          const isNew = new Date(post.date) > twoWeeksAgo;
+          return (
+            <BlogCard
+              key={post.slug}
+              post={post}
+              delay={index * 0.1}
+              isNew={isNew}
+            />
+          );
+        })}
       </div>
 
       {/* MOBILE BUTTON */}
