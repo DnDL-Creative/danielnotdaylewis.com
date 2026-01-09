@@ -2,136 +2,118 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight, Sparkles, ArrowUp, ArrowDown, Trophy } from "lucide-react";
 import { createClient } from "@/src/utils/supabase/client";
 import BlogCard from "./BlogCard";
 
 export default function PostsWidget({ currentSlug }) {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [sortOption, setSortOption] = useState("newest");
 
   useEffect(() => {
     const fetchPosts = async () => {
       const supabase = createClient();
-
-      // Fetch more than needed so we can sort and filter correctly
       const { data } = await supabase
         .from("posts")
         .select("*")
         .eq("published", true);
 
-      if (data) {
-        const twoWeeksAgo = new Date();
-        twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
-
-        const sorted = data.sort((a, b) => {
-          const dateA = new Date(a.date);
-          const dateB = new Date(b.date);
-          const isANew = dateA > twoWeeksAgo;
-          const isBNew = dateB > twoWeeksAgo;
-
-          if (isANew && isBNew) return dateB - dateA; // Both new? Date desc
-          if (isANew) return -1; // A is new? Top
-          if (isBNew) return 1; // B is new? Top
-          return (b.views || 0) - (a.views || 0); // Else Views desc
-        });
-
-        setPosts(sorted);
-      }
+      if (data) setPosts(data);
       setLoading(false);
     };
-
     fetchPosts();
   }, []);
 
-  if (loading) {
+  // --- SAFE DATE PARSER ---
+  const parseDate = (dateStr) => {
+    if (!dateStr) return 0;
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? 0 : d.getTime();
+  };
+
+  // Filter & Sort
+  const getSortedPosts = () => {
+    let filtered = posts.filter((post) => post.slug !== currentSlug);
+
+    switch (sortOption) {
+      case "oldest":
+        return filtered.sort((a, b) => parseDate(a.date) - parseDate(b.date));
+      case "popular":
+        return filtered.sort((a, b) => (b.views || 0) - (a.views || 0));
+      case "newest":
+      default:
+        return filtered.sort((a, b) => parseDate(b.date) - parseDate(a.date));
+    }
+  };
+
+  // --- UPDATE: Slice 0, 4 for Tuco ---
+  const displayPosts = getSortedPosts().slice(0, 4);
+
+  const isPostNew = (dateString) => {
+    const d = parseDate(dateString);
+    return d > Date.now() - 12096e5;
+  };
+
+  if (loading)
     return (
-      <div className="w-full animate-pulse">
-        <div className="flex justify-between items-end mb-14">
-          <div className="h-8 w-64 bg-slate-200 rounded-lg"></div>
-          <div className="hidden md:block h-10 w-32 bg-slate-100 rounded-full"></div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
-          {[...Array(3)].map((_, i) => (
-            <div
-              key={i}
-              className="aspect-[4/5] bg-slate-100 rounded-[2rem]"
-            ></div>
-          ))}
-        </div>
-      </div>
+      <div className="w-full h-96 animate-pulse bg-slate-50 rounded-3xl" />
     );
-  }
-
-  // Filter out current post
-  const relatedPosts = posts
-    ? posts.filter((post) => post.slug !== currentSlug).slice(0, 3)
-    : [];
-
-  if (relatedPosts.length === 0) return null;
-
-  // Helper for "isNew" check in the loop
-  const twoWeeksAgo = new Date();
-  twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+  if (displayPosts.length === 0) return null;
 
   return (
     <div className="relative z-10 w-full">
-      {/* HEADER SECTION */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-14">
-        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
-          <div className="flex items-center gap-2 translate-y-[-2px]">
+      {/* HEADER */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
             <Sparkles size={16} className="text-amber-400" />
             <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">
-              Read more
+              Read More
             </span>
           </div>
-
-          <span className="hidden sm:inline-block w-1.5 h-1.5 rounded-full bg-slate-200"></span>
-
-          <h3 className="text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">
-            Popular{" "}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-500 via-indigo-500 to-purple-500 animate-gradient-x">
-              Reads
-            </span>
-          </h3>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-6">
+            <h3 className="text-3xl font-bold text-slate-900 tracking-tight">
+              Recommended
+            </h3>
+            <div className="flex gap-2">
+              {[
+                { label: "Newest", value: "newest", icon: ArrowUp },
+                { label: "Oldest", value: "oldest", icon: ArrowDown },
+                { label: "Popular", value: "popular", icon: Trophy },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setSortOption(opt.value)}
+                  className={`
+                    flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all
+                    ${sortOption === opt.value ? "bg-slate-900 text-white shadow-md scale-105" : "bg-white border border-slate-200 text-slate-400 hover:border-slate-300 hover:text-slate-600"}
+                  `}
+                >
+                  <opt.icon size={10} /> {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
-
         <Link
           href="/blog"
-          className="group hidden md:inline-flex items-center gap-3 px-6 py-3 rounded-full bg-white border border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-300"
+          className="hidden md:flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-400 hover:text-teal-600 transition-colors"
         >
-          <span className="text-[11px] font-bold uppercase tracking-widest text-slate-600 group-hover:text-slate-900">
-            View Archive
-          </span>
-          <div className="w-6 h-6 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-teal-500 group-hover:text-white group-hover:border-teal-500 transition-all">
-            <ArrowRight size={12} />
-          </div>
+          View Archive <ArrowRight size={14} />
         </Link>
       </div>
 
-      {/* GRID */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-10 lg:gap-12">
-        {relatedPosts.map((post, index) => {
-          const isNew = new Date(post.date) > twoWeeksAgo;
-          return (
-            <BlogCard
-              key={post.slug}
-              post={post}
-              delay={index * 0.1}
-              isNew={isNew}
-            />
-          );
-        })}
-      </div>
-
-      {/* MOBILE BUTTON */}
-      <div className="md:hidden mt-10">
-        <Link
-          href="/blog"
-          className="inline-flex items-center justify-center gap-3 w-full py-5 rounded-[1.5rem] bg-slate-900 text-white font-bold uppercase tracking-widest text-xs shadow-xl shadow-slate-900/10 hover:bg-teal-600 hover:scale-[1.02] transition-all duration-300"
-        >
-          Explore All Posts <ArrowRight size={14} />
-        </Link>
+      {/* --- UPDATE: 4 Columns Layout --- */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {displayPosts.map((post, index) => (
+          <BlogCard
+            key={post.slug}
+            post={post}
+            delay={index * 0.1}
+            isNew={isPostNew(post.date)}
+          />
+        ))}
       </div>
     </div>
   );

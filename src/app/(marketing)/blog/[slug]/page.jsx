@@ -17,7 +17,7 @@ import parse from "html-react-parser";
 
 // --- CLIENT COMPONENTS ---
 import PopularPosts from "@/src/components/marketing/PostsWidget";
-
+import ViewTracker from "@/src/components/marketing/ViewTracker"; // <--- ADDED THIS
 import GalleryCarousel from "@/src/components/vibe-writer/GalleryCarousel";
 import MusicEqualizer from "@/src/components/marketing/MusicEqualizer";
 import TechnicolorPlayer from "@/src/components/marketing/TechnicolorPlayer";
@@ -25,44 +25,34 @@ import TechnicolorPlayer from "@/src/components/marketing/TechnicolorPlayer";
 // --- HELPERS ---
 const formatDate = (dateString) => {
   if (!dateString) return "";
-  if (dateString.includes(",")) return dateString; // Existing safeguard
+  if (dateString.includes(",")) return dateString;
 
   const date = new Date(dateString);
   if (isNaN(date.getTime())) return dateString;
 
-  // 1. Get the month name (e.g., "January")
   const month = date.toLocaleDateString("en-US", {
     month: "long",
     timeZone: "UTC",
   });
-
-  // 2. Get the day number (e.g., 8)
   const day = date.getUTCDate();
-
-  // 3. Get the year (e.g., 2026)
   const year = date.getUTCFullYear();
 
-  // 4. Calculate the Ordinal Suffix (st, nd, rd, th)
   const getOrdinalSuffix = (n) => {
     const s = ["th", "st", "nd", "rd"];
-    const v = n % 100; // Look at the last two digits
+    const v = n % 100;
     return s[(v - 20) % 10] || s[v] || s[0];
   };
 
   const suffix = getOrdinalSuffix(day);
-
-  // 5. Return formatted string
   return `${month} ${day}${suffix}, ${year}`;
 };
 
 const getBlogcastEmbed = (url) => {
   if (!url) return null;
-  // Soundcloud Logic
   if (url.includes("soundcloud.com") && !url.includes("w.soundcloud.com")) {
     const encodedUrl = encodeURIComponent(url);
     return `https://w.soundcloud.com/player/?url=${encodedUrl}&color=%23ff5500&auto_play=false&hide_related=false&show_comments=true&show_user=true&show_reposts=false&show_teaser=true&visual=true`;
   }
-  // Spotify Logic
   if (url.includes("spotify.com") && !url.includes("/embed")) {
     return url
       .replace("/track/", "/embed/track/")
@@ -72,33 +62,23 @@ const getBlogcastEmbed = (url) => {
 };
 
 // --- CONSTANTS ---
-// BORDER: 80% Primary (Teal) / Secondary (Indigo) mix
 const BORDER_GRADIENT =
   "bg-[linear-gradient(90deg,#0d9488_0%,#2dd4bf_70%,#6366f1_100%)]";
-
-// TEXT GRADIENT: MATCHING THE NAVBAR STYLE EXACTLY (Blue -> Teal -> Indigo)
 const TEXT_GRADIENT =
   "bg-gradient-to-r from-blue-500 via-teal-400 to-indigo-500 bg-[length:200%_auto]";
 
 // --- CONTENT PARSER ---
 const contentParserOptions = {
   replace: (domNode) => {
-    // 1. CLEANUP - UPDATED to include 'a' tags
-    // This strips inline styles from links so your global CSS 'no-underline' can work
     if (
       domNode.name === "p" ||
       domNode.name === "span" ||
       domNode.name === "a"
     ) {
-      if (domNode.attribs && domNode.attribs.class) {
-        delete domNode.attribs.class;
-      }
-      if (domNode.attribs && domNode.attribs.style) {
-        delete domNode.attribs.style;
-      }
+      if (domNode.attribs?.class) delete domNode.attribs.class;
+      if (domNode.attribs?.style) delete domNode.attribs.style;
     }
 
-    // 2. MEDIA HANDLING
     if (domNode.name === "p") {
       const extractText = (node) => {
         if (node.type === "text") return node.data;
@@ -126,7 +106,6 @@ const contentParserOptions = {
           }
           return (
             <figure className="my-12 w-full md:w-5/6 mx-auto clear-both !block group">
-              {/* VIDEO BORDER */}
               <div
                 className={`relative aspect-video rounded-3xl p-[2px] ${BORDER_GRADIENT} shadow-2xl transition-transform duration-500 hover:scale-[1.01]`}
               >
@@ -144,7 +123,7 @@ const contentParserOptions = {
           );
         }
 
-        // AUDIO IN CONTENT
+        // AUDIO
         if (innerContent.startsWith("audio:")) {
           const rawUrl = innerContent.replace("audio:", "").trim();
           if (rawUrl.includes("spotify.com")) {
@@ -153,7 +132,6 @@ const contentParserOptions = {
               : rawUrl.replace(".com/", ".com/embed/");
             return (
               <figure className="my-10 w-full md:w-2/3 mx-auto clear-both !block">
-                {/* SPOTIFY BORDER */}
                 <div
                   className={`rounded-[18px] p-[2px] ${BORDER_GRADIENT} shadow-xl`}
                 >
@@ -170,10 +148,8 @@ const contentParserOptions = {
               </figure>
             );
           }
-          // Fallback for in-body audio (Native Player)
           return (
             <figure className="my-10 w-full md:w-2/3 mx-auto clear-both !block">
-              {/* NATIVE AUDIO BORDER */}
               <div
                 className={`${BORDER_GRADIENT} p-[2px] rounded-full shadow-lg`}
               >
@@ -209,11 +185,9 @@ const contentParserOptions = {
           const parts = innerContent.replace("image:", "").split("|");
           let url = parts[0].trim();
 
-          // AUDIO FILE MASKED AS IMAGE
           if (url.match(/\.(mp3|wav|ogg|m4a)($|\?)/i)) {
             return (
               <figure className="my-8 w-full md:w-2/3 mx-auto clear-both !block">
-                {/* UPDATED: Matches exact gradient style of other cards */}
                 <div
                   className={`${BORDER_GRADIENT} p-[2px] rounded-full shadow-lg`}
                 >
@@ -250,7 +224,6 @@ const contentParserOptions = {
             <figure
               className={`group relative ${alignClass} ${sizeClass} my-12`}
             >
-              {/* IMAGE BORDER (In-content) */}
               <div
                 className={`rounded-3xl p-[2px] ${BORDER_GRADIENT} shadow-2xl transition-transform duration-500 hover:scale-[1.01]`}
               >
@@ -326,34 +299,28 @@ export default async function BlogPost({ params }) {
 
   if (!post) notFound();
 
-  // Helper used below
   const { wordCount, readTime } = calculateReadingStats(post.content);
-
   const hasMusic = !!post.music_embed;
   const hasBlogcast = !!post.blogcast_url;
   const hasBoth = hasMusic && hasBlogcast;
 
-  // --- FIXED LOGIC START ---
   const safeBlogcastUrl = getBlogcastEmbed(post.blogcast_url);
-
-  // Check if it is a direct audio file (Supabase, mp3, etc)
   const isDirectFile =
     safeBlogcastUrl &&
     (safeBlogcastUrl.includes(".mp3") ||
       safeBlogcastUrl.includes(".wav") ||
       safeBlogcastUrl.includes(".m4a") ||
       safeBlogcastUrl.includes("supabase.co"));
-
-  // Only use iframe if it is NOT a direct file AND has a valid URL
   const isIframeBlogcast = safeBlogcastUrl && !isDirectFile;
-  // --- FIXED LOGIC END ---
 
-  // Custom Image URL to be updated
   const CIRCLE_IMAGE_URL =
     "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/blog-images/no-ai-pledge-100-percent-human-written-blog-daniel-not-day-lewis.png";
 
   return (
     <div className="min-h-screen w-full relative selection:bg-teal-200 selection:text-teal-900 overflow-x-hidden">
+      {/* --- INJECT VIEW TRACKER HERE --- */}
+      <ViewTracker slug={slug} />
+
       {/* BACKGROUND EFFECTS */}
       <div className="fixed inset-0 z-[-1]">
         <div className="absolute inset-0 bg-gradient-to-br from-teal-50/20 via-white to-indigo-50/20 md:bg-white" />
@@ -366,7 +333,6 @@ export default async function BlogPost({ params }) {
       <div className="relative z-0 pt-6 md:pt-10 pb-6 px-4 md:px-6">
         <div className="relative z-10 max-w-5xl mx-auto text-center animate-fade-in-up">
           <figure className="relative w-full mb-6 group md:max-w-3xl mx-auto">
-            {/* HERO IMAGE BORDER */}
             <div
               className={`relative w-full aspect-video rounded-3xl md:rounded-[2.5rem] p-[2px] ${BORDER_GRADIENT} shadow-2xl`}
             >
@@ -389,7 +355,6 @@ export default async function BlogPost({ params }) {
             )}
           </figure>
 
-          {/* HERO TITLE - UPDATED TO MATCH NAVBAR STYLE (Blue/Teal/Indigo + Animation) */}
           <h1 className="text-balance text-2xl md:text-4xl lg:text-5xl font-black leading-[1.1] tracking-tight px-4 max-w-3xl mx-auto mb-6">
             <span
               className={`text-transparent bg-clip-text ${TEXT_GRADIENT} animate-[gradient-x_10s_ease_infinite] drop-shadow-sm`}
@@ -413,7 +378,6 @@ export default async function BlogPost({ params }) {
             <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm transition-transform hover:scale-105 cursor-default">
               <Clock size={12} className="text-rose-500" />
               <span className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-slate-600">
-                {/* Updated label to be dynamic based on Blogcast presence */}
                 {wordCount} words | ~{readTime}{" "}
                 {hasBlogcast ? "min blogcast" : "min read"}
               </span>
@@ -425,16 +389,12 @@ export default async function BlogPost({ params }) {
       {/* --- MEDIA DASHBOARD --- */}
       {(hasMusic || hasBlogcast) && (
         <div
-          className={`mx-auto px-4 md:px-6 mb-16 relative z-10 animate-fade-in-up delay-100 ${
-            hasBoth ? "max-w-7xl" : "max-w-3xl"
-          }`}
+          className={`mx-auto px-4 md:px-6 mb-16 relative z-10 animate-fade-in-up delay-100 ${hasBoth ? "max-w-7xl" : "max-w-3xl"}`}
         >
           <div
-            className={`grid gap-5 ${
-              hasBoth ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"
-            }`}
+            className={`grid gap-5 ${hasBoth ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"}`}
           >
-            {/* MUSIC CARD BORDER - MATCHES HERO */}
+            {/* MUSIC CARD */}
             {hasMusic && (
               <div
                 className={`relative group rounded-[2rem] p-[2px] ${BORDER_GRADIENT} shadow-xl`}
@@ -472,7 +432,6 @@ export default async function BlogPost({ params }) {
                     one. Hit play, (login to Spotify), and listen-read along.
                   </p>
 
-                  {/* UPDATED: Audio Player Wrapper - BORDER REMOVED */}
                   <div className="mt-auto w-full">
                     <div className="w-full rounded-xl overflow-hidden shadow-sm min-h-[152px] bg-slate-50 border border-slate-100">
                       <div
@@ -485,7 +444,7 @@ export default async function BlogPost({ params }) {
               </div>
             )}
 
-            {/* BLOGCAST CARD BORDER - MATCHES HERO */}
+            {/* BLOGCAST CARD */}
             {hasBlogcast && (
               <div
                 className={`relative group rounded-[2rem] p-[2px] ${BORDER_GRADIENT} shadow-xl`}
@@ -519,7 +478,6 @@ export default async function BlogPost({ params }) {
                     Think of it as a solo, personal podcast.
                   </p>
 
-                  {/* UPDATED: Audio Player Wrapper - BORDER REMOVED */}
                   <div className="mt-auto w-full">
                     {isIframeBlogcast ? (
                       <div className="w-full rounded-xl overflow-hidden shadow-sm min-h-[152px] bg-black">
@@ -562,9 +520,8 @@ export default async function BlogPost({ params }) {
         </div>
       </article>
 
-      {/* --- CIRCLE IMAGE SECTION (FIXED: TIGHT SPACING) --- */}
+      {/* --- CIRCLE IMAGE SECTION --- */}
       <div className="w-full max-w-[250px] mx-auto px-4 mb-6 relative z-10">
-        {/* CIRCLE BORDER */}
         <div
           className={`aspect-square rounded-full overflow-hidden shadow-2xl p-[2px] ${BORDER_GRADIENT} relative mx-auto`}
         >
@@ -580,7 +537,7 @@ export default async function BlogPost({ params }) {
         </div>
       </div>
 
-      {/* POPULAR POSTS (FIXED: TIGHT TOP PADDING) */}
+      {/* POPULAR POSTS */}
       <div className="w-full px-4 md:px-6 pt-8 pb-24 clear-both relative z-10">
         <PopularPosts currentSlug={slug} />
       </div>
@@ -588,7 +545,6 @@ export default async function BlogPost({ params }) {
       {/* CTA FOOTER */}
       <div className="max-w-3xl mx-auto px-4 md:px-6 pb-24 relative z-10">
         <div className="bg-white rounded-[3rem] p-12 md:p-16 text-center shadow-2xl shadow-indigo-900/10 border border-slate-100 relative overflow-hidden group">
-          {/* FOOTER TOP STRIP GRADIENT */}
           <div
             className={`absolute top-0 left-0 w-full h-2 ${BORDER_GRADIENT}`}
           />
@@ -620,7 +576,6 @@ export default async function BlogPost({ params }) {
   );
 }
 
-// --- HELPER FUNCTION ---
 function calculateReadingStats(htmlContent) {
   if (!htmlContent) return { wordCount: 0, readTime: 0 };
   const textWithoutScripts = htmlContent.replace(
@@ -629,7 +584,7 @@ function calculateReadingStats(htmlContent) {
   );
   const text = textWithoutScripts.replace(/<[^>]*>/g, " ");
   const wordCount = text.split(/\s+/).filter((word) => word.length > 0).length;
-  const wordsPerMinute = 9500 / 60; // Updated from 160 to match 9,500 words/hour pace
+  const wordsPerMinute = 9500 / 60;
   const readTime = Math.ceil(wordCount / wordsPerMinute);
   return { wordCount, readTime: readTime < 1 ? 1 : readTime };
 }

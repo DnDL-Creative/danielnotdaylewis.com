@@ -1,14 +1,11 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ArrowUp, ArrowDown, Trophy } from "lucide-react";
 import { createClient } from "@/src/utils/supabase/client";
-// IMPORT THE SHARED CARD
 import BlogCard from "@/src/components/marketing/BlogCard";
 
-// --- HELPER COMPONENT: WAVY LINK ---
 const WavyLink = ({ href, text }) => {
   return (
     <Link
@@ -32,54 +29,49 @@ const WavyLink = ({ href, text }) => {
 };
 
 export default function Home() {
-  const [latestPosts, setLatestPosts] = useState([]);
+  const [allPosts, setAllPosts] = useState([]);
+  const [sortOption, setSortOption] = useState("newest");
 
   useEffect(() => {
     const fetchPosts = async () => {
       const supabase = createClient();
-
-      // 1. Fetch candidates (fetch enough to sort properly)
       const { data } = await supabase
         .from("posts")
         .select("*")
-        .eq("published", true)
-        .limit(20);
-
-      if (data) {
-        // 2. Define "New" as 14 days
-        const twoWeeksAgo = new Date();
-        twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
-
-        // 3. Sort: Newest (Last 14 days) -> Then by Views (Popularity)
-        const sorted = data.sort((a, b) => {
-          const dateA = new Date(a.date);
-          const dateB = new Date(b.date);
-          const isANew = dateA > twoWeeksAgo;
-          const isBNew = dateB > twoWeeksAgo;
-
-          if (isANew && isBNew) return dateB - dateA; // Both new? Date desc
-          if (isANew) return -1; // A is new? Top
-          if (isBNew) return 1; // B is new? Top
-          return (b.views || 0) - (a.views || 0); // Else Views desc
-        });
-
-        // 4. Take top 4
-        setLatestPosts(sorted.slice(0, 4));
-      }
+        .eq("published", true);
+      if (data) setAllPosts(data);
     };
     fetchPosts();
   }, []);
 
-  // Helper for the UI prop
+  // --- SAFE DATE PARSER ---
+  const parseDate = (dateStr) => {
+    if (!dateStr) return 0;
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? 0 : d.getTime();
+  };
+
+  // Sort
+  const getSortedPosts = () => {
+    const sorted = [...allPosts];
+    if (sortOption === "newest")
+      return sorted.sort((a, b) => parseDate(b.date) - parseDate(a.date));
+    if (sortOption === "oldest")
+      return sorted.sort((a, b) => parseDate(a.date) - parseDate(b.date));
+    if (sortOption === "popular")
+      return sorted.sort((a, b) => (b.views || 0) - (a.views || 0));
+    return sorted;
+  };
+
+  const displayPosts = getSortedPosts().slice(0, 4);
   const isPostNew = (dateString) => {
-    const twoWeeksAgo = new Date();
-    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
-    return new Date(dateString) > twoWeeksAgo;
+    const d = parseDate(dateString);
+    return d > Date.now() - 12096e5;
   };
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-slate-50 selection:bg-teal-200 selection:text-teal-900">
-      {/* 🌌 BACKGROUND LAYERS 🌌 */}
+      {/* BACKGROUND */}
       <div className="fixed inset-0 w-full h-full pointer-events-none z-0">
         <div className="absolute inset-0 bg-slate-50/80" />
         <div className="absolute top-[-10%] left-[-10%] w-[70vw] h-[70vw] md:w-[40rem] md:h-[40rem] bg-teal-300/30 rounded-full mix-blend-multiply filter blur-[80px] md:blur-[128px] animate-blob opacity-70" />
@@ -93,21 +85,17 @@ export default function Home() {
         ></div>
       </div>
 
-      {/* 🚀 FOREGROUND CONTENT 🚀 */}
       <div className="relative z-10 w-full flex flex-col items-center pt-20 md:pt-40">
         <div className="w-full max-w-[1400px] px-6 pb-20">
-          {/* --- HERO SECTION --- */}
+          {/* HERO */}
           <header className="relative flex flex-col justify-center items-center min-h-[70vh] pb-24 w-full max-w-4xl mx-auto space-y-8 animate-fade-in text-center">
             <h1 className="text-3xl md:text-5xl font-black leading-[0.95] tracking-tight text-transparent bg-clip-text bg-gradient-to-br from-slate-200 via-teal-700 to-slate-700 pb-2 font-normal">
-              Artist by nature. <br />
-              Entrepreneur by nurture.
+              Artist by nature. <br /> Entrepreneur by nurture.
             </h1>
-
             <p className="text-sm md:text-2xl text-slate-500 max-w-2xl mx-auto font-light leading-relaxed">
               Becoming lucid in this{" "}
               <WavyLink href="/blog" text="liminal dreamworld" />.
             </p>
-
             <div className="flex flex-wrap justify-center gap-6 pt-8">
               <Link
                 href="/actor#audiobooks"
@@ -116,7 +104,6 @@ export default function Home() {
                 <div className="absolute inset-0 bg-gradient-to-r from-teal-600 via-teal-400 to-teal-600 bg-[length:200%_auto] transition-all duration-500 group-hover:bg-right"></div>
                 <span className="relative z-10">Audiobook Actor</span>
               </Link>
-
               <Link
                 href="/endeavors"
                 className="group relative overflow-hidden rounded-full border border-teal-500/30 bg-white/40 px-10 py-4 font-black uppercase tracking-wider text-teal-800 backdrop-blur-sm transition-all duration-300 hover:border-teal-500 hover:bg-teal-50/50 hover:shadow-lg hover:shadow-teal-900/10 hover:-translate-y-1"
@@ -129,17 +116,32 @@ export default function Home() {
             </div>
           </header>
 
-          {/* --- LATEST BLOGS SECTION --- */}
           <section className="space-y-12 w-full pt-4">
             <div className="flex flex-col md:flex-row justify-between items-end gap-6 border-b border-slate-200/60 pb-6">
-              <div>
+              <div className="space-y-4">
                 <h2 className="text-teal-600 font-bold text-3xl md:text-5xl font-light uppercase tracking-tight text-slate-900">
                   Insights
                 </h2>
-                <p className="text-slate-500 mt-2 text-xs md:text-lg">
-                  Thoughts on life, haughty esoteric topics, being an artist,
-                  creative entrepreneurship, and travel & languages.
-                </p>
+
+                {/* SORT PILLS */}
+                <div className="flex gap-2">
+                  {[
+                    { label: "Newest", value: "newest", icon: ArrowUp },
+                    { label: "Oldest", value: "oldest", icon: ArrowDown },
+                    { label: "Popular", value: "popular", icon: Trophy },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setSortOption(opt.value)}
+                      className={`
+                        flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all
+                        ${sortOption === opt.value ? "bg-slate-900 text-white shadow-md scale-105" : "bg-white border border-slate-200 text-slate-400 hover:border-slate-300 hover:text-slate-600"}
+                      `}
+                    >
+                      <opt.icon size={10} /> {opt.label}
+                    </button>
+                  ))}
+                </div>
               </div>
               <Link
                 href="/blog"
@@ -153,14 +155,12 @@ export default function Home() {
               </Link>
             </div>
 
-            {/* BLOG GRID */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {latestPosts.map((post, index) => (
+              {displayPosts.map((post, index) => (
                 <BlogCard
                   key={post.slug}
                   post={post}
                   delay={index * 0.1}
-                  // 👇 Passes the shiny button logic
                   isNew={isPostNew(post.date)}
                 />
               ))}
@@ -177,7 +177,6 @@ export default function Home() {
           </section>
         </div>
       </div>
-
       <style jsx global>{`
         @keyframes blob {
           0% {

@@ -1,48 +1,20 @@
-import Link from "next/link";
 import { Feather } from "lucide-react";
 import { createClient } from "@/src/utils/supabase/server";
-import BlogCard from "@/src/components/marketing/BlogCard";
+import BlogGrid from "@/src/components/marketing/BlogGrid";
 
 export const metadata = {
   title: "Blog | Daniel Lewis",
-  description:
-    "Lessons from exploring the alternatives space. 100% human-written thoughts on travel, acting, and tech.",
-  openGraph: {
-    title: "Blog | Daniel Lewis",
-    description: "Lessons from exploring the alternatives space.",
-    type: "website",
-  },
+  description: "Lessons from exploring the alternatives space.",
 };
 
 export default async function BlogIndexPage() {
   const supabase = await createClient();
 
-  // 1. Fetch ALL published posts
+  // Fetch ALL posts
   const { data: posts } = await supabase
     .from("posts")
     .select("*")
     .eq("published", true);
-
-  // 2. Logic: Newest (2 weeks) first, then Popular
-  const twoWeeksAgo = new Date();
-  twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
-
-  const sortedPosts = posts?.sort((a, b) => {
-    const dateA = new Date(a.date);
-    const dateB = new Date(b.date);
-    const isANew = dateA > twoWeeksAgo;
-    const isBNew = dateB > twoWeeksAgo;
-
-    // If both are new, sort by date (newest first)
-    if (isANew && isBNew) return dateB - dateA;
-    // If A is new but B isn't, A comes first
-    if (isANew) return -1;
-    // If B is new but A isn't, B comes first
-    if (isBNew) return 1;
-
-    // If neither are new, sort by Views (popularity)
-    return (b.views || 0) - (a.views || 0);
-  });
 
   return (
     <div className="pt-24 md:pt-40 relative min-h-screen w-full bg-slate-50 pb-24 px-4 overflow-hidden">
@@ -53,7 +25,7 @@ export default async function BlogIndexPage() {
       </div>
 
       <div className="relative z-10 max-w-[90rem] mx-auto">
-        <header className="text-center mb-16 max-w-2xl mx-auto animate-fade-in relative">
+        <header className="text-center mb-10 max-w-2xl mx-auto animate-fade-in relative">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white border border-slate-200 shadow-sm mb-6">
             <Feather size={12} className="text-teal-600" />
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
@@ -70,29 +42,8 @@ export default async function BlogIndexPage() {
           </p>
         </header>
 
-        {/* Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 px-2 md:px-0">
-          {sortedPosts?.map((post, index) => {
-            // Check if this specific post is "New"
-            const isNew = new Date(post.date) > twoWeeksAgo;
-
-            return (
-              <BlogCard
-                key={post.slug}
-                post={post}
-                delay={index * 0.1}
-                priority={index < 6}
-                isNew={isNew} // <--- Passing the shiny tag prop
-                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-              />
-            );
-          })}
-          {!sortedPosts?.length && (
-            <p className="col-span-full text-center text-slate-400">
-              No posts found.
-            </p>
-          )}
-        </div>
+        {/* Client Component for Sorting */}
+        <BlogGrid initialPosts={posts || []} />
       </div>
     </div>
   );
