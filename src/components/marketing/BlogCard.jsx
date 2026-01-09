@@ -44,7 +44,7 @@ export default function BlogCard({
   post,
   delay = 0,
   priority = false,
-  isNew = false, // <--- NEW PROP
+  isNew = false,
 }) {
   const { wordCount, readTime } = calculateReadingStats(post.content);
   const hasBlogcast = !!post.blogcast_url;
@@ -90,8 +90,12 @@ export default function BlogCard({
               {isNew && (
                 <div className="absolute top-3 right-3 z-20">
                   <div className="relative bg-gradient-to-r from-amber-200 to-yellow-400 text-yellow-900 text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full shadow-lg border border-yellow-200 flex items-center gap-1 overflow-hidden">
-                    {/* Shiny sheen effect */}
-                    <div className="absolute inset-0 bg-white/40 skew-x-[-20deg] w-[50%] -translate-x-[150%] animate-[shine_2s_infinite]" />
+                    {/* UPDATED SHINY SHEEN:
+                        1. Changed bg-white/40 to a gradient (smoother).
+                        2. Changed width to w-[80%] for a better streak.
+                        3. Animation timing fixed below.
+                    */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/60 to-transparent skew-x-[-20deg] w-[80%] -translate-x-[200%] animate-[shine_3s_infinite]" />
                     <Sparkles size={10} className="text-yellow-700" />
                     <span>New Post</span>
                   </div>
@@ -151,10 +155,15 @@ export default function BlogCard({
         }
         @keyframes shine {
           0% {
-            transform: translateX(-150%) skewX(-20deg);
+            /* Start fully off to the left */
+            transform: translateX(-200%) skewX(-20deg);
           }
-          50%,
+          40% {
+            /* Finish crossing quickly */
+            transform: translateX(300%) skewX(-20deg);
+          }
           100% {
+            /* Stay off screen for the pause */
             transform: translateX(300%) skewX(-20deg);
           }
         }
