@@ -3,10 +3,10 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { createClient } from "@/src/lib/supabase/client";
 import Link from "next/link";
-import VoiceoverProjectModal from "@/src/components/voiceover-tracker/VoiceoverProjectModal";
-import Countdown from "@/src/components/voiceover-tracker/Countdown";
-import StickyNotes from "@/src/components/voiceover-tracker/StickyNotes";
-import VoiceoverStats from "@/src/components/voiceover-tracker/VoiceoverStats";
+import VoiceoverProjectModal from "@/src/app/(admin)/admin/voiceover-tracker/_components/VoiceoverProjectModal";
+import Countdown from "@/src/app/(admin)/admin/voiceover-tracker/_components/Countdown";
+import StickyNotes from "@/src/components/StickyNotes";
+import VoiceoverStats from "@/src/app/(admin)/admin/voiceover-tracker/_components/VoiceoverStats";
 
 import {
   Mic,

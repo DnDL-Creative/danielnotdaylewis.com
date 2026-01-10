@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { LogOut, LayoutGrid } from "lucide-react";
 import { redirect } from "next/navigation";
-import { createClient } from "@/src/utils/supabase/server"; // Updated path to match your structure
+import { createClient } from "@/src/lib/supabase/server"; // Updated path to match your structure
 
 export default async function AdminLayout({ children }) {
   const supabase = await createClient();

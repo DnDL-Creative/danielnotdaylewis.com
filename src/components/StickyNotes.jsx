@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { PenLine, X, Minimize2, StickyNote } from "lucide-react";
-import NotePad from "@/src/components/voiceover-tracker/NotePad";
+import NotePad from "./NotePad";
 
 export default function StickyNotes() {
   const [isOpen, setIsOpen] = useState(false);
