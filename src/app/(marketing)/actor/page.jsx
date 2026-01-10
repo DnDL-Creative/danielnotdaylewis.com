@@ -19,6 +19,7 @@ import {
   StatCard,
   Carousel,
   AudioPlayer,
+  VideoFacade,
 } from "@/src/components/marketing/ActorClient";
 
 // Static Component
@@ -64,8 +65,8 @@ export default function ActorPage() {
                 src="https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/site-images/(marketing)/actor/dndl-headshot.webp"
                 alt="Daniel Lewis Headshot"
                 fill
-                priority // <--- FIX: Instant Load
-                sizes="(max-width: 768px) 300px, 500px" // <--- FIX: Correct Size
+                priority
+                sizes="(max-width: 768px) 300px, 500px"
                 className="object-cover object-top scale-105 group-hover:scale-100 transition-transform duration-700"
               />
             </div>
@@ -164,7 +165,6 @@ export default function ActorPage() {
                   src="https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/site-images/(marketing)/actor/dndl-website-pd.webp"
                   alt="Chicago PD Role"
                   fill
-                  // FIX: Correct Sizes
                   sizes="(max-width: 768px) 288px, 320px"
                   className="object-cover grayscale group-hover:grayscale-0 transition-all duration-700"
                 />
@@ -182,9 +182,21 @@ export default function ActorPage() {
       </section>
 
       {/* =========================================
+          NEW SECTION: HEADER (Teal/Indigo Gradient)
+      ========================================= */}
+      <section className="w-full max-w-[1200px] px-4 pt-12 md:pt-20 pb-8 text-center animate-fade-in-up">
+        <h2 className="text-4xl md:text-6xl font-black uppercase leading-none tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-teal-600 via-blue-600 to-indigo-600 mb-2 drop-shadow-sm">
+          Daniel (not Day) Lewis
+        </h2>
+        <h3 className="text-sm md:text-base font-bold uppercase tracking-[0.4em] text-slate-400">
+          Audiobook Actor
+        </h3>
+      </section>
+
+      {/* =========================================
           3. STATS BAR (Client Component)
       ========================================= */}
-      <section className="w-full max-w-[1200px] px-4 py-12 md:py-20">
+      <section className="w-full max-w-[1200px] px-4 pb-12 md:pb-20">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
           <StatCard
             number={100}
@@ -220,96 +232,97 @@ export default function ActorPage() {
         id="feedback"
         className="w-full max-w-[1400px] px-4 md:px-6 mb-24"
       >
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
-          {/* LEFT */}
-          <div className="relative rounded-[2.5rem] bg-white/40 backdrop-blur-md border border-white/60 shadow-xl p-8 md:p-10 space-y-8 flex flex-col">
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-              <div>
-                <h2 className="text-2xl font-black uppercase text-slate-900 leading-none">
-                  Daniel (not Day) Lewis: Audiobook Actor
-                </h2>
-                <h3 className="text-teal-600 font-bold uppercase tracking-widest text-[12px] mt-1">
-                  Author Testimonials
-                </h3>
-              </div>
-            </div>
-
-            <div className="relative group overflow-hidden rounded-[1.5rem] bg-slate-900 shadow-lg aspect-video w-full">
-              <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] mix-blend-overlay pointer-events-none"></div>
-              <div className="relative h-full w-full flex items-center justify-center bg-black">
-                <div className="absolute top-4 left-4 z-20 bg-white/10 backdrop-blur-md pl-2 pr-3 py-1 rounded-full text-white text-[10px] font-bold uppercase tracking-widest border border-white/20 flex items-center gap-2">
-                  <VideoIcon size={12} /> Video Praise
-                </div>
-                {/* VIDEO FIXED: Preload None */}
-                <video
-                  key="video-praise"
-                  className="w-full h-full object-contain opacity-90 group-hover:opacity-100 transition-opacity duration-500"
+        <div className="flex flex-col gap-8">
+          {/* --- TOP ROW: VISUALS (Video + Books) --- */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
+            {/* 1. LEFT: Video (Supabase Vertical) */}
+            <div className="relative rounded-[2.5rem] bg-white/40 backdrop-blur-md border border-white/60 shadow-xl p-8 flex flex-col justify-center items-center overflow-hidden">
+              <div className="w-full max-w-sm mx-auto">
+                <VideoFacade
                   src="https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/videos/never-far-author-testimonial.mp4"
-                  controls
-                  playsInline
-                  preload="none"
                   poster="/images/dndl-praise-poster.webp"
-                >
-                  Your browser does not support the video tag.
-                </video>
+                />
               </div>
             </div>
 
-            <div className="space-y-4 flex-grow">
-              <div className="relative p-5 bg-white/50 rounded-2xl border border-white shadow-sm">
-                <Quote
-                  className="absolute top-4 left-4 text-indigo-200 rotate-180"
-                  size={20}
-                />
-                <p className="relative z-10 text-slate-700 font-serif italic text-sm leading-relaxed pl-6">
-                  “Daniel did a fantastic job bringing my books to life in
-                  audio. He handled multiple voices seamlessly and delivered a
-                  strong, engaging performance. A pleasure to work with from
-                  start to finish!”
-                </p>
-                <div className="mt-2 pl-6 text-xs font-bold text-slate-900 uppercase tracking-wider">
-                  — Eva Ashwood, Author
-                </div>
+            {/* 2. RIGHT: Book Carousel */}
+            <div className="relative rounded-[2.5rem] bg-gradient-to-br from-stone-100 to-gray-100 border border-white p-8 flex flex-col justify-between items-center shadow-lg min-h-[500px] overflow-hidden">
+              <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-400 z-10 w-full text-center">
+                Featured Releases
+              </h3>
+              <div className="flex-grow flex items-center justify-center w-full py-4">
+                <Carousel />
               </div>
-
-              <div className="relative p-5 bg-white/50 rounded-2xl border border-white shadow-sm">
-                <Quote
-                  className="absolute top-4 left-4 text-teal-200 rotate-180"
-                  size={20}
-                />
-                <p className="relative z-10 text-slate-700 font-serif italic text-sm leading-relaxed pl-6">
-                  “Fellow authors, If you’re looking for a professional narrator
-                  to create your audiobook, you should give strong consideration
-                  to working with Daniel Lewis (no, not Daniel Day Lewis). Dan
-                  did an outstanding job narrating my last novel Right There in
-                  Black and White. It was a true performance, with Dan acting
-                  out over 20 distinct characters, many of them with strong
-                  accents. He prepared thoroughly and immersed himself in the
-                  story so completely that it felt like he was living each
-                  scene. His attention to detail, emotional range, and ability
-                  to shift seamlessly between voices brought the book to life in
-                  a way I hadn’t imagined possible. Dan was also a joy to
-                  collaborate with—professional, communicative, and genuinely
-                  passionate about the craft. If you want your audiobook to
-                  resonate with listeners and stand out from the crowd, Dan
-                  Lewis is the narrator to trust.”
-                </p>
-                <div className="mt-2 pl-6 text-xs font-bold text-slate-900 uppercase tracking-wider">
-                  — Jim Christ, Author of “Right There in Black and White”
-                </div>
-              </div>
+              <div className="absolute bottom-0 w-full h-32 bg-gradient-to-t from-white/50 to-transparent pointer-events-none" />
             </div>
           </div>
 
-          {/* RIGHT: Book Carousel (Client Component) */}
-          <div className="relative rounded-[2.5rem] bg-gradient-to-br from-stone-100 to-gray-100 border border-white p-8 flex flex-col justify-between items-center shadow-lg h-full min-h-[600px] overflow-hidden">
-            <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-400 z-10 w-full text-center">
-              Featured Releases
-            </h3>
-            <div className="flex-grow flex items-center justify-center w-full py-8">
-              <Carousel />
+          {/* --- BOTTOM ROW: TEXT TESTIMONIALS (STACKED) --- */}
+          <div className="flex flex-col gap-6">
+            {/* Jim Christ Quote (Full) */}
+            <div className="relative p-8 md:p-10 bg-white/60 backdrop-blur-md rounded-[2.5rem] border border-white/60 shadow-lg flex flex-col justify-between hover:shadow-xl hover:bg-white/80 transition-all duration-500">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-teal-100/30 rounded-bl-[100px] -z-10" />
+              <Quote className="text-teal-200 rotate-180 mb-6" size={40} />
+
+              <p className="text-slate-700 font-serif italic text-base md:text-lg leading-relaxed mb-8">
+                “Fellow authors, If you’re looking for a professional narrator
+                to create your audiobook, you should give strong consideration
+                to working with Daniel Lewis (no, not Daniel Day Lewis). Dan did
+                an outstanding job narrating my last novel{" "}
+                <em>Right There in Black and White</em>. It was a true
+                performance, with Dan acting out over 20 distinct characters,
+                many of them with strong accents. He prepared thoroughly and
+                immersed himself in the story so completely that it felt like he
+                was living each scene. His attention to detail, emotional range,
+                and ability to shift seamlessly between voices brought the book
+                to life in a way I hadn’t imagined possible. Dan was also a joy
+                to collaborate with—professional, communicative, and genuinely
+                passionate about the craft. If you want your audiobook to
+                resonate with listeners and stand out from the crowd, Dan Lewis
+                is the narrator to trust.”
+              </p>
+
+              <div className="flex items-center gap-4 border-t border-slate-200 pt-6">
+                <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center text-teal-600 font-black text-sm">
+                  JC
+                </div>
+                <div>
+                  <div className="text-sm font-black text-slate-900 uppercase tracking-widest">
+                    Jim Christ
+                  </div>
+                  <div className="text-xs text-slate-500 font-bold uppercase tracking-wider">
+                    Author
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="absolute bottom-0 w-full h-32 bg-gradient-to-t from-white/50 to-transparent pointer-events-none" />
+
+            {/* Eva Ashwood Quote */}
+            <div className="relative p-8 md:p-10 bg-white/60 backdrop-blur-md rounded-[2.5rem] border border-white/60 shadow-lg flex flex-col justify-between hover:shadow-xl hover:bg-white/80 transition-all duration-500">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-100/30 rounded-bl-[100px] -z-10" />
+              <Quote className="text-indigo-200 rotate-180 mb-6" size={40} />
+
+              <p className="text-slate-700 font-serif italic text-base md:text-lg leading-relaxed mb-8">
+                “Daniel did a fantastic job bringing my books to life in audio.
+                He handled multiple voices seamlessly and delivered a strong,
+                engaging performance. A pleasure to work with from start to
+                finish!”
+              </p>
+
+              <div className="flex items-center gap-4 border-t border-slate-200 pt-6">
+                <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-black text-sm">
+                  EA
+                </div>
+                <div>
+                  <div className="text-sm font-black text-slate-900 uppercase tracking-widest">
+                    Eva Ashwood
+                  </div>
+                  <div className="text-xs text-slate-500 font-bold uppercase tracking-wider">
+                    Author
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
