@@ -5,15 +5,15 @@ import { createClient } from "@/src/utils/supabase/client";
 import { useRouter } from "next/navigation";
 
 // --- COMPONENTS ---
-import ResponsiveLeads from "@/src/components/audiobook-production-manager/ResponsiveLeads";
-import AuditionManager from "@/src/components/audiobook-production-manager/AuditionManager";
-import PendingProjects from "@/src/components/audiobook-production-manager/PendingProjects";
-import SchedulerDashboard from "@/src/components/audiobook-production-manager/SchedulerDashboard";
-import OnboardingManager from "@/src/components/audiobook-production-manager/OnboardingManager";
-import ProductionBoard from "@/src/components/audiobook-production-manager/ProductionBoard";
-import InvoicesAndPayments from "@/src/components/audiobook-production-manager/InvoicesAndPayments";
-import HoursLog from "@/src/components/audiobook-production-manager/HoursLog";
-import Archives from "@/src/components/audiobook-production-manager/Archives";
+import ResponsiveLeads from "@/src/app/(admin)/admin/audiobook-production-manager/_components/audiobook-production-manager/ResponsiveLeads";
+import AuditionManager from "@/src/app/(admin)/admin/audiobook-production-manager/_components/audiobook-production-manager/AuditionManager";
+import PendingProjects from "@/src/app/(admin)/admin/audiobook-production-manager/_components/audiobook-production-manager/PendingProjects";
+import SchedulerDashboard from "@/src/app/(admin)/admin/audiobook-production-manager/_components/audiobook-production-manager/SchedulerDashboard";
+import OnboardingManager from "@/src/app/(admin)/admin/audiobook-production-manager/_components/audiobook-production-manager/OnboardingManager";
+import ProductionBoard from "@/src/app/(admin)/admin/audiobook-production-manager/_components/audiobook-production-manager/ProductionBoard";
+import InvoicesAndPayments from "@/src/app/(admin)/admin/audiobook-production-manager/_components/audiobook-production-manager/InvoicesAndPayments";
+import HoursLog from "@/src/app/(admin)/admin/audiobook-production-manager/_components/audiobook-production-manager/HoursLog";
+import Archives from "@/src/app/(admin)/admin/audiobook-production-manager/_components/audiobook-production-manager/Archives";
 
 // IMPORT STICKY NOTES FROM VOICEOVER TRACKER FOLDER
 import StickyNotes from "@/src/components/voiceover-tracker/StickyNotes";

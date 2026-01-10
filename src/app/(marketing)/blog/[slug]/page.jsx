@@ -16,11 +16,11 @@ import {
 import parse from "html-react-parser";
 
 // --- CLIENT COMPONENTS ---
-import PopularPosts from "@/src/components/marketing/PostsWidget";
-import ViewTracker from "@/src/components/marketing/ViewTracker"; // <--- ADDED THIS
-import GalleryCarousel from "@/src/components/vibe-writer/GalleryCarousel";
-import MusicEqualizer from "@/src/components/marketing/MusicEqualizer";
-import TechnicolorPlayer from "@/src/components/marketing/TechnicolorPlayer";
+import PopularPosts from "@/src/app/(marketing)/blog/[slug]/_components/PostsWidget";
+import ViewTracker from "@/src/app/(marketing)/blog/[slug]/_components/ViewTracker";
+import GalleryCarousel from "@/src/app/(marketing)/blog/[slug]/_components/GalleryCarousel";
+import MusicEqualizer from "@/src/app/(marketing)/blog/[slug]/_components/MusicEqualizer";
+import TechnicolorPlayer from "@/src/app/(marketing)/blog/[slug]/_components/TechnicolorPlayer";
 
 // --- HELPERS ---
 const formatDate = (dateString) => {
@@ -64,8 +64,6 @@ const getBlogcastEmbed = (url) => {
 // --- CONSTANTS ---
 const BORDER_GRADIENT =
   "bg-[linear-gradient(90deg,#0d9488_0%,#2dd4bf_70%,#6366f1_100%)]";
-const TEXT_GRADIENT =
-  "bg-gradient-to-r from-blue-500 via-teal-400 to-indigo-500 bg-[length:200%_auto]";
 
 // --- CONTENT PARSER ---
 const contentParserOptions = {
@@ -92,7 +90,7 @@ const contentParserOptions = {
       if (cleanText.startsWith("[[") && cleanText.endsWith("]]")) {
         const innerContent = cleanText.substring(2, cleanText.length - 2);
 
-        // VIDEO
+        // 1. VIDEO
         if (innerContent.startsWith("video:")) {
           const rawUrl = innerContent.replace("video:", "").trim();
           let embedUrl = rawUrl;
@@ -107,7 +105,7 @@ const contentParserOptions = {
           return (
             <figure className="my-12 w-full md:w-5/6 mx-auto clear-both !block group">
               <div
-                className={`relative aspect-video rounded-3xl p-[2px] ${BORDER_GRADIENT} shadow-2xl transition-transform duration-500 hover:scale-[1.01]`}
+                className={`relative aspect-video rounded-3xl p-[2px] ${BORDER_GRADIENT} shadow-2xl`}
               >
                 <div className="relative w-full h-full rounded-[calc(1.5rem-2px)] overflow-hidden bg-black">
                   <iframe
@@ -123,7 +121,7 @@ const contentParserOptions = {
           );
         }
 
-        // AUDIO
+        // 2. AUDIO
         if (innerContent.startsWith("audio:")) {
           const rawUrl = innerContent.replace("audio:", "").trim();
           if (rawUrl.includes("spotify.com")) {
@@ -164,7 +162,7 @@ const contentParserOptions = {
           );
         }
 
-        // GALLERY
+        // 3. GALLERY (DUO/TRIO)
         if (
           innerContent.startsWith("duo:") ||
           innerContent.startsWith("trio:")
@@ -177,10 +175,11 @@ const contentParserOptions = {
             .split("|")
             .map((u) => u.trim())
             .filter(Boolean);
+
           return <GalleryCarousel images={urls} caption={caption} />;
         }
 
-        // IMAGE
+        // 4. IMAGE - FIXED: NO ZOOM, NO GREY LINE
         if (innerContent.startsWith("image:")) {
           const parts = innerContent.replace("image:", "").split("|");
           let url = parts[0].trim();
@@ -202,48 +201,32 @@ const contentParserOptions = {
             );
           }
 
-          let sizeClass = "w-full md:w-3/4";
-          let alignClass = "!block mx-auto";
           let caption = null;
           parts.slice(1).forEach((part) => {
             const [key, val] = part.split("=").map((s) => (s ? s.trim() : ""));
-            if (key === "size") {
-              if (val === "small") sizeClass = "!w-full md:!w-1/3";
-              if (val === "medium") sizeClass = "!w-full md:!w-1/2";
-              if (val === "large") sizeClass = "!w-full md:!w-3/4";
-              if (val === "full") sizeClass = "!w-full";
-            }
-            if (key === "align") {
-              if (val === "left") alignClass = "!float-left !mr-8 !mb-4";
-              else if (val === "right") alignClass = "!float-right !ml-8 !mb-4";
-              else alignClass = "!block !mx-auto !clear-both";
-            }
             if (key === "caption") caption = val;
           });
+
           return (
-            <figure
-              className={`group relative ${alignClass} ${sizeClass} my-12`}
-            >
+            <figure className="my-12 w-full mx-auto clear-both block group">
               <div
-                className={`rounded-3xl p-[2px] ${BORDER_GRADIENT} shadow-2xl transition-transform duration-500 hover:scale-[1.01]`}
+                className={`relative w-full rounded-3xl p-[2px] ${BORDER_GRADIENT} shadow-2xl`}
               >
-                <div className="rounded-[calc(1.5rem-2px)] overflow-hidden bg-white relative">
-                  <Image
-                    src={url}
-                    alt={caption || "blog image"}
-                    width={1200}
-                    height={800}
-                    sizes="(max-width: 768px) 100vw, 1200px"
-                    className="block w-full h-auto object-cover"
-                    style={{ width: "100%", height: "auto" }}
-                  />
+                <div className="relative w-full h-full rounded-[calc(1.5rem-2px)] overflow-hidden bg-white flex flex-col">
+                  <div className="relative w-full aspect-[3/2] md:aspect-[16/9]">
+                    <Image
+                      src={url}
+                      alt={caption || "blog image"}
+                      fill
+                      sizes="(max-width: 768px) 100vw, 800px"
+                      className="object-cover transition-opacity duration-300"
+                    />
+                  </div>
+                  {caption && (
+                    <figcaption className="hero-caption">{caption}</figcaption>
+                  )}
                 </div>
               </div>
-              {caption && (
-                <figcaption className="mt-4 text-center text-xs text-slate-500 font-bold tracking-widest uppercase !w-full">
-                  {caption}
-                </figcaption>
-              )}
             </figure>
           );
         }
@@ -330,54 +313,60 @@ export default async function BlogPost({ params }) {
       </div>
 
       {/* HERO SECTION */}
-      <div className="relative z-0 pt-6 md:pt-10 pb-6 px-4 md:px-6">
+      <div className="relative z-0 pt-4 md:pt-10 pb-2 md:pb-6 px-4 md:px-6">
         <div className="relative z-10 max-w-5xl mx-auto text-center animate-fade-in-up">
-          <figure className="relative w-full mb-6 group md:max-w-3xl mx-auto">
+          <figure className="relative w-full mb-0 group md:max-w-3xl mx-auto">
+            {/* Outer Wrapper with Gradient Border */}
             <div
-              className={`relative w-full aspect-video rounded-3xl md:rounded-[2.5rem] p-[2px] ${BORDER_GRADIENT} shadow-2xl`}
+              className={`relative w-full rounded-3xl md:rounded-[2.5rem] p-[2px] ${BORDER_GRADIENT} shadow-2xl`}
             >
-              <div className="relative w-full h-full rounded-[calc(1.5rem-2px)] md:rounded-[calc(2.5rem-2px)] overflow-hidden bg-white">
-                <Image
-                  src={post.image}
-                  alt={post.title}
-                  fill
-                  className="object-cover transition-transform duration-[2s] group-hover:scale-105"
-                  priority
-                  sizes="(max-width: 768px) 100vw, 800px"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
+              {/* Inner Wrapper - Flex Column to Stack Image + Caption */}
+              <div className="relative w-full h-full rounded-[calc(1.5rem-2px)] md:rounded-[calc(2.5rem-2px)] overflow-hidden bg-white flex flex-col">
+                {/* Image Container with Aspect Ratio */}
+                <div className="relative w-full aspect-video">
+                  <Image
+                    src={post.image}
+                    alt={post.title}
+                    fill
+                    className="object-cover transition-opacity duration-300"
+                    priority
+                    sizes="(max-width: 768px) 100vw, 800px"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
+                </div>
+
+                {/* Caption Inside the Card - No extra borders */}
+                {post.image_caption && (
+                  <figcaption className="hero-caption">
+                    {post.image_caption}
+                  </figcaption>
+                )}
               </div>
             </div>
-            {post.image_caption && (
-              <figcaption className="mt-6 text-center text-xs font-bold text-slate-400 uppercase tracking-[0.2em]">
-                {post.image_caption}
-              </figcaption>
-            )}
           </figure>
 
-          <h1 className="text-balance text-2xl md:text-4xl lg:text-5xl font-black leading-[1.1] tracking-tight px-4 max-w-3xl mx-auto mb-6">
-            <span
-              className={`text-transparent bg-clip-text ${TEXT_GRADIENT} animate-[gradient-x_10s_ease_infinite] drop-shadow-sm`}
-            >
-              {post.title}
-            </span>
+          {/* HERO TITLE */}
+          <h1 className="hero-title mt-8 md:mt-12">
+            <span className="hero-text-gradient">{post.title}</span>
           </h1>
-          <div className="flex flex-wrap items-center justify-center gap-3 md:gap-4 mb-12">
-            <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm transition-transform hover:scale-105 cursor-default">
-              <Calendar size={12} className="text-teal-600" />
-              <span className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-slate-600">
+
+          {/* TAGS SECTION */}
+          <div className="flex flex-wrap items-center justify-center gap-2 md:gap-4 mb-6 md:mb-12">
+            <div className="flex items-center gap-1.5 md:gap-2 bg-white px-3 py-1.5 md:px-4 md:py-2 rounded-full border border-slate-200 shadow-sm transition-transform hover:scale-105 cursor-default">
+              <Calendar size={10} className="md:w-3 md:h-3 text-teal-600" />
+              <span className="text-[9px] md:text-xs font-bold uppercase tracking-widest text-slate-600">
                 {formatDate(post.date)}
               </span>
             </div>
-            <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm transition-transform hover:scale-105 cursor-default">
-              <Tag size={12} className="text-indigo-600" />
-              <span className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-slate-600">
+            <div className="flex items-center gap-1.5 md:gap-2 bg-white px-3 py-1.5 md:px-4 md:py-2 rounded-full border border-slate-200 shadow-sm transition-transform hover:scale-105 cursor-default">
+              <Tag size={10} className="md:w-3 md:h-3 text-indigo-600" />
+              <span className="text-[9px] md:text-xs font-bold uppercase tracking-widest text-slate-600">
                 {post.tag}
               </span>
             </div>
-            <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm transition-transform hover:scale-105 cursor-default">
-              <Clock size={12} className="text-rose-500" />
-              <span className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-slate-600">
+            <div className="flex items-center gap-1.5 md:gap-2 bg-white px-3 py-1.5 md:px-4 md:py-2 rounded-full border border-slate-200 shadow-sm transition-transform hover:scale-105 cursor-default">
+              <Clock size={10} className="md:w-3 md:h-3 text-rose-500" />
+              <span className="text-[9px] md:text-xs font-bold uppercase tracking-widest text-slate-600">
                 {wordCount} words | ~{readTime}{" "}
                 {hasBlogcast ? "min blogcast" : "min read"}
               </span>
@@ -389,7 +378,7 @@ export default async function BlogPost({ params }) {
       {/* --- MEDIA DASHBOARD --- */}
       {(hasMusic || hasBlogcast) && (
         <div
-          className={`mx-auto px-4 md:px-6 mb-16 relative z-10 animate-fade-in-up delay-100 ${hasBoth ? "max-w-7xl" : "max-w-3xl"}`}
+          className={`mx-auto px-4 md:px-6 mb-8 md:mb-16 relative z-10 animate-fade-in-up delay-100 ${hasBoth ? "max-w-7xl" : "max-w-3xl"}`}
         >
           <div
             className={`grid gap-5 ${hasBoth ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"}`}
@@ -503,7 +492,7 @@ export default async function BlogPost({ params }) {
       )}
 
       {/* ARTICLE CONTENT */}
-      <article className="max-w-3xl mx-auto px-4 md:px-6 py-4 md:py-8 animate-fade-in relative z-10">
+      <article className="max-w-3xl mx-auto px-4 md:px-6 py-2 md:py-8 animate-fade-in relative z-10">
         <div className="blog-content flow-root max-w-none mx-auto">
           {post.content ? (
             parse(post.content, contentParserOptions)

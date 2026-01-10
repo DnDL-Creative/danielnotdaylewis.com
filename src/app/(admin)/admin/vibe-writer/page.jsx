@@ -32,15 +32,16 @@ import { FaHotdog } from "react-icons/fa6";
 import { Canvas } from "@react-three/fiber";
 
 // --- IMPORTS ---
-import VibeEditor from "@/src/components/vibe-writer/VibeEditor";
-import VibeImageStudio from "@/src/components/vibe-writer/VibeImageStudio";
-import AssetSidebar from "@/src/components/vibe-writer/AssetSidebar";
-import PopulateMeta from "@/src/components/vibe-writer/PopulateMeta";
-import MeteorologicalEffect from "@/src/components/vibe-writer/MeteorologicalEffect";
-import VibeTunes from "@/src/components/vibe-writer/VibeTunes";
+import VibeEditor from "@/src/app/(admin)/admin/vibe-writer/_components/VibeEditor";
+import VibeImageStudio from "@/src/app/(admin)/admin/vibe-writer/_components/VibeImageStudio";
+import AssetSidebar from "@/src/app/(admin)/admin/vibe-writer/_components/AssetSidebar";
+import PopulateMeta from "@/src/app/(admin)/admin/vibe-writer/_components/PopulateMeta";
+import MeteorologicalEffect from "@/src/app/(admin)/admin/vibe-writer/_components/MeteorologicalEffect";
+import VibeTunes from "@/src/app/(admin)/admin/vibe-writer/_components/VibeTunes";
 
 const DystopianSnow = dynamic(
-  () => import("@/src/components/vibe-writer/DystopianTheme"),
+  () =>
+    import("@/src/app/(admin)/admin/vibe-writer/_components/DystopianTheme"),
   { ssr: false, loading: () => null }
 );
 

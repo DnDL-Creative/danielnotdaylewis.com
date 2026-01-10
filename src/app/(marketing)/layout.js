@@ -1,6 +1,6 @@
 // src/app/(marketing)/layout.js
-import Navbar from "@/src/components/marketing/Navbar";
-import Footer from "@/src/components/marketing/Footer";
+import Navbar from "@/src/app/(marketing)/_components/Navbar";
+import Footer from "@/src/app/(marketing)/_components/Footer";
 
 export default function MarketingLayout({ children }) {
   return (

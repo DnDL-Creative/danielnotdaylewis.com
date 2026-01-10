@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { ArrowRight, ArrowUp, ArrowDown, Trophy } from "lucide-react";
-import BlogCard from "@/src/components/marketing/BlogCard";
+import BlogCard from "@/src/app/(marketing)/_components/BlogCard";
 
 const WavyLink = ({ href, text }) => {
   return (

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ArrowUp, ArrowDown, Trophy } from "lucide-react";
-import BlogCard from "./BlogCard";
+import BlogCard from "@/src/app/(marketing)/_components/BlogCard";
 
 export default function BlogGrid({ initialPosts }) {
   const [sortOption, setSortOption] = useState("newest");

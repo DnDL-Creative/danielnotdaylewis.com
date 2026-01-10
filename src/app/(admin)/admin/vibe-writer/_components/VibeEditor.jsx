@@ -449,13 +449,13 @@ const vibeTheme = {
   paragraph: "mb-4 text-lg leading-relaxed font-light theme-text-body",
   heading: {
     h1: "text-4xl md:text-5xl font-black mt-12 mb-6 tracking-tighter border-b theme-border-dim pb-4 theme-text-heading",
-    h2: "text-2xl md:text-3xl font-bold mt-10 mb-4 tracking-widest flex items-center gap-2 theme-text-primary",
+    h2: "text-2xl md:text-3xl font-bold mt-10 mb-4 tracking-widest theme-text-primary",
     h3: "text-xl md:text-2xl font-bold mt-8 mb-3 tracking-wide theme-text-secondary",
     h4: "text-lg md:text-xl font-bold mt-6 mb-2 theme-text-dim",
   },
   text: {
-    bold: "font-bold theme-text-heading",
-    italic: "italic theme-text-dim",
+    bold: "font-bold",
+    italic: "italic",
     underline: "underline decoration-2 underline-offset-4 theme-decoration",
     strikethrough: "line-through decoration-slate-500 opacity-70",
     subscript: "align-sub text-xs theme-text-dim",
@@ -1159,37 +1159,30 @@ const VibeEditor = forwardRef(
       onChangeRef.current = onChange;
     }, [onChange]);
 
-    // --- UPDATED HTML OUTPUT PLUGIN WITH SANITIZER ---
+    // --- UPDATED HTML OUTPUT PLUGIN (SAFE MODE) ---
+    // NO STRIPPING OF STYLES. SAVES EXACTLY WHAT IS IN THE EDITOR.
     const HtmlOutputPlugin = () => {
       const [editor] = useLexicalComposerContext();
       useEffect(() => {
         return editor.registerUpdateListener(({ editorState }) => {
           editorState.read(() => {
-            const htmlString = $generateHtmlFromNodes(editor, null);
+            let htmlString = $generateHtmlFromNodes(editor, null);
 
-            // --- SANITIZATION START ---
-            if (typeof window !== "undefined") {
-              const parser = new DOMParser();
-              const doc = parser.parseFromString(htmlString, "text/html");
-              const allElements = doc.body.querySelectorAll("*");
+            // 1. Remove all class attributes
+            htmlString = htmlString.replace(/ class="[^"]*"/g, "");
 
-              allElements.forEach((el) => {
-                // STRIP INLINE STYLES: This forces all elements (h1, h2, p, etc.)
-                // to use only the classes defined in your Global CSS.
-                // No more font-size: 15px overrides!
-                el.removeAttribute("style");
-              });
+            // 2. Remove all style attributes (fixes the white-space: pre-wrap issue)
+            htmlString = htmlString.replace(/ style="[^"]*"/g, "");
 
-              const cleanHtml = doc.body.innerHTML;
-              if (onChangeRef.current) {
-                onChangeRef.current(cleanHtml);
-              }
-            } else {
-              if (onChangeRef.current) {
-                onChangeRef.current(htmlString);
-              }
+            // 3. Clean up empty spans that Lexical sometimes leaves behind
+            htmlString = htmlString.replace(/<span>(.*?)<\/span>/g, "$1");
+
+            // 4. (Optional) Fix empty paragraphs if needed
+            // htmlString = htmlString.replace(/<p><br><\/p>/g, "");
+
+            if (onChangeRef.current) {
+              onChangeRef.current(htmlString);
             }
-            // --- SANITIZATION END ---
           });
         });
       }, [editor]);

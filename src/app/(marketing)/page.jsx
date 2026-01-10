@@ -1,5 +1,5 @@
 import { createClient } from "@/src/utils/supabase/server";
-import HomeUI from "@/src/components/marketing/HomeUI";
+import HomeUI from "@/src/app/(marketing)/_components/HomeUI";
 
 export default async function Home() {
   const supabase = await createClient();

@@ -1,6 +1,6 @@
 import { Feather } from "lucide-react";
 import { createClient } from "@/src/utils/supabase/server";
-import BlogGrid from "@/src/components/marketing/BlogGrid";
+import BlogGrid from "./_components/BlogGrid";
 
 export const metadata = {
   title: "Blog | Daniel Lewis",

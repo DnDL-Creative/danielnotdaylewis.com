@@ -18,7 +18,9 @@ import {
   Settings2,
   AlertCircle,
   FileAudio,
-  Info, // Added Info Icon
+  Info,
+  Pin, // Imported
+  PinOff, // Imported
 } from "lucide-react";
 
 export default function AssetSidebar({
@@ -37,6 +39,9 @@ export default function AssetSidebar({
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
   const [activeInputMode, setActiveInputMode] = useState(null);
   const [manualUrl, setManualUrl] = useState("");
+
+  // --- NEW: STICKY STATE ---
+  const [isSticky, setIsSticky] = useState(false);
 
   // Delete Confirmation State
   const [deletingId, setDeletingId] = useState(null);
@@ -222,26 +227,42 @@ export default function AssetSidebar({
   // --- MAIN RENDER ---
   return (
     <div
-      className={`w-full h-[500px] lg:h-[750px] rounded-[2.5rem] border-2 overflow-hidden flex flex-col ${isDark ? "border-white/10" : "bg-white border-slate-200"}`}
+      className={`w-full h-[500px] lg:h-[750px] rounded-[2.5rem] border-2 overflow-hidden flex flex-col transition-all duration-300 ${
+        isSticky ? "sticky top-24 z-30" : "relative"
+      } ${isDark ? "border-white/10" : "bg-white border-slate-200"}`}
       style={
         isDark
           ? {
               backgroundColor: `rgba(0, 0, 0, ${bgOpacity / 100})`,
               backdropFilter: `blur(${bgOpacity * 0.2}px)`,
-              transition: "all 0.3s ease",
             }
           : {}
       }
     >
       {/* HEADER */}
       <div
-        className={`p-6 border-b ${isDark ? "border-white/10" : "border-slate-100"}`}
+        className={`p-6 border-b flex items-center justify-between ${isDark ? "border-white/10" : "border-slate-100"}`}
       >
         <h3
           className={`font-black uppercase text-xs tracking-[0.2em] flex items-center gap-2 ${isDark ? "text-white" : "text-slate-800"}`}
         >
           <Settings2 size={16} className="text-teal-500" /> Media Stream
         </h3>
+
+        {/* PIN TOGGLE */}
+        <button
+          onClick={() => setIsSticky(!isSticky)}
+          className={`p-2 rounded-lg transition-all ${
+            isSticky
+              ? "bg-teal-500 text-black shadow-[0_0_15px_rgba(20,184,166,0.4)]"
+              : isDark
+                ? "text-slate-500 hover:text-teal-400 hover:bg-white/5"
+                : "text-slate-400 hover:text-teal-600 hover:bg-slate-100"
+          }`}
+          title={isSticky ? "Unpin Sidebar" : "Pin Sidebar"}
+        >
+          {isSticky ? <Pin size={14} /> : <PinOff size={14} />}
+        </button>
       </div>
 
       {/* LIST */}
