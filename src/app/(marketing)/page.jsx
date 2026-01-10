@@ -90,7 +90,7 @@ export default function Home() {
           {/* HERO */}
           <header className="relative flex flex-col justify-center items-center min-h-[70vh] pb-24 w-full max-w-4xl mx-auto space-y-8 animate-fade-in text-center">
             <h1 className="text-3xl md:text-5xl font-black leading-[0.95] tracking-tight text-transparent bg-clip-text bg-gradient-to-br from-slate-200 via-teal-700 to-slate-700 pb-2 font-normal">
-              Artist by nature, <br /> Entrepreneur by nurture...
+              Artist by nature, <br /> Entrepreneur by nurture
             </h1>
             <p className="text-sm md:text-2xl text-slate-500 max-w-2xl mx-auto font-light leading-relaxed">
               becoming lucid in this{" "}
@@ -124,6 +124,10 @@ export default function Home() {
                 <h2 className="text-teal-600 font-bold text-3xl md:text-5xl font-light uppercase tracking-tight text-slate-900">
                   Insights
                 </h2>
+                <p className="text-slate-500 text-lg md:text-xl font-medium leading-relaxed text-balance">
+                  On being an artist, creative entrepreneurship, travel &
+                  languages, life, and haughty esoteric topics.
+                </p>
 
                 {/* SORT PILLS: Justify Center on mobile, Start on desktop */}
                 <div className="flex gap-2 justify-center md:justify-start">
