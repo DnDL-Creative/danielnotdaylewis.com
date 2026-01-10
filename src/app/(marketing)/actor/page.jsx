@@ -14,13 +14,50 @@ import {
   ArrowRight,
 } from "lucide-react";
 
-// Import the interactive islands
-import {
-  StatCard,
-  Carousel,
-  AudioPlayer,
-  VideoFacade,
-} from "@/src/components/marketing/ActorClient";
+// NEW IMPORTS FROM SPLIT FILES
+// Make sure these match your folder structure exactly
+import StatCard from "./_components/StatCard";
+import VideoFacade from "./_components/VideoFacade";
+import BookCarousel from "./_components/BookCarousel";
+import AudioPlayer from "./_components/AudioPlayer";
+
+// --- DATA DEFINITION (THE "FRIDGE") ---
+const BOOK_SLIDES = [
+  {
+    img: "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/site-images/(marketing)/actor/a-little-crush.webp",
+    title: "A Little Crush",
+    subtitle: "by Kelsie Rae",
+    link: "https://www.audible.com/pd/A-Little-Crush-Audiobook/B0FH5JTBXF",
+  },
+  {
+    img: "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/site-images/(marketing)/actor/never-far.webp",
+    title: "Never Far",
+    subtitle: "by A.A. Dark",
+    link: "https://www.audible.com/pd/Never-Far-The-Foundation-of-Boston-Marks-Audiobook/B0F6GV9HLR",
+  },
+  {
+    img: "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/site-images/(marketing)/actor/dndl-website-rtibw.webp",
+    title: "Right There",
+    subtitle: "by Jim Christ",
+    link: "https://www.audible.com/pd/Right-There-in-Black-and-White-Audiobook/B0FXMY6NMK",
+  },
+];
+
+const AUDIO_TRACKS = [
+  {
+    title: "Emotionally-driven",
+    src: "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/audio/demos/demo_neverfar.mp3",
+    explicit: true,
+  },
+  {
+    title: "M/F Dialogue",
+    src: "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/audio/demos/demo_filthy_rich_santas_female_dialogue.mp3",
+  },
+  {
+    title: "Character-driven",
+    src: "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/audio/demos/demo-rtibw-amos-intro.mp3",
+  },
+];
 
 // Static Component
 function WhyCard({ icon, title, desc }) {
@@ -30,10 +67,10 @@ function WhyCard({ icon, title, desc }) {
       <div className="w-14 h-14 mb-6 bg-white rounded-2xl flex items-center justify-center text-teal-600 shadow-sm group-hover:scale-110 group-hover:text-indigo-600 transition-all duration-300 border border-slate-100">
         {icon}
       </div>
-      <h4 className="font-bold text-xl mb-3 text-slate-900 group-hover:text-teal-900 transition-colors">
+      <h3 className="font-bold text-xl mb-3 text-slate-900 group-hover:text-teal-900 transition-colors">
         {title}
-      </h4>
-      <p className="text-slate-500 text-lg leading-relaxed font-medium">
+      </h3>
+      <p className="text-slate-600 text-lg leading-relaxed font-medium">
         {desc}
       </p>
     </div>
@@ -182,19 +219,19 @@ export default function ActorPage() {
       </section>
 
       {/* =========================================
-          NEW SECTION: HEADER (Teal/Indigo Gradient)
+          HEADER (Teal/Indigo Gradient)
       ========================================= */}
       <section className="w-full max-w-[1200px] px-4 pt-12 md:pt-20 pb-8 text-center animate-fade-in-up">
         <h2 className="text-4xl md:text-6xl font-black uppercase leading-none tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-teal-600 via-blue-600 to-indigo-600 mb-2 drop-shadow-sm">
           Daniel (not Day) Lewis
         </h2>
-        <h3 className="text-sm md:text-base font-bold uppercase tracking-[0.4em] text-slate-400">
+        <h3 className="text-sm md:text-base font-bold uppercase tracking-[0.4em] text-slate-500">
           Audiobook Actor
         </h3>
       </section>
 
       {/* =========================================
-          3. STATS BAR (Client Component)
+          3. STATS BAR (Using Atomic Component)
       ========================================= */}
       <section className="w-full max-w-[1200px] px-4 pb-12 md:pb-20">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
@@ -235,7 +272,7 @@ export default function ActorPage() {
         <div className="flex flex-col gap-8">
           {/* --- TOP ROW: VISUALS (Video + Books) --- */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
-            {/* 1. LEFT: Video (Supabase Vertical) */}
+            {/* 1. LEFT: Video (Using Atomic Component) */}
             <div className="relative rounded-[2.5rem] bg-white/40 backdrop-blur-md border border-white/60 shadow-xl p-8 flex flex-col justify-center items-center overflow-hidden">
               <div className="w-full max-w-sm mx-auto">
                 <VideoFacade
@@ -245,13 +282,13 @@ export default function ActorPage() {
               </div>
             </div>
 
-            {/* 2. RIGHT: Book Carousel */}
+            {/* 2. RIGHT: Book Carousel (Using Atomic Component) */}
             <div className="relative rounded-[2.5rem] bg-gradient-to-br from-stone-100 to-gray-100 border border-white p-8 flex flex-col justify-between items-center shadow-lg min-h-[500px] overflow-hidden">
               <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-400 z-10 w-full text-center">
                 Featured Releases
               </h3>
               <div className="flex-grow flex items-center justify-center w-full py-4">
-                <Carousel />
+                <BookCarousel slides={BOOK_SLIDES} />
               </div>
               <div className="absolute bottom-0 w-full h-32 bg-gradient-to-t from-white/50 to-transparent pointer-events-none" />
             </div>
@@ -414,11 +451,11 @@ export default function ActorPage() {
       </section>
 
       {/* =========================================
-          7. FLOATING AUDIO PLAYER (STICKY - Client Component)
+          7. FLOATING AUDIO PLAYER (Atomic Component)
       ========================================= */}
       <div className="fixed bottom-2 left-2 right-2 md:bottom-6 md:left-4 md:right-4 z-50 flex justify-center pointer-events-none">
         <div className="pointer-events-auto w-full max-w-sm md:max-w-3xl">
-          <AudioPlayer />
+          <AudioPlayer tracks={AUDIO_TRACKS} />
         </div>
       </div>
     </div>
