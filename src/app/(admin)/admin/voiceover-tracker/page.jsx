@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
-import { createClient } from "@/src/utils/supabase/client";
+import { createClient } from "@/src/lib/supabase/client";
 import Link from "next/link";
 import VoiceoverProjectModal from "@/src/components/voiceover-tracker/VoiceoverProjectModal";
 import Countdown from "@/src/components/voiceover-tracker/Countdown";

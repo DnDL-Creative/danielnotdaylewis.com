@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createClient } from "@/src/utils/supabase/client";
+import { createClient } from "@/src/lib/supabase/client";
 import {
   Mic2,
   X,
@@ -365,8 +365,8 @@ export default function AuditionManager() {
                     isCallback
                       ? "border-purple-200 shadow-xl shadow-purple-100/50 ring-4 ring-purple-50"
                       : isShortlist
-                      ? "border-amber-200 shadow-xl shadow-amber-100/50 ring-4 ring-amber-50"
-                      : "border-slate-100 shadow-lg shadow-slate-200/40 hover:shadow-xl hover:shadow-slate-300/40 hover:-translate-y-1"
+                        ? "border-amber-200 shadow-xl shadow-amber-100/50 ring-4 ring-amber-50"
+                        : "border-slate-100 shadow-lg shadow-slate-200/40 hover:shadow-xl hover:shadow-slate-300/40 hover:-translate-y-1"
                   }
                 `}
             >

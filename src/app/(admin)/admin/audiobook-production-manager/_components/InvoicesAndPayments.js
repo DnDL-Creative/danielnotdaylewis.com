@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import nextDynamic from "next/dynamic";
-import { createClient } from "@/src/utils/supabase/client";
+import { createClient } from "@/src/lib/supabase/client";
 import {
   FileText,
   Save,

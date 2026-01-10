@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createClient } from "@/src/utils/supabase/client";
+import { createClient } from "@/src/lib/supabase/client";
 import {
   X,
   Wand2,

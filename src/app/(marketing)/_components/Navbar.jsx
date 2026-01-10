@@ -14,7 +14,7 @@ import {
   Handshake,
   Feather,
 } from "lucide-react";
-import { createClient } from "@/src/utils/supabase/client";
+import { createClient } from "@/src/lib/supabase/client";
 
 // --- GREETINGS ARRAY ---
 const greetings = [

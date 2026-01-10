@@ -1,8 +1,6 @@
 import "./globals.css";
 import { Nunito_Sans } from "next/font/google";
 import { ThemeProvider } from "next-themes";
-// You imported Navbar/Footer but didn't use them here.
-// That is fine if they are used in your sub-layouts (like MarketingLayout).
 
 const nunito = Nunito_Sans({ subsets: ["latin"], variable: "--font-nunito" });
 

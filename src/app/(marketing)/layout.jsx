@@ -1,4 +1,3 @@
-// src/app/(marketing)/layout.js
 import Navbar from "@/src/app/(marketing)/_components/Navbar";
 import Footer from "@/src/app/(marketing)/_components/Footer";
 

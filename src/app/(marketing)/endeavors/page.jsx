@@ -1,4 +1,5 @@
 "use client";
+// [CHANGE]: File extension changed from .js to .jsx
 
 import Link from "next/link";
 import Image from "next/image";
@@ -7,7 +8,7 @@ import {
   Lock,
   Sparkles,
   MoveRight,
-  Clock,
+  // Clock, // [NOTE]: Unused import removed
   Lightbulb,
 } from "lucide-react";
 
@@ -21,7 +22,7 @@ const ENDEAVORS = [
     image: "/images/cinesonic-new-logo-see-stories-in-sound.webp",
     href: "#", // Link disabled
     external: true,
-    status: "Launching Soon", // <--- NEW STATUS
+    status: "Launching Soon",
     imgContainerClass: "bg-[#020014] relative overflow-hidden",
     imgClass: "object-cover w-full h-full relative z-10",
   },

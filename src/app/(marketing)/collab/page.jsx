@@ -1,14 +1,15 @@
 "use client";
+// [CHANGE]: File extension changed from .js to .jsx
 import { useState } from "react";
 import {
   Copy,
   Check,
-  Mail,
-  Instagram,
-  Twitter,
-  Linkedin,
-  Sparkles,
-  ArrowRight,
+  // Mail, // [NOTE]: Unused import removed for cleanliness
+  // Instagram, // [NOTE]: Unused import removed
+  // Twitter,   // [NOTE]: Unused import removed
+  // Linkedin,  // [NOTE]: Unused import removed
+  // Sparkles,  // [NOTE]: Unused import removed
+  // ArrowRight, // [NOTE]: Unused import removed
   Send,
   Facebook, // <--- Imported Facebook Icon
 } from "lucide-react";
@@ -41,7 +42,8 @@ export default function CollabPage() {
 
           <h1 className="text-5xl md:text-7xl font-black text-slate-900 tracking-tighter mb-4 leading-none">
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-500 to-indigo-500 animate-gradient-x">
-              Don't be shy.
+              Don&apos;t be shy.{" "}
+              {/* [CHANGE]: Escaped apostrophe for strict JSX compliance */}
             </span>
           </h1>
           <p className="text-slate-500 text-xl font-medium">
@@ -148,6 +150,7 @@ function SocialLink({ href, icon, label }) {
       target="_blank"
       rel="noopener noreferrer"
       className="group flex flex-col items-center gap-2"
+      aria-label={label} // [CHANGE]: Added accessibility label
     >
       <div className="w-12 h-12 rounded-full bg-white/50 border border-white/60 flex items-center justify-center text-slate-400 shadow-sm group-hover:scale-110 group-hover:bg-white group-hover:text-teal-600 group-hover:shadow-md transition-all duration-300">
         {icon}

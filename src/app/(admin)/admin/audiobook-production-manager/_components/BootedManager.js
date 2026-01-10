@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createClient } from "@/src/utils/supabase/client";
+import { createClient } from "@/src/lib/supabase/client";
 import {
   Skull,
   Ban,
@@ -301,8 +301,8 @@ export default function BootedManager() {
                               refundStatus === "completed"
                                 ? "bg-emerald-100 text-emerald-600"
                                 : refundStatus === "processing"
-                                ? "bg-blue-100 text-blue-600"
-                                : "bg-red-100 text-red-600 animate-pulse"
+                                  ? "bg-blue-100 text-blue-600"
+                                  : "bg-red-100 text-red-600 animate-pulse"
                             }`}
                           >
                             {refundStatus === "completed" ? (

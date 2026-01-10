@@ -1,5 +1,5 @@
 import { Feather } from "lucide-react";
-import { createClient } from "@/src/utils/supabase/server";
+import { createClient } from "@/src/lib/supabase/server";
 import BlogGrid from "./_components/BlogGrid";
 
 export const metadata = {

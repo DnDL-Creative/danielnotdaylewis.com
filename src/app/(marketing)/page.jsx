@@ -1,4 +1,4 @@
-import { createClient } from "@/src/utils/supabase/server";
+import { createClient } from "@/src/lib/supabase/server";
 import HomeUI from "@/src/app/(marketing)/_components/HomeUI";
 
 export default async function Home() {

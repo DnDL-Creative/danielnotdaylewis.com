@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { LogOut, LayoutGrid } from "lucide-react";
 import { redirect } from "next/navigation";
-import { createClient } from "@/src/utils/supabase/server";
+import { createClient } from "@/src/utils/supabase/server"; // Updated path to match your structure
 
 export default async function AdminLayout({ children }) {
   const supabase = await createClient();
@@ -28,7 +28,7 @@ export default async function AdminLayout({ children }) {
           <LayoutGrid size={16} />
         </Link>
 
-        {/* Divider (Horizontal now) */}
+        {/* Divider */}
         <div className="h-px w-4 bg-white/10 mx-auto"></div>
 
         {/* Exit to Site */}

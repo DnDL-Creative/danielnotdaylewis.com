@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { createClient } from "@/src/utils/supabase/client";
+import { createClient } from "@/src/lib/supabase/client";
 import {
   Loader2,
   CheckSquare,
@@ -610,17 +610,15 @@ export default function OnboardingManager() {
           refund_details: refundData || null,
           booted_from: TABLE_NAME,
         };
-        await supabase
-          .from("6_archive")
-          .insert([
-            {
-              original_data: archivePayload,
-              archived_at: new Date(),
-              reason: refundData
-                ? `Booted with ${refundData.percentage}% refund`
-                : "Booted from Onboarding Pipeline",
-            },
-          ]);
+        await supabase.from("6_archive").insert([
+          {
+            original_data: archivePayload,
+            archived_at: new Date(),
+            reason: refundData
+              ? `Booted with ${refundData.percentage}% refund`
+              : "Booted from Onboarding Pipeline",
+          },
+        ]);
         await supabase
           .from("2_booking_requests")
           .delete()

@@ -1,4 +1,4 @@
-import { createClient } from "@/src/utils/supabase/server";
+import { createClient } from "@/src/lib/supabase/server";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
 import Image from "next/image";
 import Link from "next/link";

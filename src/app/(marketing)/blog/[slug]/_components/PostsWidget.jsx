@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Sparkles, ArrowUp, ArrowDown, Trophy } from "lucide-react";
-import { createClient } from "@/src/utils/supabase/client";
+import { createClient } from "@/src/lib/supabase/client";
 import BlogCard from "../../../_components/BlogCard";
 
 export default function PostsWidget({ currentSlug }) {

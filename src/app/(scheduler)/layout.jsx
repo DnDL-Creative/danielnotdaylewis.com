@@ -1,4 +1,4 @@
-// src/app/(scheduler)/layout.js
+// src/app/(scheduler)/layout.jsx
 import Navbar from "@/src/app/(marketing)/_components/Navbar";
 import Footer from "@/src/app/(marketing)/_components/Footer";
 
