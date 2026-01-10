@@ -7,7 +7,7 @@ import { Facebook, Instagram, Youtube } from "lucide-react";
 
 function SocialButton({ href, onClick, icon, label }) {
   const commonClasses =
-    "w-8 h-8 md:w-9 md:h-9 rounded-full border border-gray-700 flex items-center justify-center hover:bg-[var(--color-primary)] hover:border-[var(--color-primary)] hover:text-white transition-all duration-300 group bg-[#1a1a1a]";
+    "w-8 h-8 md:w-9 md:h-9 rounded-full border border-gray-700 flex items-center justify-center hover:bg-[var(--color-primary)] hover:border-[var(--color-primary)] hover:text-white transition-all duration-300 group bg-[#1a1a1a] text-gray-400";
 
   if (href) {
     return (
@@ -193,7 +193,7 @@ export default function Footer() {
         </div>
 
         {/* BOTTOM: LEGAL */}
-        <div className="flex flex-col md:flex-row justify-between items-center text-[10px] text-gray-600 pt-4 border-t border-gray-900 gap-2 md:gap-0">
+        <div className="flex flex-col md:flex-row justify-between items-center text-[10px] text-gray-500 pt-4 border-t border-gray-900 gap-2 md:gap-0">
           <p>© {dateString || new Date().getFullYear()} by Daniel Lewis.</p>
           <div className="flex gap-4">
             <Link

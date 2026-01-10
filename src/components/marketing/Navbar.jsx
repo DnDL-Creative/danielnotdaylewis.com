@@ -13,10 +13,6 @@ import {
   Compass,
   Handshake,
   Feather,
-  Lightbulb,
-  Zap,
-  Mountain,
-  Target, // Added new icon options
 } from "lucide-react";
 import { createClient } from "@/src/utils/supabase/client";
 
@@ -30,7 +26,7 @@ const greetings = [
 ];
 
 // --- TICKER COMPONENT ---
-function GreetingTicker({ scrolled }) {
+function GreetingTicker() {
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
@@ -104,6 +100,7 @@ const AudiobookButton = ({ mobile = false, onClick }) => (
   <Link
     href="/scheduler"
     onClick={onClick}
+    aria-label="Open Audiobook Scheduler"
     className={`
       relative group overflow-hidden rounded-full 
       transition-all duration-300 
@@ -241,8 +238,6 @@ export default function Navbar() {
     if (results.length > 0) router.push(results[0].slug);
   };
 
-  // --- UPDATED ICONS ---
-  // You can swap 'Compass' with 'Lightbulb', 'Zap', 'Mountain', or 'Target'
   const navLinks = [
     { name: "(voice) actor", href: "/actor", icon: Mic },
     { name: "endeavors", href: "/endeavors", icon: Compass },
@@ -274,6 +269,7 @@ export default function Navbar() {
               href={user ? "/admin" : "/"}
               className="relative z-50 flex items-center group cursor-pointer flex-shrink-0"
               target={user ? "_blank" : undefined}
+              aria-label="Daniel Lewis Home"
             >
               <h1 className="font-black tracking-tighter leading-tight text-lg md:text-xl lg:text-2xl transition-transform duration-300 group-hover:scale-[1.02] text-transparent bg-clip-text bg-gradient-to-r from-blue-500 via-teal-400 to-indigo-500 bg-[length:200%_auto] animate-[gradient-x_10s_ease_infinite] drop-shadow-sm">
                 <span className="xl:hidden font-extrabold">D(nD)L</span>
@@ -283,7 +279,7 @@ export default function Navbar() {
               </h1>
             </Link>
 
-            <GreetingTicker scrolled={scrolled} />
+            <GreetingTicker />
           </div>
 
           {/* --- RIGHT: NAV ITEMS --- */}
@@ -329,11 +325,13 @@ export default function Navbar() {
                   }}
                   onFocus={() => setIsSearchOpen(true)}
                   placeholder="SEARCH"
+                  aria-label="Search content"
                   className={`bg-transparent text-xs font-bold uppercase tracking-wider outline-none placeholder:text-slate-400 transition-all duration-300 ${isSearchOpen ? "w-28 lg:w-40 opacity-100 text-slate-800 pl-1" : "w-0 opacity-0"}`}
                 />
                 {isSearchOpen && (
                   <button
                     type="button"
+                    aria-label="Close search"
                     onClick={() => {
                       setQuery("");
                       setResults([]);
@@ -407,6 +405,7 @@ export default function Navbar() {
         <div className="w-full h-full overflow-y-auto flex flex-col items-center pt-24 pb-12 px-6 gap-6">
           <button
             onClick={() => setIsOpen(false)}
+            aria-label="Close menu"
             className="absolute top-6 right-6 group p-3 rounded-full bg-white border border-slate-100 shadow-sm hover:shadow-md hover:border-teal-100 transition-all duration-300 z-50"
           >
             <X
