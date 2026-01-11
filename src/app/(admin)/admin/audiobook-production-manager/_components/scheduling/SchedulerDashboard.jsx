@@ -5,25 +5,27 @@ import { createClient } from "@/src/lib/supabase/client";
 import {
   Calendar as CalendarIcon,
   Ghost,
-  Wand2,
   RefreshCw,
-  ChevronLeft,
-  ChevronRight,
   Loader2,
   Trash2,
   CheckCircle2,
-  Plus,
   X,
   Image as ImageIcon,
   UploadCloud,
   Clock,
-  ListFilter,
-  CheckSquare,
-  Square,
+  CalendarDays,
   Link as LinkIcon,
   Mail,
   FileText,
 } from "lucide-react";
+
+// ✅ IMPORT SHARED
+import Modal from "../shared/Modal";
+import Toast from "../shared/Toast";
+
+// ✅ IMPORT NEW SUB-COMPONENTS
+import SchedulerCalendar from "./SchedulerCalendar";
+import GhostGenerator from "./GhostGenerator";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -34,7 +36,7 @@ const supabase = createClient(
 const WORDS_PER_PFH = 9300;
 const WORDS_PER_DAY = 7000;
 
-// --- HELPER: Fixes "Day Behind" Error ---
+// --- UTILS ---
 const parseLocalDate = (dateString) => {
   if (!dateString) return new Date();
   try {
@@ -48,7 +50,6 @@ const parseLocalDate = (dateString) => {
   }
 };
 
-// --- HELPER: Format Date to YYYY-MM-DD for Inputs ---
 const formatDateForInput = (date) => {
   if (!date) return "";
   const year = date.getFullYear();
@@ -57,7 +58,6 @@ const formatDateForInput = (date) => {
   return `${year}-${month}-${day}`;
 };
 
-// --- HELPER: Format Numbers with Commas ---
 const formatNumberWithCommas = (value) => {
   if (!value) return "";
   return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
@@ -72,25 +72,20 @@ export default function SchedulerDashboard() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [items, setItems] = useState([]);
 
-  // Modals
+  // Modals & UI
   const [modalMode, setModalMode] = useState(null); // 'add' or 'edit'
   const [modalOpen, setModalOpen] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [modal, setModal] = useState({ isOpen: false });
 
   // Selection
   const [selectedDate, setSelectedDate] = useState(null);
   const [editingItem, setEditingItem] = useState(null);
 
-  // Multi-Select State
+  // Ghost Settings
+  const [ghostDensity, setGhostDensity] = useState("low");
+  const [ghostMonths, setGhostMonths] = useState(3);
   const [selectedGhosts, setSelectedGhosts] = useState([]);
-
-  // Custom Alert State
-  const [alertConfig, setAlertConfig] = useState({
-    isOpen: false,
-    title: "",
-    message: "",
-    type: "info",
-    onConfirm: null,
-  });
 
   // Local Form Data
   const [formData, setFormData] = useState({
@@ -115,29 +110,9 @@ export default function SchedulerDashboard() {
     cover_image_url: "",
   });
 
-  // Upload State
   const [uploading, setUploading] = useState(false);
 
-  // Ghost Settings
-  const [ghostDensity, setGhostDensity] = useState("low");
-  const [ghostMonths, setGhostMonths] = useState(3);
-
-  // --- CUSTOM ALERT HANDLERS ---
-  const showAlert = (title, message, type = "info", onConfirm = null) => {
-    setAlertConfig({ isOpen: true, title, message, type, onConfirm });
-  };
-
-  const closeAlert = () => {
-    setAlertConfig({ ...alertConfig, isOpen: false });
-  };
-
-  useEffect(() => {
-    document.body.style.overflow =
-      modalOpen || alertConfig.isOpen ? "hidden" : "unset";
-    return () => {
-      document.body.style.overflow = "unset";
-    };
-  }, [modalOpen, alertConfig.isOpen]);
+  const showToast = (msg, type = "success") => setToast({ message: msg, type });
 
   const fetchCalendar = async () => {
     setCalendarLoading(true);
@@ -297,7 +272,8 @@ export default function SchedulerDashboard() {
 
   const handleSave = async () => {
     if (!formData.startDate || !formData.endDate) {
-      return showAlert("Missing Dates", "Please select start and end dates.");
+      showToast("Missing dates", "error");
+      return;
     }
 
     setLoading(true);
@@ -325,7 +301,8 @@ export default function SchedulerDashboard() {
       if (formData.type === "project") {
         if (!formData.title) {
           setLoading(false);
-          return showAlert("Missing Title", "Project title is required.");
+          showToast("Title is required", "error");
+          return;
         }
         const { error: err } = await supabase
           .from("2_booking_requests")
@@ -366,10 +343,11 @@ export default function SchedulerDashboard() {
 
     if (error) {
       console.error("Save error:", error);
-      showAlert("Error", "Could not save changes.", "error");
+      showToast("Could not save", "error");
     } else {
       setModalOpen(false);
       fetchCalendar();
+      showToast("Saved successfully");
     }
   };
 
@@ -388,57 +366,58 @@ export default function SchedulerDashboard() {
       setFormData((prev) => ({ ...prev, cover_image_url: data.publicUrl }));
     } catch (error) {
       console.error("Error uploading image:", error);
-      showAlert("Upload Failed", "Could not upload cover image.", "error");
+      showToast("Image upload failed", "error");
     } finally {
       setUploading(false);
     }
   };
 
-  const handleStatusChange = async (newStatus) => {
+  const triggerDelete = () => {
+    setModal({
+      isOpen: true,
+      title: "Delete Item?",
+      message: "Are you sure you want to delete this? This cannot be undone.",
+      confirmText: "Delete",
+      type: "danger",
+      onConfirm: handleDelete,
+    });
+  };
+
+  const handleDelete = async () => {
     if (!editingItem) return;
-    const actionLabel =
-      newStatus === "deleted" ? "permanently delete" : newStatus;
-    showAlert(
-      "Confirm Action",
-      `Are you sure you want to ${actionLabel} this? This cannot be undone.`,
-      "danger",
-      async () => {
-        setLoading(true);
-        let error = null;
-        if (editingItem.type === "real") {
-          const { error: err } = await supabase
-            .from("2_booking_requests")
-            .delete()
-            .eq("id", editingItem.id);
-          error = err;
-        } else {
-          const { error: err } = await supabase
-            .from("7_bookouts")
-            .delete()
-            .eq("id", editingItem.id);
-          error = err;
-        }
-        setLoading(false);
-        if (error) {
-          showAlert("Error", "Action failed", "error");
-        } else {
-          setModalOpen(false);
-          closeAlert();
-          fetchCalendar();
-        }
-      }
-    );
+    setLoading(true);
+    let error = null;
+    if (editingItem.type === "real") {
+      const { error: err } = await supabase
+        .from("2_booking_requests")
+        .delete()
+        .eq("id", editingItem.id);
+      error = err;
+    } else {
+      const { error: err } = await supabase
+        .from("7_bookouts")
+        .delete()
+        .eq("id", editingItem.id);
+      error = err;
+    }
+    setLoading(false);
+    setModal({ isOpen: false });
+    if (error) {
+      showToast("Delete failed", "error");
+    } else {
+      setModalOpen(false);
+      fetchCalendar();
+      showToast("Item deleted", "error"); // Red toast for delete
+    }
   };
 
   // --- GHOST LOGIC ---
   const handleGhostMode = async () => {
     setLoading(true);
-    // 1. Calculate how many ghost items to generate
     const count =
       ghostDensity === "high" ? 12 : ghostDensity === "medium" ? 8 : 4;
     const itemsToInsert = [];
     const today = new Date();
-    // Simple logic: Create random blocks in next X months
     for (let i = 0; i < count; i++) {
       const futureDays = Math.floor(Math.random() * (ghostMonths * 30));
       const dur = Math.floor(Math.random() * 5) + 2; // 2-7 days
@@ -459,10 +438,10 @@ export default function SchedulerDashboard() {
       const { error } = await supabase.from("7_bookouts").insert(itemsToInsert);
       if (error) throw error;
       fetchCalendar();
-      showAlert("Success", `Generated ${count} ghost blocks.`);
+      showToast(`Generated ${count} ghost blocks`);
     } catch (e) {
       console.error(e);
-      showAlert("Error", "Failed to generate ghosts.", "error");
+      showToast("Generation failed", "error");
     } finally {
       setLoading(false);
     }
@@ -485,133 +464,34 @@ export default function SchedulerDashboard() {
 
   const handleDeleteSelectedGhosts = async () => {
     if (selectedGhosts.length === 0) return;
-    showAlert(
-      "Confirm Delete",
-      `Delete ${selectedGhosts.length} ghost items?`,
-      "danger",
-      async () => {
-        setLoading(true);
-        const { error } = await supabase
-          .from("7_bookouts")
-          .delete()
-          .in("id", selectedGhosts);
-        setLoading(false);
-        if (error) {
-          showAlert("Error", "Failed to delete ghosts", "error");
-        } else {
-          setSelectedGhosts([]);
-          closeAlert();
-          fetchCalendar();
-        }
-      }
-    );
-  };
-
-  // --- FIXED: ADDED RENDER GHOST LIST FUNCTION ---
-  const renderGhostList = () => {
-    const ghostItems = items.filter((i) => i.type === "ghost");
-    const allSelected =
-      ghostItems.length > 0 && selectedGhosts.length === ghostItems.length;
-
-    return (
-      <div className="flex-1 overflow-y-auto min-h-0 space-y-2 pr-2 custom-scrollbar">
-        {ghostItems.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-slate-300">
-            <Ghost size={48} className="mb-2 opacity-20" />
-            <p className="text-xs font-bold uppercase tracking-widest">
-              No active ghosts
-            </p>
-          </div>
-        ) : (
-          <>
-            <div className="flex items-center justify-between mb-2 px-2">
-              <button
-                onClick={toggleSelectAllGhosts}
-                className="text-[10px] font-bold uppercase text-slate-400 hover:text-purple-600 flex items-center gap-2"
-              >
-                {allSelected ? <CheckSquare size={14} /> : <Square size={14} />}{" "}
-                Select All
-              </button>
-            </div>
-            {ghostItems.map((item) => {
-              const isSelected = selectedGhosts.includes(item.id);
-              return (
-                <div
-                  key={item.id}
-                  className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
-                    isSelected
-                      ? "bg-purple-50 border-purple-200"
-                      : "bg-white border-slate-100 hover:border-slate-200"
-                  }`}
-                >
-                  <button
-                    onClick={() => toggleSelectGhost(item.id)}
-                    className={`shrink-0 ${
-                      isSelected ? "text-purple-600" : "text-slate-300"
-                    }`}
-                  >
-                    {isSelected ? (
-                      <CheckSquare size={18} />
-                    ) : (
-                      <Square size={18} />
-                    )}
-                  </button>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <span
-                        className={`text-xs font-bold uppercase ${
-                          isSelected ? "text-purple-900" : "text-slate-700"
-                        }`}
-                      >
-                        Ghost Block
-                      </span>
-                      <span className="text-[10px] font-bold text-slate-400">
-                        {item.startStr}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </>
-        )}
-      </div>
-    );
+    setLoading(true);
+    const { error } = await supabase
+      .from("7_bookouts")
+      .delete()
+      .in("id", selectedGhosts);
+    setLoading(false);
+    if (error) {
+      showToast("Delete failed", "error");
+    } else {
+      setSelectedGhosts([]);
+      fetchCalendar();
+      showToast("Ghosts deleted");
+    }
   };
 
   return (
     <div className="bg-white p-4 md:px-12 md:py-8 rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden relative">
-      {/* CUSTOM ALERT MODAL */}
-      {alertConfig.isOpen && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl animate-scale-up text-center border border-slate-100">
-            <h3 className="text-xl font-black uppercase text-slate-900 mb-2">
-              {alertConfig.title}
-            </h3>
-            <p className="text-sm text-slate-500 font-medium mb-8">
-              {alertConfig.message}
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={closeAlert}
-                className="flex-1 py-3 rounded-xl bg-slate-100 text-slate-500 font-bold uppercase"
-              >
-                Cancel
-              </button>
-              {alertConfig.onConfirm && (
-                <button
-                  onClick={alertConfig.onConfirm}
-                  className={`flex-1 py-3 rounded-xl font-bold uppercase text-white ${alertConfig.type === "danger" ? "bg-red-500" : "bg-blue-500"}`}
-                >
-                  Confirm
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
+      {/* SHARED COMPONENTS */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
       )}
+      <Modal {...modal} onClose={() => setModal({ ...modal, isOpen: false })} />
 
-      {/* --- THE ULTIMATE MODAL --- */}
+      {/* --- ADD/EDIT MODAL (Local because it's a complex form) --- */}
       {modalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
           <div className="relative bg-white rounded-[2rem] p-6 md:p-8 max-w-3xl w-full shadow-2xl animate-scale-up my-auto">
@@ -912,7 +792,7 @@ export default function SchedulerDashboard() {
                   </button>
                   {modalMode === "edit" && (
                     <button
-                      onClick={() => handleStatusChange("deleted")}
+                      onClick={triggerDelete}
                       className="p-4 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 hover:text-red-600 transition-all"
                     >
                       <Trash2 size={20} />
@@ -967,248 +847,28 @@ export default function SchedulerDashboard() {
 
       <div className="min-h-[400px]">
         {activeTab === "calendar" && (
-          <div className="animate-fade-in relative">
-            <div className="w-full flex flex-col items-center md:flex-row md:justify-between mb-8 gap-6">
-              {/* Legend Section */}
-              <div className="flex flex-wrap justify-center gap-3">
-                <div className="flex items-center gap-2 text-[10px] font-bold uppercase bg-emerald-50 pl-2 pr-3 py-1.5 rounded-full border border-emerald-100 text-emerald-700 shadow-sm">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-sm" />
-                  Booked
-                </div>
-                <div className="flex items-center gap-2 text-[10px] font-bold uppercase bg-amber-50 pl-2 pr-3 py-1.5 rounded-full border border-amber-100 text-amber-700 shadow-sm">
-                  <div className="w-2 h-2 rounded-full bg-amber-500 shadow-sm" />
-                  Pending
-                </div>
-                <div className="flex items-center gap-2 text-[10px] font-bold uppercase bg-purple-50 pl-2 pr-3 py-1.5 rounded-full border border-purple-100 text-purple-700 shadow-sm">
-                  <div className="w-2 h-2 rounded-full bg-purple-500 shadow-sm" />
-                  Ghost
-                </div>
-                <div className="flex items-center gap-2 text-[10px] font-bold uppercase bg-slate-50 pl-2 pr-3 py-1.5 rounded-full border border-slate-200 text-slate-500 shadow-sm">
-                  <div className="w-2 h-2 rounded-full bg-slate-400 shadow-sm" />
-                  Time Off
-                </div>
-              </div>
-
-              {/* Date Navigation Section */}
-              <div className="flex items-center bg-white rounded-full p-1 border border-slate-200 shadow-sm">
-                <button
-                  onClick={() => {
-                    const d = new Date(currentDate);
-                    d.setMonth(d.getMonth() - 1);
-                    setCurrentDate(d);
-                  }}
-                  className="p-2 hover:bg-slate-100 rounded-full text-slate-500 transition-colors duration-200"
-                >
-                  <ChevronLeft size={16} />
-                </button>
-
-                <span className="w-36 text-center text-xs font-black uppercase text-slate-700 tracking-wide select-none">
-                  {currentDate.toLocaleDateString("en-US", {
-                    month: "long",
-                    year: "numeric",
-                  })}
-                </span>
-
-                <button
-                  onClick={() => {
-                    const d = new Date(currentDate);
-                    d.setMonth(d.getMonth() + 1);
-                    setCurrentDate(d);
-                  }}
-                  className="p-2 hover:bg-slate-100 rounded-full text-slate-500 transition-colors duration-200"
-                >
-                  <ChevronRight size={16} />
-                </button>
-              </div>
-            </div>
-            {/* FIX: ADDED SCROLL CONTAINER AND MIN-WIDTH */}
-            <div className="overflow-x-auto pb-4">
-              <div className="min-w-[800px] grid grid-cols-7 gap-1 select-none">
-                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(
-                  (d, i) => (
-                    <div
-                      key={i}
-                      className="text-center text-[10px] font-black text-slate-400 py-2 uppercase tracking-wider"
-                    >
-                      {d}
-                    </div>
-                  )
-                )}
-
-                {(() => {
-                  const year = currentDate.getFullYear();
-                  const month = currentDate.getMonth();
-                  const daysInMonth = new Date(year, month + 1, 0).getDate();
-                  const firstDay = new Date(year, month, 1).getDay();
-                  const blanks = Array(firstDay).fill(null);
-                  const days = Array.from(
-                    { length: daysInMonth },
-                    (_, i) => i + 1
-                  );
-                  const today = new Date();
-
-                  return (
-                    <>
-                      {blanks.map((_, i) => (
-                        <div
-                          key={`b-${i}`}
-                          className="h-24 md:h-32 bg-slate-50/30 rounded-xl border border-transparent"
-                        />
-                      ))}
-                      {days.map((day, i) => {
-                        const date = new Date(year, month, day);
-                        const dateMid = new Date(date).setHours(0, 0, 0, 0);
-                        const isToday =
-                          date.toDateString() === today.toDateString();
-
-                        const dayItems = items.filter((item) => {
-                          if (!item.start || !item.end) return false;
-                          const s = new Date(item.start).setHours(0, 0, 0, 0);
-                          const e = new Date(item.end).setHours(0, 0, 0, 0);
-                          return dateMid >= s && dateMid <= e;
-                        });
-
-                        return (
-                          <div
-                            key={i}
-                            onClick={() => openAddModal(date)}
-                            className={`h-24 md:h-32 border rounded-xl p-1 relative overflow-hidden group transition-all cursor-pointer hover:border-blue-300 hover:shadow-md ${isToday ? "bg-blue-50/50 border-blue-200" : "bg-white border-slate-100"}`}
-                          >
-                            <span
-                              className={`text-[9px] md:text-[10px] font-bold absolute top-1 right-1 flex items-center justify-center w-5 h-5 md:w-6 md:h-6 rounded-full ${isToday ? "bg-blue-500 text-white" : "text-slate-400"}`}
-                            >
-                              {day}
-                            </span>
-                            <div className="mt-5 md:mt-6 space-y-1 overflow-y-auto max-h-[calc(100%-24px)] scrollbar-hide">
-                              {dayItems.map((item, idx) => {
-                                let color =
-                                  "bg-emerald-100 text-emerald-800 border-emerald-200";
-                                if (item.status === "pending")
-                                  color =
-                                    "bg-amber-100 text-amber-800 border-amber-200";
-                                if (item.status === "postponed")
-                                  color =
-                                    "bg-orange-100 text-orange-800 border-orange-200";
-                                if (item.type === "ghost")
-                                  color =
-                                    "bg-purple-100 text-purple-800 border-purple-200";
-                                if (item.type === "personal")
-                                  color =
-                                    "bg-slate-100 text-slate-700 border-slate-200";
-                                return (
-                                  <button
-                                    key={`${item.id}-${idx}`}
-                                    onClick={(e) => handleItemClick(e, item)}
-                                    className={`w-full text-left text-[8px] md:text-[9px] px-1 md:px-1.5 py-0.5 rounded-md border ${color} font-bold truncate flex items-center gap-1 hover:brightness-95`}
-                                    title={item.title}
-                                  >
-                                    {item.title}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                            <div className="absolute top-1 left-1 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
-                              <Plus
-                                className="text-blue-500 bg-white rounded-full shadow-md p-0.5"
-                                size={16}
-                              />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </>
-                  );
-                })()}
-              </div>
-            </div>
-          </div>
+          <SchedulerCalendar
+            currentDate={currentDate}
+            setCurrentDate={setCurrentDate}
+            items={items}
+            openAddModal={openAddModal}
+            handleItemClick={handleItemClick}
+          />
         )}
 
         {activeTab === "ghost" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="p-8 bg-slate-50 rounded-3xl border border-slate-100 h-fit">
-              <Ghost className="text-slate-300 mb-4" size={32} />
-              <h3 className="text-slate-900 font-black uppercase text-lg mb-1">
-                Generator Settings
-              </h3>
-              <p className="text-slate-400 text-xs mb-6 max-w-sm">
-                Automatically fill gaps to appear busier. Ghost bookings are
-                strictly visual.
-              </p>
-              <div className="space-y-6">
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block tracking-wider">
-                    Density
-                  </label>
-                  <div className="flex bg-slate-100 p-1 rounded-xl">
-                    {["low", "medium", "high"].map((d) => (
-                      <button
-                        key={d}
-                        onClick={() => setGhostDensity(d)}
-                        className={`flex-1 py-3 text-[10px] font-bold uppercase rounded-lg transition-all ${ghostDensity === d ? "bg-white shadow-sm text-purple-600" : "text-slate-400 hover:text-slate-600"}`}
-                      >
-                        {d}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block tracking-wider">
-                    Lookahead
-                  </label>
-                  <div className="flex bg-slate-100 p-1 rounded-xl">
-                    {[1, 3, 6, 12].map((m) => (
-                      <button
-                        key={m}
-                        onClick={() => setGhostMonths(m)}
-                        className={`flex-1 py-3 text-[10px] font-bold uppercase rounded-lg transition-all ${ghostMonths === m ? "bg-white shadow-sm text-purple-600" : "text-slate-400 hover:text-slate-600"}`}
-                      >
-                        {m} Mo
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex flex-col gap-3 pt-4 border-t border-slate-200/50">
-                  <button
-                    onClick={handleGhostMode}
-                    className="w-full py-4 bg-purple-600 text-white rounded-xl text-xs font-black uppercase hover:bg-purple-700 transition-all shadow-lg shadow-purple-200 flex items-center justify-center gap-2"
-                  >
-                    <Wand2 size={16} /> Generate Ghosts
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-8 bg-white rounded-3xl border border-slate-100 shadow-sm flex flex-col h-[500px]">
-              <div className="flex items-center justify-between mb-4 flex-shrink-0">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-slate-100 rounded-lg text-slate-500">
-                    <ListFilter size={18} />
-                  </div>
-                  <h3 className="text-slate-900 font-black uppercase text-lg">
-                    Active Ghosts
-                  </h3>
-                </div>
-                <span className="text-xs font-bold bg-slate-100 px-3 py-1 rounded-full text-slate-500">
-                  {items.filter((i) => i.type === "ghost").length}
-                </span>
-              </div>
-              {renderGhostList()}
-              {selectedGhosts.length > 0 && (
-                <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between animate-fade-in-up">
-                  <span className="text-xs font-bold text-slate-400">
-                    {selectedGhosts.length} items selected
-                  </span>
-                  <button
-                    onClick={handleDeleteSelectedGhosts}
-                    className="px-4 py-2 bg-red-50 text-red-500 rounded-lg text-xs font-black uppercase hover:bg-red-100 transition-colors flex items-center gap-2"
-                  >
-                    <Trash2 size={14} /> Delete Selected
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
+          <GhostGenerator
+            ghostDensity={ghostDensity}
+            setGhostDensity={setGhostDensity}
+            ghostMonths={ghostMonths}
+            setGhostMonths={setGhostMonths}
+            handleGhostMode={handleGhostMode}
+            items={items}
+            selectedGhosts={selectedGhosts}
+            toggleSelectGhost={toggleSelectGhost}
+            toggleSelectAllGhosts={toggleSelectAllGhosts}
+            handleDeleteSelectedGhosts={handleDeleteSelectedGhosts}
+          />
         )}
       </div>
     </div>

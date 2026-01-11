@@ -44,7 +44,7 @@ import {
 } from "lucide-react";
 
 // Import the Financial Source of Truth
-import ProductionFinances from "./ProductionFinances";
+import ProductionFinances from "../finance/ProductionFinances";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,

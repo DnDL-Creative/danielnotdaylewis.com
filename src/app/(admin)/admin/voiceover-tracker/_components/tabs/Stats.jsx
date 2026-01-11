@@ -9,12 +9,9 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  BarChart,
-  Bar,
-  Cell,
   PieChart,
   Pie,
-  Sector,
+  Cell,
 } from "recharts";
 import {
   Trophy,
@@ -22,7 +19,6 @@ import {
   Zap,
   TrendingUp,
   Activity,
-  Calendar,
   PieChart as PieIcon,
   Award,
 } from "lucide-react";
@@ -119,7 +115,6 @@ export default function VoiceoverStats({ data }) {
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 space-y-6 pb-20">
-      {/* ROW 1: THE BIG NUMBERS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
           title="Booking Rate"
@@ -151,7 +146,6 @@ export default function VoiceoverStats({ data }) {
         />
       </div>
 
-      {/* ROW 2: THE VELOCITY CHART */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-3xl p-8 relative overflow-hidden">
           <div className="flex items-center justify-between mb-8">
@@ -221,7 +215,6 @@ export default function VoiceoverStats({ data }) {
           </div>
         </div>
 
-        {/* ROW 2 RIGHT: CLIENT DONUT */}
         <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 flex flex-col items-center justify-center relative">
           <div className="absolute top-6 left-6">
             <h3 className="text-sm font-black text-white flex items-center gap-2">
@@ -274,7 +267,6 @@ export default function VoiceoverStats({ data }) {
         </div>
       </div>
 
-      {/* ROW 3: THE FUNNEL */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8">
         <h3 className="text-xl font-black text-white mb-6 flex items-center gap-3">
           <Award className="text-orange-500" /> Pipeline Funnel

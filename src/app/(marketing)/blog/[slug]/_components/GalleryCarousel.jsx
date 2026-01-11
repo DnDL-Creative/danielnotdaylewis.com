@@ -46,8 +46,6 @@ export default function GalleryCarousel({ images, caption }) {
                 alt="gallery-stack-3"
                 className="w-full h-full object-cover"
                 loading="lazy"
-                width="800" // Helps CLS
-                height="600" // Helps CLS
               />
             </div>
           </div>
@@ -70,8 +68,6 @@ export default function GalleryCarousel({ images, caption }) {
                 alt="gallery-stack-2"
                 className="w-full h-full object-cover"
                 loading="lazy"
-                width="800" // Helps CLS
-                height="600" // Helps CLS
               />
             </div>
           </div>
@@ -92,8 +88,6 @@ export default function GalleryCarousel({ images, caption }) {
               src={images[activeIndex]}
               alt="gallery-active"
               className="w-full h-full object-cover"
-              width="800" // Helps CLS
-              height="600" // Helps CLS
             />
 
             {/* Hover overlay hint */}
@@ -105,7 +99,6 @@ export default function GalleryCarousel({ images, caption }) {
         <div className="absolute inset-0 z-30 flex items-center justify-between px-4 pointer-events-none">
           <button
             onClick={prevSlide}
-            aria-label="Previous Slide" // ✅ Accessibility Fix
             className="pointer-events-auto w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/80 backdrop-blur-md shadow-lg border border-white/50 text-slate-700 flex items-center justify-center hover:scale-110 hover:bg-white transition-all active:scale-95"
           >
             <ChevronLeft size={20} strokeWidth={3} />
@@ -113,7 +106,6 @@ export default function GalleryCarousel({ images, caption }) {
 
           <button
             onClick={nextSlide}
-            aria-label="Next Slide" // ✅ Accessibility Fix
             className="pointer-events-auto w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/80 backdrop-blur-md shadow-lg border border-white/50 text-slate-700 flex items-center justify-center hover:scale-110 hover:bg-white transition-all active:scale-95"
           >
             <ChevronRight size={20} strokeWidth={3} />

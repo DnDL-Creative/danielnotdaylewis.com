@@ -16,8 +16,8 @@
   /* 1. PHYSICS: The Caterpillar Bounce */
   /* 2. PAINT: The Technicolor Cycle */
   animation:
-    caterpillar 2s ease-in-out infinite,
-    technicolor 6s linear infinite;
+    caterpillar 4s ease-in-out infinite,
+    technicolor 8s linear infinite;
 }
 
 /* --- SCOPED KEYFRAMES --- */
