@@ -15,8 +15,7 @@ function LoginContent() {
   const searchParams = useSearchParams();
   const supabase = createClient();
 
-  // This is the dynamic part: it looks for ?next= in the URL
-  const nextPath = searchParams.get("next") || "/admin";
+  const nextPath = searchParams.get("next") || "/vibewriter";
 
   const handleLogin = async (e) => {
     e.preventDefault();

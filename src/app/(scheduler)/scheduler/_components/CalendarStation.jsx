@@ -12,7 +12,7 @@ import {
   Wifi,
   Plus,
 } from "lucide-react";
-import styles from "./Scheduler.module.css";
+import styles from "../Scheduler.module.css";
 
 // --- CONFIGURATION ---
 
@@ -24,7 +24,7 @@ const DISCOUNT_TIERS = [
   { days: 30, label: "5%", color: "bg-teal-500" },
 ];
 
-// 2. Math Logic Source of Truth (Moved here from Orchestrator)
+// 2. Math Logic Source of Truth
 const WORDS_PER_DAY = 6975;
 
 const DEMO_TRACKS = [
@@ -46,8 +46,8 @@ export default function CalendarStation({
   initialBookedRanges,
   wordCount,
   setWordCount,
-  daysNeeded, // Still receiving the state setter from parent
-  setDaysNeeded, // Still receiving the state setter from parent
+  daysNeeded,
+  setDaysNeeded,
   onDateSelect,
   showToast,
 }) {
@@ -84,7 +84,6 @@ export default function CalendarStation({
         rawValue === "" ? "" : Number(rawValue).toLocaleString();
       setWordCount(formatted);
       if (rawValue > 0) {
-        // USING LOCAL CONSTANT HERE
         setDaysNeeded(Math.ceil(rawValue / WORDS_PER_DAY));
       } else {
         setDaysNeeded(0);
@@ -193,31 +192,28 @@ export default function CalendarStation({
           const isToday = date.getTime() === today.getTime();
           const discount = getDiscountForDate(date);
 
-          // BASE
+          // BASE Container (Centers items by default)
           let base =
             "relative h-12 md:h-20 rounded-lg md:rounded-xl border flex flex-col items-center justify-center transition-all duration-200 group overflow-hidden";
 
-          // DEFAULT (Future + Free)
+          // DEFAULT LOOK (Future + Free)
           let look =
             "bg-white/40 border-white/60 hover:bg-white hover:border-brand-start hover:shadow-lg cursor-pointer";
 
-          let content = (
-            <span className="text-sm md:text-xl font-bold text-slate-700 group-hover:text-primary-dark absolute top-1.5 left-1.5 md:relative md:top-auto md:left-auto">
-              {day}
-            </span>
-          );
+          // --- CONTENT LOGIC ---
+          let content;
 
-          // 1. PAST DATES (The Fix: Opacity 50% + Slate Background)
+          // 1. PAST DATES (Small, Top-Left)
           if (isPast) {
             look =
-              "bg-slate-100/60 border-slate-200 opacity-50 cursor-not-allowed"; // More solid background, less transparent
+              "bg-slate-100/60 border-slate-200 opacity-50 cursor-not-allowed";
             content = (
-              <span className="text-slate-400 text-xs absolute top-1.5 left-1.5 md:relative">
+              <span className="text-slate-400 text-xs absolute top-1.5 left-1.5 md:relative md:top-auto md:left-auto">
                 {day}
               </span>
             );
           }
-          // 2. BOOKED DATES
+          // 2. BOOKED DATES (Small, Top-Left - UNTOUCHED)
           else if (status === "booked") {
             look = "bg-red-50/80 border-red-100 cursor-not-allowed";
             content = (
@@ -231,18 +227,22 @@ export default function CalendarStation({
               </>
             );
           }
+          // 3. FREE / AVAILABLE DATES (Centered, Larger on Mobile)
+          else {
+            // No absolute positioning here allows flex parent to center it
+            content = (
+              <span className="text-sm md:text-xl font-bold text-slate-700 group-hover:text-primary-dark">
+                {day}
+              </span>
+            );
+          }
 
-          // 3. TODAY HIGHLIGHT (Applies on top of Past/Booked/Free)
+          // 3. TODAY HIGHLIGHT
           if (isToday) {
-            // Add the ring
-            look += " ring-2 ring-brand-start ring-offset-2 z-20"; // z-20 brings it forward
-
-            // If it was "invisible" past or ghosted, force it to be fully visible
+            look += " ring-2 ring-brand-start ring-offset-2 z-20";
             if (isPast) {
-              look = look.replace("opacity-50", "opacity-100"); // Remove ghost effect for today
+              look = look.replace("opacity-50", "opacity-100");
             }
-
-            // If it's NOT booked, give it a nice white pop. If booked, keep red bg.
             if (status !== "booked") {
               look += " bg-white shadow-md";
             }
@@ -256,12 +256,14 @@ export default function CalendarStation({
               className={`${base} ${look}`}
             >
               {content}
-              {/* Discount Dots */}
+
+              {/* Discount Dots - Kept in top right to avoid overlap */}
               {!isPast && status === "free" && discount && (
                 <div
-                  className={`absolute top-2 right-2 md:top-2 md:right-2 w-1.5 h-1.5 md:w-2 md:h-2 rounded-full ${discount.color} z-10 shadow-sm`}
+                  className={`absolute top-1.5 right-1.5 md:top-2 md:right-2 w-1.5 h-1.5 md:w-2 md:h-2 rounded-full ${discount.color} z-10 shadow-sm`}
                 />
               )}
+
               {/* Hover Plus */}
               {!isPast && status === "free" && (
                 <Plus

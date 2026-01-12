@@ -53,7 +53,7 @@ function GreetingTicker() {
           {greetings.map((text, i) => (
             <div
               key={i}
-              className="h-5 flex items-center font-mono font-bold uppercase tracking-widest text-slate-500 text-[10px] md:text-xs whitespace-nowrap overflow-hidden text-ellipsis"
+              className="h-5 flex items-center font-mono font-bold uppercase tracking-widest text-slate-500 text-[8px] md:text-xs whitespace-nowrap overflow-hidden text-ellipsis"
             >
               {text}
             </div>
@@ -266,10 +266,10 @@ export default function Navbar() {
           {/* --- LEFT: LOGO & TICKER --- */}
           <div className="flex items-center gap-3 md:gap-6 flex-1 min-w-0 h-10">
             <Link
-              href={user ? "/admin" : "/"}
+              href={user ? "/vibewriter" : "/"}
               className="relative z-50 flex items-center group cursor-pointer flex-shrink-0"
-              target={user ? "_blank" : undefined}
-              aria-label="Daniel Lewis Home"
+              // REMOVED: target={user ? "_blank" : undefined} (Keeps navigation in the same tab)
+              aria-label={user ? "Go to Dashboard" : "Daniel Lewis Home"}
             >
               <h1 className="font-black tracking-tighter leading-tight text-lg md:text-xl lg:text-2xl transition-transform duration-300 group-hover:scale-[1.02] text-transparent bg-clip-text bg-gradient-to-r from-blue-500 via-teal-400 to-indigo-500 bg-[length:200%_auto] animate-[gradient-x_10s_ease_infinite] drop-shadow-sm">
                 <span className="xl:hidden font-extrabold">D(nD)L</span>

@@ -1,18 +1,6 @@
 "use client";
-// [CHANGE]: File extension changed from .js to .jsx
 import { useState } from "react";
-import {
-  Copy,
-  Check,
-  // Mail, // [NOTE]: Unused import removed for cleanliness
-  // Instagram, // [NOTE]: Unused import removed
-  // Twitter,   // [NOTE]: Unused import removed
-  // Linkedin,  // [NOTE]: Unused import removed
-  // Sparkles,  // [NOTE]: Unused import removed
-  // ArrowRight, // [NOTE]: Unused import removed
-  Send,
-  Facebook, // <--- Imported Facebook Icon
-} from "lucide-react";
+import { Copy, Check, Send, Facebook } from "lucide-react";
 
 export default function CollabPage() {
   const [copied, setCopied] = useState(false);
@@ -42,11 +30,12 @@ export default function CollabPage() {
 
           <h1 className="text-5xl md:text-7xl font-black text-slate-900 tracking-tighter mb-4 leading-none">
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-500 to-indigo-500 animate-gradient-x">
-              Don&apos;t be shy.{" "}
-              {/* [CHANGE]: Escaped apostrophe for strict JSX compliance */}
+              Don&apos;t be shy.
             </span>
           </h1>
-          <p className="text-slate-500 text-xl font-medium">
+
+          {/* [CHANGE]: Smaller text on mobile, constrained width for a 'box' look */}
+          <p className="text-slate-500 text-sm md:text-xl font-medium max-w-lg mx-auto leading-relaxed text-balance">
             Contact me to collab on audiobooks, acting/voice acting (reluctantly
             including content creation), or other creative business ventures. Or
             we can backpack together.
@@ -66,7 +55,8 @@ export default function CollabPage() {
               onClick={handleCopy}
               className="group/email relative cursor-pointer inline-block w-full"
             >
-              <div className="text-2xl md:text-4xl font-black text-slate-800 break-all font-mono tracking-tight hover:text-teal-600 transition-colors duration-300">
+              {/* [CHANGE]: Drastically reduced mobile font size so it fits on one line */}
+              <div className="text-sm sm:text-xl md:text-4xl font-black text-slate-800 font-mono tracking-tight hover:text-teal-600 transition-colors duration-300 break-all sm:break-normal">
                 {email}
               </div>
 
@@ -150,7 +140,7 @@ function SocialLink({ href, icon, label }) {
       target="_blank"
       rel="noopener noreferrer"
       className="group flex flex-col items-center gap-2"
-      aria-label={label} // [CHANGE]: Added accessibility label
+      aria-label={label}
     >
       <div className="w-12 h-12 rounded-full bg-white/50 border border-white/60 flex items-center justify-center text-slate-400 shadow-sm group-hover:scale-110 group-hover:bg-white group-hover:text-teal-600 group-hover:shadow-md transition-all duration-300">
         {icon}

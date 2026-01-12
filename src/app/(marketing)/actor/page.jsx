@@ -222,10 +222,15 @@ export default function ActorPage() {
           HEADER (Teal/Indigo Gradient)
       ========================================= */}
       <section className="w-full max-w-[1200px] px-4 pt-12 md:pt-20 pb-8 text-center animate-fade-in-up">
-        <h2 className="text-4xl md:text-6xl font-black uppercase leading-none tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-teal-600 via-blue-600 to-indigo-600 mb-2 drop-shadow-sm">
+        {/* 1. whitespace-nowrap: FORCE single line. 
+            2. text-xl: Start small on mobile so it fits.
+            3. sm:text-4xl / md:text-6xl: Grow big on larger screens.
+        */}
+        <h2 className="text-xl sm:text-4xl md:text-6xl font-black uppercase leading-none tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-teal-600 via-blue-600 to-indigo-600 mb-2 drop-shadow-sm whitespace-nowrap">
           Daniel (not Day) Lewis
         </h2>
-        <h3 className="text-sm md:text-base font-bold uppercase tracking-[0.4em] text-slate-500">
+
+        <h3 className="text-[10px] md:text-base font-bold uppercase tracking-[0.2em] md:tracking-[0.4em] text-slate-500">
           Audiobook Actor
         </h3>
       </section>
@@ -273,8 +278,12 @@ export default function ActorPage() {
           {/* --- TOP ROW: VISUALS (Video + Books) --- */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
             {/* 1. LEFT: Video (Using Atomic Component) */}
-            <div className="relative rounded-[2.5rem] bg-white/40 backdrop-blur-md border border-white/60 shadow-xl p-8 flex flex-col justify-center items-center overflow-hidden">
-              <div className="w-full max-w-sm mx-auto">
+            <div className="relative rounded-[2.5rem] bg-white/40 backdrop-blur-md border border-white/60 shadow-xl p-8 flex flex-col items-center overflow-hidden">
+              {/* [NEW]: Added Author Praise Header */}
+              <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-400 z-10 w-full text-center mb-8">
+                Author Praise
+              </h3>
+              <div className="w-full max-w-sm mx-auto my-auto">
                 <VideoFacade
                   src="https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/videos/never-far-author-testimonial.mp4"
                   poster="/images/dndl-praise-poster.webp"

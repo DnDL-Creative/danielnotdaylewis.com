@@ -178,12 +178,12 @@ const contentParserOptions = {
 
           return <GalleryCarousel images={urls} caption={caption} />;
         }
-
-        // 4. IMAGE - FIXED: NO ZOOM, NO GREY LINE
+        // 4. IMAGE PARSER
         if (innerContent.startsWith("image:")) {
           const parts = innerContent.replace("image:", "").split("|");
           let url = parts[0].trim();
 
+          // Check if actually audio file disguised as image
           if (url.match(/\.(mp3|wav|ogg|m4a)($|\?)/i)) {
             return (
               <figure className="my-8 w-full md:w-2/3 mx-auto clear-both !block">
@@ -209,10 +209,11 @@ const contentParserOptions = {
 
           return (
             <figure className="my-12 w-full mx-auto clear-both block group">
+              {/* IMAGE CARD */}
               <div
                 className={`relative w-full rounded-3xl p-[2px] ${BORDER_GRADIENT} shadow-2xl`}
               >
-                <div className="relative w-full h-full rounded-[calc(1.5rem-2px)] overflow-hidden bg-white flex flex-col">
+                <div className="relative w-full h-full rounded-[calc(1.5rem-2px)] overflow-hidden bg-white">
                   <div className="relative w-full aspect-[3/2] md:aspect-[16/9]">
                     <Image
                       src={url}
@@ -222,11 +223,17 @@ const contentParserOptions = {
                       className="object-cover transition-opacity duration-300"
                     />
                   </div>
-                  {caption && (
-                    <figcaption className="hero-caption">{caption}</figcaption>
-                  )}
                 </div>
               </div>
+
+              {/* CAPTION MOVED OUTSIDE & BENEATH (UPDATED) */}
+              {caption && (
+                <figcaption className="mt-2 text-center w-full max-w-2xl mx-auto px-4">
+                  <span className="block text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-wider leading-tight">
+                    {caption}
+                  </span>
+                </figcaption>
+              )}
             </figure>
           );
         }
@@ -320,9 +327,9 @@ export default async function BlogPost({ params }) {
             <div
               className={`relative w-full rounded-3xl md:rounded-[2.5rem] p-[2px] ${BORDER_GRADIENT} shadow-2xl`}
             >
-              {/* Inner Wrapper - Flex Column to Stack Image + Caption */}
-              <div className="relative w-full h-full rounded-[calc(1.5rem-2px)] md:rounded-[calc(2.5rem-2px)] overflow-hidden bg-white flex flex-col">
-                {/* Image Container with Aspect Ratio */}
+              {/* Inner Wrapper */}
+              <div className="relative w-full h-full rounded-[calc(1.5rem-2px)] md:rounded-[calc(2.5rem-2px)] overflow-hidden bg-white">
+                {/* Image Container */}
                 <div className="relative w-full aspect-video">
                   <Image
                     src={post.image}
@@ -332,17 +339,20 @@ export default async function BlogPost({ params }) {
                     priority
                     sizes="(max-width: 768px) 100vw, 800px"
                   />
+                  {/* Subtle Gradient Overlay for whole image */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
                 </div>
-
-                {/* Caption Inside the Card - No extra borders */}
-                {post.image_caption && (
-                  <figcaption className="hero-caption">
-                    {post.image_caption}
-                  </figcaption>
-                )}
               </div>
             </div>
+
+            {/* HERO CAPTION MOVED OUTSIDE & BENEATH (UPDATED) */}
+            {post.image_caption && (
+              <figcaption className="mt-2 text-center w-full max-w-2xl mx-auto px-4">
+                <span className="block text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-wider leading-tight">
+                  {post.image_caption}
+                </span>
+              </figcaption>
+            )}
           </figure>
 
           {/* HERO TITLE */}
