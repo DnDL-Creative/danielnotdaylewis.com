@@ -39,9 +39,7 @@ export default function VideoFacade({ src, poster }) {
         // LCP FIX: Accurate sizes for mobile vs desktop column
         sizes="(max-width: 768px) 90vw, 400px"
       />
-      <div className="absolute top-4 left-4 z-20 bg-white/10 backdrop-blur-md pl-2 pr-3 py-1 rounded-full text-white text-[10px] font-bold uppercase tracking-widest border border-white/20 flex items-center gap-2 pointer-events-none">
-        <VideoIcon size={12} /> Video Praise
-      </div>
+
       <div className="absolute z-30 w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/30 shadow-2xl group-hover:scale-110 transition-transform duration-300">
         <Play size={32} className="text-white fill-white ml-1" />
       </div>
