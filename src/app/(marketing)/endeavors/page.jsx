@@ -27,6 +27,18 @@ const ENDEAVORS = [
     imgClass: "object-cover w-full h-full relative z-10",
   },
   {
+    title: "Dine Out Digital",
+    role: "Founder & CEO",
+    subtitle: "Built for Revenue",
+    expanded: "Gone are the days of restaurant websites stuck in the past.",
+    image: "/images/dine-out-digital.png",
+    href: "https://dineoutdigital.com",
+    external: true,
+    status: "Active",
+    imgContainerClass: "bg-black relative overflow-hidden",
+    imgClass: "object-contain w-full h-full px-8 pt-4 pb-14 relative z-10",
+  },
+  {
     title: "Travel & Language",
     role: "Author",
     subtitle: "Book / Website / Travel Socials",
@@ -112,9 +124,9 @@ function EndeavorCard({ item, delay }) {
     isActive && isExternal
       ? { href: item.href, target: "_blank", rel: "noopener noreferrer" }
       : {
-          href: isActive ? item.href : "#",
-          onClick: (e) => !isActive && e.preventDefault(),
-        };
+        href: isActive ? item.href : "#",
+        onClick: (e) => !isActive && e.preventDefault(),
+      };
 
   return (
     <div
@@ -124,13 +136,12 @@ function EndeavorCard({ item, delay }) {
       <Link
         {...linkProps}
         className={`relative w-full h-full block rounded-[1.5rem] overflow-hidden transition-all duration-500 shadow-lg border 
-        ${
-          isActive
+        ${isActive
             ? "bg-white border-white/60 hover:shadow-2xl hover:-translate-y-1 cursor-pointer"
             : isLaunching
               ? "bg-[#020014] border-[#bf953f]/30 cursor-default hover:border-[#bf953f]/60" // Launching style (Dark & Gold)
               : "bg-slate-50 border-slate-200/50 cursor-not-allowed grayscale opacity-90 hover:opacity-100" // Dev style (Gray)
-        }`}
+          }`}
       >
         {/* --- IMAGE AREA --- */}
         <div
@@ -157,35 +168,32 @@ function EndeavorCard({ item, delay }) {
           <div className="flex justify-between items-start">
             {/* STATUS BADGE */}
             <div
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest backdrop-blur-md border shadow-lg ${
-                isActive
-                  ? "bg-white/95 text-teal-800 border-white/20"
-                  : isLaunching
-                    ? "bg-[#bf953f]/20 text-[#bf953f] border-[#bf953f]/40 shadow-[0_0_15px_rgba(191,149,63,0.2)] animate-pulse" // GLOWING GOLD
-                    : "bg-slate-900/80 text-amber-500 border-white/10"
-              }`}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest backdrop-blur-md border shadow-lg ${isActive
+                ? "bg-white/95 text-teal-800 border-white/20"
+                : isLaunching
+                  ? "bg-[#bf953f]/20 text-[#bf953f] border-[#bf953f]/40 shadow-[0_0_15px_rgba(191,149,63,0.2)] animate-pulse" // GLOWING GOLD
+                  : "bg-slate-900/80 text-amber-500 border-white/10"
+                }`}
             >
               <div
-                className={`w-1.5 h-1.5 rounded-full ${
-                  isActive
-                    ? "bg-teal-500 animate-pulse"
-                    : isLaunching
-                      ? "bg-[#bf953f] shadow-[0_0_8px_#bf953f]" // Gold Dot
-                      : "bg-amber-500 animate-pulse"
-                }`}
+                className={`w-1.5 h-1.5 rounded-full ${isActive
+                  ? "bg-teal-500 animate-pulse"
+                  : isLaunching
+                    ? "bg-[#bf953f] shadow-[0_0_8px_#bf953f]" // Gold Dot
+                    : "bg-amber-500 animate-pulse"
+                  }`}
               />
               {item.status}
             </div>
 
             {/* LOCK / ARROW ICON */}
             <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-md border border-white/10 transition-all duration-300 ${
-                isActive
-                  ? "bg-white/20 text-white group-hover:bg-white group-hover:text-slate-900 group-hover:scale-110"
-                  : isLaunching
-                    ? "bg-black/50 text-[#bf953f] border-[#bf953f]/30" // Gold Lock
-                    : "bg-slate-900/60 text-slate-500"
-              }`}
+              className={`w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-md border border-white/10 transition-all duration-300 ${isActive
+                ? "bg-white/20 text-white group-hover:bg-white group-hover:text-slate-900 group-hover:scale-110"
+                : isLaunching
+                  ? "bg-black/50 text-[#bf953f] border-[#bf953f]/30" // Gold Lock
+                  : "bg-slate-900/60 text-slate-500"
+                }`}
             >
               {isActive ? (
                 isExternal ? (
@@ -206,9 +214,8 @@ function EndeavorCard({ item, delay }) {
             {/* Founder/Role Label */}
             {item.role && (isActive || isLaunching) && (
               <p
-                className={`font-bold text-[10px] uppercase tracking-widest mb-1 ${
-                  isLaunching ? "text-[#bf953f]" : "text-teal-400"
-                }`}
+                className={`font-bold text-[10px] uppercase tracking-widest mb-1 ${isLaunching ? "text-[#bf953f]" : "text-teal-400"
+                  }`}
               >
                 {item.role}
               </p>

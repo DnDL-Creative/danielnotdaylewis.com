@@ -12,7 +12,7 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@editorjs/editorjs": "^2.31.0",
+    "@editorjs/editorjs": "^2.31.1",
     "@editorjs/header": "^2.8.8",
     "@editorjs/image": "^2.10.3",
     "@editorjs/list": "^2.0.9",
@@ -30,7 +30,7 @@
     "@react-three/fiber": "^9.5.0",
     "@react-three/postprocessing": "^3.0.4",
     "@supabase/ssr": "^0.8.0",
-    "@supabase/supabase-js": "^2.87.1",
+    "@supabase/supabase-js": "^2.90.1",
     "@types/three": "^0.182.0",
     "clsx": "^2.1.1",
     "docx": "^9.5.1",
@@ -39,7 +39,7 @@
     "html-react-parser": "^5.2.11",
     "lexical": "^0.39.0",
     "lucide-react": "^0.562.0",
-    "next": "^16.1.1",
+    "next": "^16.1.2",
     "next-themes": "^0.4.6",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
@@ -49,7 +49,7 @@
     "react-quill-new": "^3.7.0",
     "recharts": "^3.6.0",
     "tailwind-merge": "^3.4.0",
-    "three": "^0.181.2"
+    "three": "^0.182.0"
   },
   "browserslist": [
     "chrome >= 95",
@@ -61,12 +61,12 @@
   ],
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/node": "^25",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.0.10",
-    "prettier": "^3.7.4",
+    "eslint-config-next": "16.1.2",
+    "prettier": "^3.8.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
