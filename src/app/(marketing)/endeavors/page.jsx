@@ -22,7 +22,7 @@ const ENDEAVORS = [
     image: "/images/cinesonic-new-logo-see-stories-in-sound.webp",
     href: "#", // Link disabled
     external: true,
-    status: "Launching Soon",
+    status: "Launch: March '26",
     imgContainerClass: "bg-[#020014] relative overflow-hidden",
     imgClass: "object-cover w-full h-full relative z-10",
   },
@@ -34,7 +34,7 @@ const ENDEAVORS = [
     image: "/images/dine-out-digital.png",
     href: "https://dineoutdigital.com",
     external: true,
-    status: "Active",
+    status: "Soft Launch - Feb '26",
     imgContainerClass: "bg-black relative overflow-hidden",
     imgClass: "object-contain w-full h-full px-8 pt-4 pb-14 relative z-10",
   },
@@ -116,8 +116,8 @@ export default function EndeavorsPage() {
 function EndeavorCard({ item, delay }) {
   const isExternal = item.external;
   // Define states
-  const isActive = item.status === "Active";
-  const isLaunching = item.status === "Launching Soon";
+  const isActive = item.status === "Active" || item.status.includes("Soft Launch");
+  const isLaunching = !isActive && item.status.toLowerCase().includes("launch");
 
   // Disable link if not purely active
   const linkProps =
