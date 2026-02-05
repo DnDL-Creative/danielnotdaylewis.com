@@ -106,10 +106,9 @@ const AudiobookButton = ({ mobile = false, onClick }) => (
       transition-all duration-300 
       hover:scale-105 hover:shadow-[0_0_20px_rgba(20,184,166,0.5)]
       flex-shrink-0 flex items-center justify-center
-      ${
-        mobile
-          ? "w-40 max-w-xs py-4 mt-6" // Mobile: Wide touch target
-          : "hidden md:flex px-4 py-2 gap-1" // Desktop: Compact pill
+      ${mobile
+        ? "w-40 max-w-xs py-4 mt-6" // Mobile: Wide touch target
+        : "hidden md:flex px-4 py-2 gap-1" // Desktop: Compact pill
       }
     `}
   >
@@ -189,10 +188,10 @@ export default function Navbar() {
           .select("title, slug, tag");
         const formattedBlogs = data
           ? data.map((post) => ({
-              ...post,
-              slug: `/blog/${post.slug}`,
-              tag: post.tag || "Blog",
-            }))
+            ...post,
+            slug: `/blog/${post.slug}`,
+            tag: post.tag || "Blog",
+          }))
           : [];
         setAllContent([...staticPages, ...formattedBlogs]);
       } catch (error) {
@@ -256,10 +255,9 @@ export default function Navbar() {
             transition-all duration-300 ease-in-out
             w-full px-4 py-3 bg-white/95 backdrop-blur-md border-b border-gray-100 shadow-sm
             md:bg-transparent md:border-transparent md:shadow-none
-            ${
-              scrolled
-                ? "md:px-8 md:py-3 md:rounded-full md:shadow-2xl md:shadow-teal-900/10 md:backdrop-blur-3xl md:border md:border-white/50 md:bg-gradient-to-br md:from-white/90 md:via-teal-50/80 md:to-teal-200/60"
-                : "md:w-full md:max-w-[1600px] md:px-12 md:py-4"
+            ${scrolled
+              ? "md:px-8 md:py-3 md:rounded-full md:shadow-2xl md:shadow-teal-900/10 md:backdrop-blur-3xl md:border md:border-white/50 md:bg-gradient-to-br md:from-white/90 md:via-teal-50/80 md:to-teal-200/60"
+              : "md:w-full md:max-w-[1600px] md:px-12 md:py-4"
             }
           `}
         >
@@ -400,7 +398,7 @@ export default function Navbar() {
 
       {/* MOBILE MENU */}
       <div
-        className={`fixed inset-0 z-[60] bg-white/95 backdrop-blur-xl transition-all duration-300 ${isOpen ? "opacity-100 visible" : "opacity-0 invisible pointer-events-none"}`}
+        className={`fixed inset-0 z-[60] bg-white/95 backdrop-blur-md transition-all duration-300 ${isOpen ? "opacity-100 visible" : "opacity-0 invisible pointer-events-none"}`}
       >
         <div className="w-full h-full overflow-y-auto flex flex-col items-center pt-24 pb-12 px-6 gap-6">
           <button
@@ -424,10 +422,9 @@ export default function Navbar() {
                 onClick={() => setIsOpen(false)}
                 className={`
                   relative text-3xl font-black uppercase tracking-tighter transition-all duration-300 flex items-center
-                  ${
-                    isActive
-                      ? "text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-indigo-500 scale-110 ml-4"
-                      : "text-slate-900 hover:text-slate-500"
+                  ${isActive
+                    ? "text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-indigo-500 scale-110 ml-4"
+                    : "text-slate-900 hover:text-slate-500"
                   }
                 `}
               >

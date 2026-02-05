@@ -165,7 +165,7 @@
    ========================================================================== */
 @layer components {
   .glass-panel {
-    @apply backdrop-blur-xl border border-white/10 shadow-xl;
+    @apply backdrop-blur-md md:backdrop-blur-xl border border-white/10 shadow-xl;
     background: rgba(255, 255, 255, 0.6);
   }
   .dark .glass-panel {

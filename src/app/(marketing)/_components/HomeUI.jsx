@@ -65,13 +65,13 @@ export default function HomeUI({ initialPosts }) {
       {/* BACKGROUND */}
       <div className="fixed inset-0 w-full h-full pointer-events-none z-0">
         <div className="absolute inset-0 bg-slate-50/80" />
-        <div className="absolute top-[-10%] left-[-10%] w-[70vw] h-[70vw] md:w-[40rem] md:h-[40rem] bg-teal-300/30 rounded-full mix-blend-multiply filter blur-[80px] md:blur-[128px] animate-blob opacity-70" />
-        <div className="absolute top-[-10%] right-[-10%] w-[70vw] h-[70vw] md:w-[40rem] md:h-[40rem] bg-indigo-300/30 rounded-full mix-blend-multiply filter blur-[80px] md:blur-[128px] animate-blob animation-delay-2000 opacity-70" />
-        <div className="absolute -bottom-32 left-[20%] w-[70vw] h-[70vw] md:w-[50rem] md:h-[50rem] bg-purple-200/30 rounded-full mix-blend-multiply filter blur-[80px] md:blur-[128px] animate-blob animation-delay-4000 opacity-70" />
+        <div className="absolute top-[-10%] left-[-10%] w-[70vw] h-[70vw] md:w-[40rem] md:h-[40rem] bg-teal-300/30 rounded-full mix-blend-multiply filter blur-[40px] md:blur-[128px] md:animate-blob opacity-70" />
+        <div className="absolute top-[-10%] right-[-10%] w-[70vw] h-[70vw] md:w-[40rem] md:h-[40rem] bg-indigo-300/30 rounded-full mix-blend-multiply filter blur-[40px] md:blur-[128px] md:animate-blob animation-delay-2000 opacity-70" />
+        <div className="absolute -bottom-32 left-[20%] w-[70vw] h-[70vw] md:w-[50rem] md:h-[50rem] bg-purple-200/30 rounded-full mix-blend-multiply filter blur-[40px] md:blur-[128px] md:animate-blob animation-delay-4000 opacity-70" />
         <div
-          className="absolute inset-0 opacity-[0.03]"
+          className="absolute inset-0 opacity-[0.03] hidden md:block"
           style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0' 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
           }}
         ></div>
       </div>
