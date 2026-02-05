@@ -1,19 +1,20 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
-import { Play, Pause } from "lucide-react";
+import { Play, Pause, ChevronDown, Music, X } from "lucide-react";
 
 export default function AudioPlayer({ tracks }) {
   const [activeTrack, setActiveTrack] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
+  const [isExpanded, setIsExpanded] = useState(false);
   const audioRef = useRef(null);
 
   // --- 1. PLAY / PAUSE LOGIC ---
-  const togglePlay = () => {
+  const togglePlay = (e) => {
+    if (e) e.stopPropagation();
     if (!audioRef.current) return;
 
-    // If no track is selected yet, pick the first one and play
     if (!activeTrack && tracks.length > 0) {
       setActiveTrack(tracks[0].src);
       setIsPlaying(true);
@@ -30,23 +31,19 @@ export default function AudioPlayer({ tracks }) {
   };
 
   // --- 2. SELECT SPECIFIC TRACK LOGIC ---
-  const playTrack = (src) => {
+  const playTrack = (src, e) => {
+    if (e) e.stopPropagation();
     if (activeTrack === src) {
-      // If clicking the active track, just toggle play/pause
       togglePlay();
     } else {
-      // If clicking a new track, switch source and set to play
       setActiveTrack(src);
       setIsPlaying(true);
     }
   };
 
   // --- 3. EFFECT: AUTO-PLAY ON TRACK CHANGE ---
-  // This watches 'activeTrack'. When it changes, if we are supposed to be playing,
-  // it triggers the audio element to play the new source.
   useEffect(() => {
     if (activeTrack && isPlaying && audioRef.current) {
-      // Small timeout ensures the DOM has updated the <audio src> before playing
       const timeout = setTimeout(() => {
         audioRef.current.play().catch((e) => {
           console.error("Playback error:", e);
@@ -67,6 +64,7 @@ export default function AudioPlayer({ tracks }) {
   };
 
   const handleSeek = (e) => {
+    e.stopPropagation();
     const time = parseFloat(e.target.value);
     if (audioRef.current) {
       audioRef.current.currentTime = time;
@@ -86,82 +84,102 @@ export default function AudioPlayer({ tracks }) {
     return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
   };
 
-  // Derived State
   const currentTrackObj = tracks.find((t) => t.src === activeTrack);
   const currentTitle = currentTrackObj?.title || "Select a Demo";
 
   return (
-    <div className="bg-white/80 backdrop-blur-xl p-3 md:py-3 md:px-6 rounded-3xl shadow-[0_20px_50px_-12px_rgba(0,0,0,0.3)] border border-white/60 ring-1 ring-black/5 animate-fade-in-up z-10">
-      <div className="flex items-center gap-3 md:gap-4 mb-3">
-        {/* Play/Pause Button */}
+    <div className="relative w-full pointer-events-auto flex flex-col items-end">
+      {/* 1. STICKY TRIGGER TAB (When Collapsed) */}
+      {!isExpanded && (
         <button
-          onClick={togglePlay}
-          aria-label={isPlaying ? "Pause" : "Play"}
-          className={`flex-shrink-0 w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center text-white shadow-lg transition-all ${
-            isPlaying
-              ? "bg-teal-500 hover:scale-105 hover:bg-teal-400"
-              : "bg-slate-900 hover:scale-105 hover:bg-slate-800"
-          }`}
+          onClick={() => setIsExpanded(true)}
+          className="flex items-center gap-3 px-6 py-3 bg-slate-900 border border-slate-800 text-white rounded-full shadow-2xl hover:scale-105 transition-all duration-300 animate-fade-in-up"
         >
-          {isPlaying ? (
-            <Pause size={18} className="md:w-6 md:h-6" fill="currentColor" />
-          ) : (
-            <Play
-              size={18}
-              className="ml-1 md:w-6 md:h-6"
-              fill="currentColor"
-            />
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isPlaying ? 'bg-teal-500' : 'bg-slate-800'}`}>
+            <Music size={14} className={isPlaying ? 'animate-pulse' : ''} />
+          </div>
+          <span className="text-[10px] font-black uppercase tracking-[0.2em]">
+            Listen to Demos
+          </span>
+          {isPlaying && (
+            <div className="flex gap-0.5 ml-2">
+              <div className="w-0.5 h-3 bg-teal-400 animate-[music-bar_1s_ease-in-out_infinite]" />
+              <div className="w-0.5 h-3 bg-teal-400 animate-[music-bar_1s_ease-in-out_infinite_0.2s]" />
+              <div className="w-0.5 h-3 bg-teal-400 animate-[music-bar_1s_ease-in-out_infinite_0.4s]" />
+            </div>
           )}
         </button>
+      )}
 
-        {/* Scrubber & Info */}
-        <div className="flex-1 flex flex-col justify-center pl-2 md:pl-4">
-          <div className="flex justify-between items-center mb-2">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] md:text-xs font-black uppercase tracking-widest text-slate-900 truncate max-w-[120px] md:max-w-none">
-                {currentTitle}
-              </span>
-              {currentTrackObj?.explicit && (
-                <span className="text-[8px] bg-slate-200 text-slate-600 px-1 rounded uppercase font-bold">
-                  E
-                </span>
-              )}
-            </div>
-            <span className="text-[9px] font-mono font-medium text-slate-600 whitespace-nowrap ml-2">
-              {formatTime(currentTime)} / {formatTime(duration)}
+      {/* 2. COMPACT POPUP PLAYER (When Expanded) */}
+      <div
+        className={`bg-white/90 backdrop-blur-2xl p-4 rounded-[2rem] shadow-[0_30px_60px_-12px_rgba(0,0,0,0.4)] border border-white/60 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] overflow-hidden w-72 md:w-96 ${isExpanded
+          ? "translate-y-0 opacity-100 scale-100 h-auto"
+          : "translate-y-20 opacity-0 scale-95 h-0 pointer-events-none"
+          }`}
+      >
+        {/* Header / Collapse logic */}
+        <div className="flex justify-between items-center mb-4">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+              Demo Reels
             </span>
           </div>
+          <button
+            onClick={() => setIsExpanded(false)}
+            className="p-1.5 rounded-full hover:bg-slate-100 transition-colors"
+          >
+            <ChevronDown size={20} className="text-slate-400" />
+          </button>
+        </div>
 
-          <input
-            type="range"
-            min={0}
-            max={duration || 0}
-            value={currentTime}
-            onChange={handleSeek}
-            aria-label="Seek time"
-            className="w-full h-1 md:h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-teal-500 hover:accent-teal-400 transition-all block"
-          />
+        {/* Player Core */}
+        <div className="flex items-center gap-4 mb-4">
+          <button
+            onClick={togglePlay}
+            className={`flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-white shadow-lg transition-all ${isPlaying ? "bg-teal-500" : "bg-slate-900"
+              }`}
+          >
+            {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="ml-1" />}
+          </button>
+
+          <div className="flex-1 flex flex-col justify-center">
+            <div className="flex justify-between items-center mb-1.5">
+              <span className="text-[11px] font-black uppercase tracking-wider text-slate-800 truncate">
+                {currentTitle}
+              </span>
+              <span className="text-[10px] font-mono font-medium text-slate-500">
+                {formatTime(currentTime)} / {formatTime(duration)}
+              </span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={duration || 0}
+              value={currentTime}
+              onChange={handleSeek}
+              className="w-full h-1 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-teal-500"
+            />
+          </div>
+        </div>
+
+        {/* Selection Pills */}
+        <div className="flex flex-wrap gap-2">
+          {tracks.map((track) => (
+            <button
+              key={track.src}
+              onClick={(e) => playTrack(track.src, e)}
+              className={`flex-1 min-w-[100px] py-2 px-3 rounded-full text-[9px] font-black uppercase tracking-widest transition-all border ${activeTrack === track.src
+                ? "bg-teal-500 border-teal-500 text-white shadow-md"
+                : "bg-white border-slate-100 text-slate-400 hover:border-slate-300 hover:text-slate-900"
+                }`}
+            >
+              {track.title}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Track Selection Buttons */}
-      <div className="grid grid-cols-3 gap-2">
-        {tracks.map((track) => (
-          <button
-            key={track.src}
-            onClick={() => playTrack(track.src)}
-            className={`py-2 px-1 rounded-xl text-[9px] md:text-xs font-bold uppercase tracking-wider transition-all border flex items-center justify-center gap-1 ${
-              activeTrack === track.src
-                ? "bg-teal-50 text-teal-900 border-teal-200 shadow-sm"
-                : "bg-transparent border-transparent text-slate-400 hover:bg-slate-50 hover:text-slate-600"
-            }`}
-          >
-            {track.title}
-          </button>
-        ))}
-      </div>
-
-      {/* Hidden Audio Element */}
       <audio
         ref={audioRef}
         src={activeTrack}
@@ -170,6 +188,13 @@ export default function AudioPlayer({ tracks }) {
         onEnded={onEnded}
         className="hidden"
       />
+
+      <style jsx>{`
+        @keyframes music-bar {
+          0%, 100% { height: 4px; }
+          50% { height: 12px; }
+        }
+      `}</style>
     </div>
   );
 }

@@ -85,7 +85,7 @@ export default function ActorPage() {
       ========================================= */}
       <section
         id="training"
-        className="w-full max-w-[1400px] px-4 md:px-6 pt-16 md:pt-32"
+        className="w-full max-w-[1400px] px-4 md:px-6 xl:px-40 pt-16 md:pt-32"
       >
         <div className="relative group rounded-[2.5rem] bg-white/40 backdrop-blur-md border border-white/60 shadow-xl overflow-hidden p-6 md:p-16 flex flex-col lg:flex-row items-center gap-12">
           {/* Ambient Background Orbs */}
@@ -99,7 +99,7 @@ export default function ActorPage() {
 
             <div className="relative w-full h-full rounded-full overflow-hidden shadow-2xl border-[6px] border-white">
               <Image
-                src="https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/site-images/(marketing)/actor/dndl-headshot.webp"
+                src="https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/site-images/(marketing)/actor/dndl-headshot-more-serious.webp"
                 alt="Daniel Lewis Headshot"
                 fill
                 priority
@@ -166,7 +166,7 @@ export default function ActorPage() {
       ========================================= */}
       <section
         id="career"
-        className="w-full max-w-[1100px] pt-10 px-6 mx-auto mb-12"
+        className="w-full max-w-[1100px] pt-10 px-6 xl:px-40 mx-auto mb-12"
       >
         <div className="flex flex-col-reverse md:flex-row items-center gap-12 md:gap-24">
           <div className="flex-1 space-y-6 text-left">
@@ -221,7 +221,7 @@ export default function ActorPage() {
       {/* =========================================
           HEADER (Teal/Indigo Gradient)
       ========================================= */}
-      <section className="w-full max-w-[1200px] px-4 pt-12 md:pt-20 pb-8 text-center animate-fade-in-up">
+      <section className="w-full max-w-[1200px] px-4 xl:px-40 pt-12 md:pt-20 pb-8 text-center animate-fade-in-up">
         {/* 1. whitespace-nowrap: FORCE single line. 
             2. text-xl: Start small on mobile so it fits.
             3. sm:text-4xl / md:text-6xl: Grow big on larger screens.
@@ -238,7 +238,7 @@ export default function ActorPage() {
       {/* =========================================
           3. STATS BAR (Using Atomic Component)
       ========================================= */}
-      <section className="w-full max-w-[1200px] px-4 pb-12 md:pb-20">
+      <section className="w-full max-w-[1200px] px-4 xl:px-40 pb-12 md:pb-20">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
           <StatCard
             number={100}
@@ -272,7 +272,7 @@ export default function ActorPage() {
       ========================================= */}
       <section
         id="feedback"
-        className="w-full max-w-[1400px] px-4 md:px-6 mb-24"
+        className="w-full max-w-[1400px] px-4 md:px-6 xl:px-40 mb-24"
       >
         <div className="flex flex-col gap-8">
           {/* --- TOP ROW: VISUALS (Video + Books) --- */}
@@ -376,7 +376,7 @@ export default function ActorPage() {
       {/* =========================================
           5. WHY ME GRID
       ========================================= */}
-      <section id="whyme" className="w-full max-w-[1200px] px-6 mb-24">
+      <section id="whyme" className="w-full max-w-[1200px] px-6 xl:px-40 mb-24">
         <div className="text-center max-w-2xl mx-auto mb-16">
           <h2 className="text-4xl md:text-5xl font-black uppercase text-slate-900 mb-4 tracking-tight">
             Why work with me?
@@ -424,7 +424,7 @@ export default function ActorPage() {
       {/* =========================================
           6. BOOKING 2.0 / APP TEASER
       ========================================= */}
-      <section className="w-full max-w-[1000px] px-6 mb-32">
+      <section className="w-full max-w-[1000px] px-6 xl:px-40 mb-32">
         <div className="relative overflow-hidden rounded-[3rem] p-1 bg-gradient-to-br from-teal-300 via-indigo-300 to-pink-300 shadow-2xl shadow-indigo-100">
           <div className="bg-white/95 rounded-[2.8rem] p-12 md:p-20 text-center relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-transparent to-white z-10" />
@@ -462,8 +462,8 @@ export default function ActorPage() {
       {/* =========================================
           7. FLOATING AUDIO PLAYER (Atomic Component)
       ========================================= */}
-      <div className="fixed bottom-2 left-2 right-2 md:bottom-6 md:left-4 md:right-4 z-50 flex justify-center pointer-events-none">
-        <div className="pointer-events-auto w-full max-w-sm md:max-w-3xl">
+      <div className="fixed bottom-4 right-4 md:bottom-8 md:right-8 z-50 flex justify-end pointer-events-none">
+        <div className="pointer-events-auto w-auto">
           <AudioPlayer tracks={AUDIO_TRACKS} />
         </div>
       </div>
