@@ -24,6 +24,12 @@ import AudioPlayer from "./_components/AudioPlayer";
 // --- DATA DEFINITION (THE "FRIDGE") ---
 const BOOK_SLIDES = [
   {
+    img: "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/site-images/(marketing)/actor/like-teammates-sweat-jonah-yorke-audiobook.gif",
+    title: "Sweat",
+    subtitle: "by Jonah Yorke",
+    link: "https://www.audible.com/pd/Sweat-Audiobook/B0FT56G216?eac_link=MDKnQB8oKyRe&ref=web_search_eac_asin_1&eac_selected_type=asin&eac_selected=B0FT56G216&qid=LSamalDvRD&eac_id=140-7532788-6617463_LSamalDvRD&sr=1-1",
+  },
+  {
     img: "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/site-images/(marketing)/actor/a-little-crush.webp",
     title: "A Little Crush",
     subtitle: "by Kelsie Rae",
@@ -37,13 +43,19 @@ const BOOK_SLIDES = [
   },
   {
     img: "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/site-images/(marketing)/actor/dndl-website-rtibw.webp",
-    title: "Right There",
+    title: "Right There in Black and White",
     subtitle: "by Jim Christ",
     link: "https://www.audible.com/pd/Right-There-in-Black-and-White-Audiobook/B0FXMY6NMK",
   },
 ];
 
+// UPDATED AUDIO TRACKS (With Explicit Flags)
 const AUDIO_TRACKS = [
+  {
+    title: "Romcom",
+    src: "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/audio/demos/audiobook-demo-sweat-like-teammates-daniel-lewis.mp3",
+    explicit: true,
+  },
   {
     title: "Emotionally-driven",
     src: "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/audio/demos/demo_neverfar.mp3",
@@ -52,10 +64,12 @@ const AUDIO_TRACKS = [
   {
     title: "M/F Dialogue",
     src: "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/audio/demos/demo_filthy_rich_santas_female_dialogue.mp3",
+    explicit: false,
   },
   {
     title: "Character-driven",
     src: "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/audio/demos/demo-rtibw-amos-intro.mp3",
+    explicit: false,
   },
 ];
 
@@ -222,10 +236,6 @@ export default function ActorPage() {
           HEADER (Teal/Indigo Gradient)
       ========================================= */}
       <section className="w-full max-w-[1200px] px-4 xl:px-40 pt-12 md:pt-20 pb-8 text-center animate-fade-in-up">
-        {/* 1. whitespace-nowrap: FORCE single line. 
-            2. text-xl: Start small on mobile so it fits.
-            3. sm:text-4xl / md:text-6xl: Grow big on larger screens.
-        */}
         <h2 className="text-xl sm:text-4xl md:text-6xl font-black uppercase leading-none tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-teal-600 via-blue-600 to-indigo-600 mb-2 drop-shadow-sm whitespace-nowrap">
           Daniel (not Day) Lewis
         </h2>
@@ -279,7 +289,6 @@ export default function ActorPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
             {/* 1. LEFT: Video (Using Atomic Component) */}
             <div className="relative rounded-[2.5rem] bg-white/40 backdrop-blur-md border border-white/60 shadow-xl p-8 flex flex-col items-center overflow-hidden">
-              {/* [NEW]: Added Author Praise Header */}
               <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-400 z-10 w-full text-center mb-8">
                 Author Praise
               </h3>
@@ -460,12 +469,10 @@ export default function ActorPage() {
       </section>
 
       {/* =========================================
-          7. FLOATING AUDIO PLAYER (Atomic Component)
+          7. FLOATING AUDIO PLAYER
       ========================================= */}
-      <div className="fixed bottom-4 right-4 md:bottom-8 md:right-8 z-50 flex justify-end pointer-events-none">
-        <div className="pointer-events-auto w-auto">
-          <AudioPlayer tracks={AUDIO_TRACKS} />
-        </div>
+      <div className="fixed bottom-0 left-0 w-full md:w-auto md:left-auto md:bottom-8 md:right-8 z-50 px-2 pb-2 md:p-0">
+        <AudioPlayer tracks={AUDIO_TRACKS} />
       </div>
     </div>
   );
