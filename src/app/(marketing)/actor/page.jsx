@@ -24,10 +24,22 @@ import AudioPlayer from "./_components/AudioPlayer";
 // --- DATA DEFINITION (THE "FRIDGE") ---
 const BOOK_SLIDES = [
   {
+    // UPDATED: Used your specific filename 'mastermind-cover.webp'
+    img: "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/site-images/(marketing)/actor/mastermind-cover.webp",
+    title: "MasterMind",
+    subtitle: "by A.A. Dark",
+    link: "https://www.audible.com/pd/B0GMXNC1NP?qid=1770840444&sr=1-8&ref_pageloadid=not_applicable&pf_rd_p=83218cca-c308-412f-bfcf-90198b687a2f&pf_rd_r=Z0WPDGF1AKKQ0E0AMAR0&plink=uBWWPSFyOw973xTI&pageLoadId=JVR2oaqR03XqGQCX&creativeId=0d6f6720-f41c-457e-a42b-8c8dceb62f2c&ref=a_search_c3_lProduct_1_8",
+    // NEW TAG ADDED HERE:
+    tag: "Click 'Preview' on Audible to hear me read!",
+  },
+
+  {
     img: "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/site-images/(marketing)/actor/like-teammates-sweat-jonah-yorke-audiobook.gif",
     title: "Sweat",
     subtitle: "by Jonah Yorke",
     link: "https://www.audible.com/pd/Sweat-Audiobook/B0FT56G216?eac_link=MDKnQB8oKyRe&ref=web_search_eac_asin_1&eac_selected_type=asin&eac_selected=B0FT56G216&qid=LSamalDvRD&eac_id=140-7532788-6617463_LSamalDvRD&sr=1-1",
+    // Retaining the fix for the GIF warning
+    unoptimized: true,
   },
   {
     img: "https://gpjgvdpicjqrerqqzhyx.supabase.co/storage/v1/object/public/site-images/(marketing)/actor/a-little-crush.webp",
