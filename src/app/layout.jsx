@@ -5,6 +5,10 @@ import { ThemeProvider } from "next-themes";
 const nunito = Nunito_Sans({ subsets: ["latin"], variable: "--font-nunito" });
 
 export const metadata = {
+  metadataBase: new URL("https://danielnotdaylewis.com"),
+  alternates: {
+    canonical: "./",
+  },
   title: {
     template: "%s | Daniel Lewis",
     default: "Daniel Lewis | Creative",

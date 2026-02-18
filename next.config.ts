@@ -26,6 +26,35 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+
+  // SEO: Redirect legacy URLs that return 404 in Google Search Console
+  async redirects() {
+    return [
+      // /blogs/slug.html → /blog/slug (strip .html and fix path)
+      {
+        source: "/blogs/:slug(.*)\\.html",
+        destination: "/blog/:slug",
+        permanent: true,
+      },
+      // /blogs/slug → /blog/slug (fix plural path)
+      {
+        source: "/blogs/:slug*",
+        destination: "/blog/:slug*",
+        permanent: true,
+      },
+      // Legacy pages that no longer exist
+      {
+        source: "/copywriting",
+        destination: "/collab",
+        permanent: true,
+      },
+      {
+        source: "/terms-of-use",
+        destination: "/legal/terms-of-use",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
